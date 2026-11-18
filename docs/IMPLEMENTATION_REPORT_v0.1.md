@@ -519,3 +519,12 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - DecoderOptionsのcontext_weight / surge_context_marginについて有限値・非負条件を検証。不正値はfail-closed。
 - C++単体テストとPython統合テストを追加。精度向上は主張せず、数値入力の異常によるBeam順位破壊を防止する安全性変更として扱う。
 - CI検証結果: 実行待ち。
+
+
+## 44. v0.33 事前言語クラスターの実現可能性検証
+
+- train splitのみから単語の局所文脈プロファイルを生成し、TF-IDF / cosine similarity / bounded Union-Findで語彙クラスターを事前生成するプローブを追加。
+- 過去に予測した候補のクラスターを活性化し、クラスター内の候補出現証拠で曖昧候補を補助する。証拠不足時は形態素スコアへ戻る。
+- devでbeta / marginを選択し、testで凍結評価する。クラスターモデルの学習にdev/testを使用しない。
+- この評価はSURGE Core統合前の実現可能性診断であり、gold token境界・読みを使うため完全なかな入力CERではない。
+- 実Sudachi Packの数値はCI完了後に追記する。
