@@ -25,7 +25,7 @@ class SudachiPackBuildTests(unittest.TestCase):
    output=root/"pack";work=root/"work"
    result=subprocess.run([sys.executable,str(TOOL),"--small-zip",str(small_zip),"--matrix-zip",str(matrix_zip),
     "--lock",str(lock_path),"--license-profile",str(profile_path),"--license-file",str(notice),
-    "--upstream-legal-notice",str(legal),"--output",str(output),"--work-dir",str(work)],
+    "--upstream-legal-notice",str(legal),"--license-spdx","MIT","--output",str(output),"--work-dir",str(work)],
     capture_output=True,text=True)
    self.assertEqual(result.returncode,0,result.stderr+result.stdout)
    report=json.loads(result.stdout);self.assertEqual(report["status"],"built-and-verified")
