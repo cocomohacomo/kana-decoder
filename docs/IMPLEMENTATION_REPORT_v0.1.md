@@ -77,3 +77,18 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - `commit_best` は呼び出し側が明示した時点で上位経路を文字列化してsegment commitする。自動commit、部分commit、右文脈待ち時間による確定は未実装。commit後は読みバッファを空にして次segmentを受け付ける。
 - テスト追加: Pack一括ロード、辞書Trie一致、Unicode code point span、未知かなfallback、文脈データ取込み、stream append/revision、上限拒否、明示commit。
 - 日本語fixtureは7語エントリのみ。実用辞書ではなく、辞書カバレッジ・実運用精度の評価には使用できない。
+
+
+## 9. 形態素接続・安全な入力・C ABI統合（追加実装）
+- `LatticeCandidate` にleft_id / right_idを追加。Language Packのlexicon.tsvは従来の5列/8列形式と互換を保ちつつ、9列目・10列目で接続クラスIDを受け取る。
+- `ConnectionModel` を追加。connections.tsvの `previous_right_id, next_left_id, connection_cost` を読み込み、デコーダ状態が保持する直前形態素のright_idと次候補のleft_idから接続コストを加算する。辞書語彙コスト・候補固有接続コスト・遷移接続コストを形態素スコアに反映する。
+- `ja-lite` に4遷移の小さな接続行列fixtureを追加。これは接続機構の動作確認用であり、Sudachi/UniDic等の実用接続行列ではない。
+- UTF-8バリデータを追加。過長符号化、孤立継続バイト、不正な先行バイト、サロゲート符号化、U+10FFFF超過、切れたシーケンスを拒否する。辞書登録、読みデコード、ストリーミング追加入力で不正UTF-8を受け付けない。
+- `StreamingSession::commit_common_prefix` を追加。現在保持するN-best経路すべてに共通する同一トークン接頭辞のみを確定し、確定済み読み範囲を除去して曖昧な後続読み・候補経路を保持する。共通接頭辞がない場合は確定しない。
+- C ABIに `kd_engine_create/destroy`、`kd_engine_load_pack`、`kd_engine_decode` を追加。C言語ソースから実際にリンク・実行するCTestターゲットを追加。Packロード失敗・未ロード・不正入力・出力バッファ不足をエラーコードで返す。
+- Pack検証器を強化。Manifest file entryの型・必須キー、重複パス、root外参照、必須辞書/n-gramファイル、宣言済みmax_expanded_bytesを検証。connections.tsvをManifest対象に追加。
+- CMakeをC/C++両言語対応にし、C API統合テストをCTestへ追加。GitHub ActionsでC/C++ビルド、CTest、辞書Pack検証に加えてN-bestデコーダmicrobenchmarkを実行する。
+- テスト追加: UTF-8妥当/不正/過長シーケンス、接続IDによる経路選択、共通接頭辞部分commitと未確定suffix保持、C ABIによるPackロードと「あめ」変換、出力バッファ不足、Manifest重複パス/容量制限。
+- C++ PackローダーはTSV構造を検査するが、ManifestのSHA-256検証は行わない。利用前に `tools/verify_pack.py` を実行する運用契約とし、C ABIのPackロード関数も同じ前提に従う。
+- `commit_common_prefix` の確定安全性は保持中のN-best集合に対する共通性に限定される。Beamで破棄された候補まで含む数学的な全候補保証ではない。
+- 実用辞書・大規模接続行列、文脈モデルの実データ校正、補正器の形態素統合、mmap、無動的確保のhot path、p50/p95/p99・peak RSSの計測は引き続き未完了。
