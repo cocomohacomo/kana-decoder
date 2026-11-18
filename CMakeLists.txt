@@ -24,3 +24,12 @@ if(Python3_Interpreter_FOUND)
 endif()
 add_executable(kana_decoder_bench tests/bench_core.cpp)
 target_link_libraries(kana_decoder_bench PRIVATE kana_decoder_core)
+
+add_executable(kana_decoder_eval tools/evaluate_corpus.cpp)
+target_link_libraries(kana_decoder_eval PRIVATE kana_decoder_core)
+add_test(NAME japanese_smoke_quality COMMAND kana_decoder_eval
+  ${CMAKE_CURRENT_SOURCE_DIR}/packs/ja-lite
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/ja-smoke-gold.tsv)
+if(Python3_Interpreter_FOUND)
+ add_test(NAME pack_builder_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_pack_builder.py)
+endif()
