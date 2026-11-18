@@ -50,8 +50,14 @@ public:
  void set_cost(std::int32_t right_id,std::int32_t left_id,std::int32_t cost);
  std::int32_t cost(std::int32_t right_id,std::int32_t left_id) const;
  bool load_tsv(const std::string& path);
+ std::size_t nonzero_cells() const { return costs_.size(); }
+ std::int32_t left_size() const { return left_size_; }
+ std::int32_t right_size() const { return right_size_; }
 private:
- std::unordered_map<std::string,std::int32_t> costs_;
+ struct Entry { std::uint64_t key=0; std::int32_t value=0; };
+ std::vector<Entry> costs_;
+ std::int32_t left_size_=0,right_size_=0;
+ static std::uint64_t packed_key(std::int32_t right_id,std::int32_t left_id);
 };
 bool is_valid_utf8(const std::string& text);
 struct LatticeEdge {
