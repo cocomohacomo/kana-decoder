@@ -376,4 +376,4 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Static coreとshared runtimeの双方へ同じモジュール群を登録。Python ctypesが使用する共有ライブラリも新しい実装単位で構成。
 - Pack loaderは引き続き一時オブジェクトに読み込み、Manifest・辞書・ngram・任意のconnection/correctionファイル検証後に一括反映するtransactional semanticsを維持。
 - CI初回で分割ファイルに移した標準ライブラリ依存の不足を検出し、`<charconv>` / `<fstream>` を追加。StreamingのUTF-8検証は共通 `is_valid_utf8` APIへ統一。
-- GitHub Actions run `44378925798`（コードcommit `d1ccb61fd9fffd996ed65d3f6ecc4b0e3ba0ac4f`）: completed / success。Static coreとshared runtimeの双方をBuild成功。CTest 14/14 PASS、bounded decode benchmark PASS、Japanese reference Pack verification PASS、Python Pack/license tests 45件発見・41 PASS・4 SKIP。
+- GitHub Actions run `44379310687`（最終コードcommit `f8ccb004b5f4fc9e8554dfc2eaa3a206f2867030`）: completed / success。Static coreとshared runtimeの双方をBuild成功。CTest 14/14 PASS、bounded decode benchmark PASS、Japanese reference Pack verification PASS、Python Pack/license tests 45件発見・41 PASS・4 SKIP。分割後に不要となったUTF-8補助・数値パーサ・重複したCorrection loaderも除去。
