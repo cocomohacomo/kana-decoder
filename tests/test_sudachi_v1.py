@@ -39,8 +39,8 @@ class SudachiV1Tests(unittest.TestCase):
    root=pathlib.Path(tmp);src=root/"matrix.def";out=root/"connections.tsv"
    src.write_text("3 4\n0 0 0\n1 2 -20\n",encoding="utf-8")
    r=subprocess.run([sys.executable,str(IMPORTER),"matrix","--input",str(src),"--output",str(out)],capture_output=True,text=True)
-   self.assertEqual(r.returncode,0,r.stderr);self.assertEqual(out.read_text().splitlines()[1],"1\t2\t-20")
-   src.write_text("2 2\n2 0 1\n",encoding="utf-8")
+   self.assertEqual(r.returncode,0,r.stderr);self.assertEqual(out.read_text().splitlines()[0],"# matrix 3 4");self.assertEqual(out.read_text().splitlines()[2],"1\t2\t-20")
+   src.write_text("2 2\n2 0 1\n2 0 2\n",encoding="utf-8")
    r=subprocess.run([sys.executable,str(IMPORTER),"matrix","--input",str(src),"--output",str(out)],capture_output=True,text=True)
    self.assertNotEqual(r.returncode,0)
 
