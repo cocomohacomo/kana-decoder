@@ -94,3 +94,17 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - C++ PackローダーはTSV構造を検査するが、ManifestのSHA-256検証は行わない。利用前に `tools/verify_pack.py` を実行する運用契約とし、C ABIのPackロード関数も同じ前提に従う。
 - `commit_common_prefix` の確定安全性は保持中のN-best集合に対する共通性に限定される。Beamで破棄された候補まで含む数学的な全候補保証ではない。
 - 実用辞書・大規模接続行列、文脈モデルの実データ校正、補正器の形態素統合、mmap、無動的確保のhot path、p50/p95/p99・peak RSSの計測は引き続き未完了。
+
+
+## 10. Language Packインポート・コーパス評価基盤（今回追加）
+- `tools/build_language_pack.py` を追加。5〜10列の正規化辞書TSVを標準10列へ正規化し、重複行除去・決定的ソート・int32範囲検証を行う。
+- 入力列: reading / surface / lemma / POS / reading_group / candidate_id / word_cost / connection_cost / left_id / right_id。元辞書の独自形式は言語別Adapterでこの形式へ変換する契約。
+- 学習用token sequence TSVからunigram(U)、前候補→現候補(L)、後候補context→現候補(R)のcountを生成。候補IDが辞書に存在すること、countがC++ Pack形式のuint32上限内であることを検証。
+- Pack builderはライセンスファイル、SPDX識別子、upstream/version metadataを必須にし、ファイルSHA-256・サイズを含むManifestを生成。ネットワークからの自動取得は行わない。出力先は空ディレクトリのみ許可。
+- `tools/verify_pack.py` を強化。絶対パス・親ディレクトリ参照・Windows形式区切り・symlink・重複パス・Manifest未登録payload・未hash化license・不正型・サイズ/hash不一致・上限超過を拒否。
+- `tools/evaluate_corpus.cpp` と `kana_decoder_eval` を追加。reading<TAB>expected surface形式のゴールドコーパスを読み、完全一致率、Unicode code point単位の編集距離/CER、decode failureをJSON出力する。
+- `tests/data/ja-smoke-gold.tsv` とtoken sequence fixtureを追加。CTestに日本語品質スモーク評価とPack builder testsを追加。
+- `MaskedNgramScorer` のスコア正規化を修正。語彙数ではなくunigram総数、各文脈の出現総数を分母とするadditive smoothingに変更。n-gram count加算はuint64飽和加算とし、uint32入力値の累積wraparoundを防止。
+- 学習・評価仕様を `docs/PACK_IMPORT_AND_EVALUATION.md` に記載。
+- 重要な制約: 実用辞書の取り込みはまだ行っていない。外部辞書はライセンス・再配布条件を個別確認する必要がある。任意のSudachi/UniDic/MeCab形式を直接解析するものではなく、標準化TSVへの変換Adapterが必要。n-gram学習は簡易count modelであり、確率校正や高度な平滑化は未実装。
+- 評価CLIのsmoke corpusは4件の配線テストであり、CER/完全一致率を製品品質の代表値として扱わない。実データ評価には、話者/文書単位で分離したtrain/dev/testコーパスと領域別集計が必要。
