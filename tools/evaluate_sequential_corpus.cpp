@@ -216,7 +216,7 @@ bool better_metrics(const Metrics& candidate, const Metrics& current) {
 bool write_calibration(const std::string& path, double weight, double margin) {
     std::ofstream out(path, std::ios::trunc);
     if (!out) return false;
-    out << std::setprecision(17) << weight << "\\t" << margin << "\\n";
+    out << std::setprecision(17) << weight << "\t" << margin << "\n";
     return static_cast<bool>(out);
 }
 bool read_calibration(const std::string& path, double& weight, double& margin) {
@@ -226,19 +226,18 @@ bool read_calibration(const std::string& path, double& weight, double& margin) {
         && std::isfinite(margin) && margin >= 0.0;
 }
 void print_calibration_metrics(const char* name, const Metrics& m) {
-    const auto scored = m.cases - m.over_limit;
-    std::cout << ",\\""<<name<<"\\":{"
-        << "\\"cases\\":" << m.cases
-        << ",\\"exact_matches\\":" << m.exact
-        << ",\\"exact_accuracy\\":" << exact_of(m)
-        << ",\\"edit_distance\\":" << m.edit_distance
-        << ",\\"reference_codepoints\\":" << m.reference_codepoints
-        << ",\\"cer\\":" << cer_of(m)
-        << ",\\"decode_failures\\":" << m.decode_failures
-        << ",\\"over_limit_sentences\\":" << m.over_limit
-        << ",\\"gold_tokens\\":" << m.gold_tokens
-        << ",\\"predicted_tokens\\":" << m.predicted_tokens
-        << ",\\"exact_token_alignment\\":" << m.aligned_tokens << "}";
+    std::cout << ",\"" << name << "\":{"
+        << "\"cases\":" << m.cases
+        << ",\"exact_matches\":" << m.exact
+        << ",\"exact_accuracy\":" << exact_of(m)
+        << ",\"edit_distance\":" << m.edit_distance
+        << ",\"reference_codepoints\":" << m.reference_codepoints
+        << ",\"cer\":" << cer_of(m)
+        << ",\"decode_failures\":" << m.decode_failures
+        << ",\"over_limit_sentences\":" << m.over_limit
+        << ",\"gold_tokens\":" << m.gold_tokens
+        << ",\"predicted_tokens\":" << m.predicted_tokens
+        << ",\"exact_token_alignment\":" << m.aligned_tokens << "}";
 }
 } // namespace
 
