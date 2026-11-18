@@ -54,3 +54,26 @@ Before normalization, validate that every lexicon context ID fits the connection
     python3 tools/validate_sudachi_pack_inputs.py --lexicon ./work/sudachi-source/small_lex.csv --matrix ./work/sudachi-source/matrix.def --output ./work/sudachi-source/compatibility.json
 
 Then import V1 lexicon and matrix with \`tools/import_sudachi_v1.py\`. Do not call the resulting files a production Pack until the release-specific LEGAL/NOTICE texts are verified and included in the generated Pack.
+
+
+## v0.13: verified end-to-end Sudachi Small Pack build
+
+The matrix importer now writes a dimension header and sorted sparse nonzero cells. The C++ connection model uses sorted packed-coordinate entries rather than a string-keyed hash map. Its loader checks matrix dimensions and rejects malformed, duplicate, or out-of-range cells.
+
+First download and verify the pinned archives:
+
+    python3 tools/fetch_sudachi_source.py --output-dir ./work/archives
+
+Then build and verify the complete Pack in one command:
+
+    python3 tools/build_sudachi_pack.py \
+      --small-zip ./work/archives/small_lex.zip \
+      --matrix-zip ./work/archives/matrix.def.zip \
+      --work-dir ./work/build \
+      --output ./dist/ja-jp-sudachi-small
+
+The orchestrator verifies both archive hashes, extracts only the expected members, validates all matrix rows and lexicon context IDs, imports the V1 dictionary and matrix, builds the Pack, and runs the final manifest/hash verifier. The generated Pack includes source-lock and tool provenance, the complete upstream LEGAL notice, full Apache-2.0 and BSD-3-Clause license texts, and a component-level license profile.
+
+The source lock records the upstream LEGAL notice's Apache-2.0 distribution license and UniDic BSD-3-Clause conditions for both the Small lexicon and the matrix. The Pack data license expression is therefore Apache-2.0 AND BSD-3-Clause; the repository's original Core code remains MIT.
+
+No production dictionary Pack is claimed until the real source archives are downloaded and their pinned checksums verified. The 30 MiB size is only a provisional optimization target. The build's default declared expanded-size budget is 8 GiB.
