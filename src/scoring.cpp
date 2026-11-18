@@ -86,8 +86,13 @@ bool MaskedNgramScorer::load_tsv(const std::string& path){
  *this = std::move(parsed);
  return true;
 }
+bool MaskedNgramScorer::set_smoothing_alpha(double alpha) {
+ if (!std::isfinite(alpha) || alpha <= 0.0 || alpha > 100.0) return false;
+ smoothing_alpha_ = alpha;
+ return true;
+}
 double MaskedNgramScorer::contextual_score(const std::string&c,const std::vector<std::string>&l,const std::vector<std::string>&r)const{
- constexpr double alpha=.5;
+ const double alpha=smoothing_alpha_;
  const double vocab=static_cast<double>(std::max<std::size_t>(1,unigram_counts_.size()));
  double result=0.0;
  if(!l.empty()){
@@ -123,7 +128,7 @@ bool MaskedNgramScorer::has_left_context_evidence(
  return false;
 }
 double MaskedNgramScorer::score(const std::string&c,const std::vector<std::string>&l,const std::vector<std::string>&r)const{
- constexpr double alpha=.5;
+ const double alpha=smoothing_alpha_;
  const double vocab=static_cast<double>(std::max<std::size_t>(1,unigram_counts_.size()));
  auto u=unigram_counts_.find(c);
  const double uc=u==unigram_counts_.end()?0.0:static_cast<double>(u->second);
