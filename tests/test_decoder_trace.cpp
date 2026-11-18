@@ -68,7 +68,9 @@ int main() {
  limited=DecoderOptions{};
  limited.max_input_codepoints=100000;
  exceeded=false;
- auto hard_cap=decode_reading(std::string(257,'あ'),lexicon,scorer,limited,nullptr,nullptr,nullptr,&exceeded);
+ std::string oversized;
+ for(std::size_t i=0;i<257;++i)oversized+="あ";
+ auto hard_cap=decode_reading(oversized,lexicon,scorer,limited,nullptr,nullptr,nullptr,&exceeded);
  assert(hard_cap.empty()&&exceeded);
  limited=DecoderOptions{};
  limited.max_lattice_edges=1;
