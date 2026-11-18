@@ -1,6 +1,8 @@
 #include "kana_decoder/engine.hpp"
 #include "kana_decoder/c_api.h"
 #include <cassert>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 using namespace kana_decoder;
 int main(){
@@ -39,6 +41,17 @@ int main(){
  DecoderOptions bounded; bounded.beam_width=1; bounded.max_paths=1;
  auto one_path=decoder.decode(2,lattice,lattice_scorer,{},bounded);
  assert(one_path.size()==1&&one_path[0].tokens[0].candidate.id=="A");
+ // Pack numeric fields must be fully parsed; trailing junk is rejected.
+ const auto temp_root=std::filesystem::temp_directory_path();
+ const auto bad_lex_path=temp_root/"kana_decoder_bad_lexicon.tsv";
+ {std::ofstream f(bad_lex_path);f<<"あめ\t雨\t雨\t名詞\tweather\train\t100junk\t0\t1\t1\n";}
+ LexiconTrie bad_lexicon;assert(!bad_lexicon.load_tsv(bad_lex_path.string()));std::filesystem::remove(bad_lex_path);
+ const auto bad_ngram_path=temp_root/"kana_decoder_bad_ngram.tsv";
+ {std::ofstream f(bad_ngram_path);f<<"U\t\train\t10x\n";}
+ MaskedNgramScorer bad_ngram;assert(!bad_ngram.load_tsv(bad_ngram_path.string()));std::filesystem::remove(bad_ngram_path);
+ const auto bad_conn_path=temp_root/"kana_decoder_bad_connections.tsv";
+ {std::ofstream f(bad_conn_path);f<<"1x\t1\t0\n";}
+ ConnectionModel bad_connections;assert(!bad_connections.load_tsv(bad_conn_path.string()));std::filesystem::remove(bad_conn_path);
  ConnectionModel cm;cm.set_cost(5,1,50);cm.set_cost(5,2,0);
  std::vector<LatticeEdge> pos_lattice{
   {0,1,{{"X","共通",10,0,0,5}}},
