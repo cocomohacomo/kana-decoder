@@ -3,6 +3,7 @@
 import ctypes, pathlib, sys, unittest
 LIB=pathlib.Path(sys.argv[1]).resolve()
 PACK=pathlib.Path(sys.argv[2]).resolve()
+sys.argv=sys.argv[:1]  # hide CTest-provided library and Pack paths from unittest discovery
 class TokenView(ctypes.Structure):
     _fields_=[("start_codepoint",ctypes.c_size_t),("end_codepoint",ctypes.c_size_t),
       ("candidate_id",ctypes.c_char_p),("surface",ctypes.c_char_p),("pos",ctypes.c_char_p),
