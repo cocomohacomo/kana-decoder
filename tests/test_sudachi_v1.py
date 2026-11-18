@@ -1,6 +1,25 @@
 import csv,hashlib,json,pathlib,subprocess,sys,tempfile,unittest,zipfile
 ROOT=pathlib.Path(__file__).resolve().parents[1];IMPORTER=ROOT/"tools"/"import_sudachi_v1.py";VERIFY=ROOT/"tools"/"verify_sudachi_source.py"
 class SudachiV1Tests(unittest.TestCase):
+ def test_actual_v1_header_layout_23_columns(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp);src=root/"lex.csv";out=root/"out.tsv"
+   header=["Index_Form","Left_Id","Right_Id","Cost","Headword","POS1","POS2","POS3","POS4","POS5","POS6","Reading_Form","Normalized_Form","Dictionary_Form","Mode","Split_A","Split_B","Word_Structure","Synonym_Groups","Split_C","User_Data","POS_Id","Reference_Id"]
+   row=["あめ","1","2","-5","雨","名詞","普通名詞","一般","*","*","*","アメ","雨","雨","A","","","","","","","",""]
+   with src.open("w",encoding="utf-8",newline="") as f:
+    w=csv.writer(f);w.writerow(header);w.writerow(row)
+   r=subprocess.run([sys.executable,str(IMPORTER),"lexicon","--input",str(src),"--output",str(out)],capture_output=True,text=True)
+   self.assertEqual(r.returncode,0,r.stderr)
+   cols=out.read_text(encoding="utf-8").splitlines()[1].split("\t")
+   self.assertEqual(cols[0],"あめ");self.assertEqual(cols[1],"雨");self.assertEqual(cols[8:10],["1","2"])
+ def test_headerless_v0_data_is_not_misclassified_as_v1(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp);src=root/"legacy.csv";out=root/"out.tsv"
+   src.write_text(" ,5967,5967,10, ,空白,*,*,*,*,*,キゴウ, ,*,A,*,*,*,*\n",encoding="utf-8")
+   r=subprocess.run([sys.executable,str(IMPORTER),"lexicon","--input",str(src),"--output",str(out)],capture_output=True,text=True)
+   self.assertNotEqual(r.returncode,0)
+   self.assertIn("Headerless V0 CSV",r.stderr)
+
  def make_csv(self,path,header=None):
   header=header or ["SURFACE","LEFT_ID","RIGHT_ID","COST","WRITING","POS1","POS2","POS3","POS4","POS5","POS6","READING_FORM","NORMALIZED_FORM","DICTIONARY_FORM","MODE","SPLIT_A","SPLIT_B","WORD_STRUCTURE"]
   row=["食べる","100","200","-5000","食べる","動詞","一般","*","*","下一段-バ行","終止形-一般","タベル","食べる","食べる","A","","",""]
