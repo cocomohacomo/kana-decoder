@@ -17,5 +17,7 @@ jobs:
         run: cmake --build build --parallel 2
       - name: Test
         run: ctest --test-dir build --output-on-failure
+      - name: Run bounded decode microbenchmark
+        run: ./build/kana_decoder_bench
       - name: Verify Japanese reference Pack
         run: python3 tools/verify_pack.py packs/ja-lite
