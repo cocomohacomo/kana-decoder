@@ -396,4 +396,5 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - C++回帰テストで、辞書一致がある位置ではfallbackが抑止され、辞書一致がない位置ではfallbackが生成されることを検証。CLI回帰テストでJSON構造、読みcode pointごとの記録数、fallback状態の整合性、集計値不変を検証。
 - Sudachi実Pack workflowを更新し、smoke corpusに対してscore traceとlattice traceを同時出力。関連ヘッダー・生成器・decoder変更でもPack workflowが起動するようpaths filterを拡張。
 - この版ではfallback生成方針・候補順位・スコア式を変更していない。実Pack traceから「候補不在」「fallback抑止」「候補順位誤り」を区別した後、別途ゴールドコーパスで候補生成方針の変更を評価する。
-- CI結果はworkflow完了後に追記する。現時点では未検証。
+- GitHub Actions run `44381437986`（code commit `a35dec7a165dd51fe1de1542827398235dd15073`）: completed / success。`-Werror`有効のConfigure / Build、CTest 14/14、bounded decode benchmark、Japanese reference Pack verification、Python Pack/license tests（45件、41 PASS・4 SKIP）がすべて成功。Buildログのwarning/errorは0件。
+- 実Sudachi Packを再生成して `--trace --lattice-trace` を実行するworkflow run `44381438082` は、Pack生成・検証ステップまで進行中。実Packの候補内容とfallback状態の分析結果は、その評価ステップ完了後に追記する。
