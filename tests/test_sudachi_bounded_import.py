@@ -43,8 +43,8 @@ class BoundedImportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             lex, matrix = root / "lex.csv", root / "matrix.def"
-            lex.write_text("SURFACE,LEFT_ID,RIGHT_ID\\n語,1,2\\n構成,-1,2\\n", encoding="utf-8")
-            matrix.write_text("3 4\\n0 0 0\\n", encoding="utf-8")
+            lex.write_text("SURFACE,LEFT_ID,RIGHT_ID\n語,1,2\n構成,-1,2\n", encoding="utf-8")
+            matrix.write_text("3 4\n0 0 0\n", encoding="utf-8")
             result = validate.validate(lex, matrix)
             self.assertEqual(result["lexicon_rows"], 2)
             self.assertEqual(result["non_decodable_rows"], 1)
