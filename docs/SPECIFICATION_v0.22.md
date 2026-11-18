@@ -34,6 +34,7 @@
 - `decoder_trace_tests` verifies candidate decomposition, morphology and context score identities, and transition cost propagation.
 - `evaluator_cli_contract_tests` verifies that `--trace` returns valid JSON with per-case candidate trace while preserving aggregate metrics.
 - Trace tests do not claim an improvement in recognition accuracy. The four-case production smoke corpus remains diagnostic only.
+- Verified in GitHub Actions run `44377822634` (code commit `713eb22ec4712a43cccac47909b2ab1106d6c042`): Configure / Build / CTest / benchmark / Pack verification / Python Pack and license tests all passed; CTest 14/14 PASS, including `decoder_trace_tests` and `evaluator_cli_contract_tests`.
 
 ## 5. Remaining work
 
