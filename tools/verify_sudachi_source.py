@@ -44,7 +44,7 @@ def safe_extract(archive,destination,member):
   return target
 def main():
  p=argparse.ArgumentParser();p.add_argument("--lock",type=Path,default=DEFAULT_LOCK);p.add_argument("--small-zip",type=Path,required=True);p.add_argument("--matrix-zip",type=Path,required=True);p.add_argument("--output",type=Path,required=True);a=p.parse_args()
- lock=load_lock(a.lock);sm=lock["sudachi-small-lex"];mm=lock["unidic-2.1.2-matrix"]
+ lock,sources=load_lock(a.lock);sm=sources["sudachi-small-lex"];mm=sources["unidic-2.1.2-matrix"]
  sh=verify(a.small_zip,sm["sha256"]);mh=verify(a.matrix_zip,mm["sha256"])
  small=safe_extract(a.small_zip,a.output,sm["member"]);matrix=safe_extract(a.matrix_zip,a.output,mm["member"])
  result={"lock_file":str(a.lock),"dictionary":lock.get("dictionary"),"release":lock.get("release"),"format":lock["format"],"small_lex_zip_sha256":sh,"matrix_zip_sha256":mh,"small_lex_csv":str(small),"matrix_def":str(matrix),"verification":"sha256-verified-local-artifacts"}
