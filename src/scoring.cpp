@@ -82,7 +82,9 @@ bool MaskedNgramScorer::load_tsv(const std::string& path){
   else if(cols[0]=="U")parsed.add_unigram(cols[2],count);
   else return false;
  }
- if(!in.eof())return false;*this=std::move(parsed);return true;
+ if (!in.eof()) return false;
+ *this = std::move(parsed);
+ return true;
 }
 double MaskedNgramScorer::score(const std::string&c,const std::vector<std::string>&l,const std::vector<std::string>&r)const{
  constexpr double alpha=.5;
@@ -114,7 +116,11 @@ double MaskedNgramScorer::score(const std::string&c,const std::vector<std::strin
 
 AmbiguityResult MaskedNgramScorer::resolve(const std::vector<Candidate>&c,const std::vector<std::string>&l,const std::vector<std::string>&r,OutputMode m,double ms,double mm,bool other,const std::string&original)const{
  AmbiguityResult x;x.ranked=c;if(x.ranked.size()>8)x.ranked.resize(8);std::stable_sort(x.ranked.begin(),x.ranked.end(),[&](const Candidate&a,const Candidate&b){return score(a.id,l,r)>score(b.id,l,r);});
- if(x.ranked.empty())return x;x.top_score=score(x.ranked[0].id,l,r);double second=x.ranked.size()>1?score(x.ranked[1].id,l,r):x.top_score-100.0;x.margin=x.top_score-second;x.ambiguous=x.top_score<ms||x.margin<mm;
+ if (x.ranked.empty()) return x;
+ x.top_score = score(x.ranked[0].id, l, r);
+ double second = x.ranked.size() > 1 ? score(x.ranked[1].id, l, r) : x.top_score - 100.0;
+ x.margin = x.top_score - second;
+ x.ambiguous = x.top_score < ms || x.margin < mm;
  if(m==OutputMode::Conservative&&x.ambiguous)x.output=original.empty()?x.ranked[0].id:original;else if((m==OutputMode::Ambiguous||m==OutputMode::Diagnostic)&&x.ambiguous)x.output=render_ambiguity(x.ranked,other);else x.output=x.ranked[0].surface;return x;
 }
 }
