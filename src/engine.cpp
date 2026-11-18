@@ -7,10 +7,24 @@
 #include <sstream>
 #include <utility>
 namespace {
-std::vector<std::string> utf8_chars(const std::string&s){std::vector<std::string>o;for(std::size_t i=0;i<s.size();){unsigned char c=static_cast<unsigned char>(s[i]);std::size_t n=c<0x80?1:(c&0xE0)==0xC0?2:(c&0xF0)==0xE0?3:(c&0xF8)==0xF0?4:1;if(i+n>s.size())n=1;o.push_back(s.substr(i,n));i+=n;}return o;}
+bool valid_utf8_impl(const std::string& s) {
+ for (std::size_t i=0; i<s.size();) {
+  unsigned char c=static_cast<unsigned char>(s[i]); std::size_t n=0;
+  if (c<=0x7f) n=1; else if(c>=0xc2&&c<=0xdf) n=2; else if(c>=0xe0&&c<=0xef) n=3; else if(c>=0xf0&&c<=0xf4) n=4; else return false;
+  if(i+n>s.size()) return false;
+  for(std::size_t j=1;j<n;++j) if((static_cast<unsigned char>(s[i+j])&0xc0)!=0x80) return false;
+  if(n==3){unsigned char x=static_cast<unsigned char>(s[i+1]);if((c==0xe0&&x<0xa0)||(c==0xed&&x>=0xa0))return false;}
+  if(n==4){unsigned char x=static_cast<unsigned char>(s[i+1]);if((c==0xf0&&x<0x90)||(c==0xf4&&x>=0x90))return false;}
+  i+=n;
+ }
+ return true;
+}
+std::vector<std::string> utf8_chars(const std::string&s){std::vector<std::string>o;if(!valid_utf8_impl(s))return o;for(std::size_t i=0;i<s.size();){unsigned char c=static_cast<unsigned char>(s[i]);std::size_t n=c<0x80?1:(c&0xe0)==0xc0?2:(c&0xf0)==0xe0?3:4;o.push_back(s.substr(i,n));i+=n;}return o;}
 std::string join_utf8(const std::vector<std::string>&v){std::string o;for(const auto&c:v)o+=c;return o;}
+std::string pair_key(std::int32_t a,std::int32_t b){return std::to_string(a)+":"+std::to_string(b);}
 }
 namespace kana_decoder {
+bool is_valid_utf8(const std::string& text){return valid_utf8_impl(text);}
 std::string MaskedNgramScorer::key(const std::string&a,const std::string&b){return a+"\x1f"+b;}
 std::string MaskedNgramScorer::context_key(const std::vector<std::string>&c){std::string o;std::size_t b=c.size()>2?c.size()-2:0;for(std::size_t i=b;i<c.size();++i){if(!o.empty())o+="\x1e";o+=c[i];}return o;}
 void MaskedNgramScorer::add_left_bigram(const std::string&l,const std::string&c,std::uint32_t n){left_counts_[key(l,c)]+=n;}
@@ -18,6 +32,17 @@ void MaskedNgramScorer::add_right_bigram(const std::string&c,const std::string&r
 void MaskedNgramScorer::add_left_ngram(const std::vector<std::string>&l,const std::string&c,std::uint32_t n){left_counts_[key(context_key(l),c)]+=n;}
 void MaskedNgramScorer::add_right_ngram(const std::string&c,const std::vector<std::string>&r,std::uint32_t n){right_counts_[key(c,context_key(r))]+=n;}
 void MaskedNgramScorer::add_unigram(const std::string&c,std::uint32_t n){unigram_counts_[c]+=n;}
+void ConnectionModel::set_cost(std::int32_t right_id,std::int32_t left_id,std::int32_t value){costs_[pair_key(right_id,left_id)]=value;}
+std::int32_t ConnectionModel::cost(std::int32_t right_id,std::int32_t left_id)const{auto it=costs_.find(pair_key(right_id,left_id));return it==costs_.end()?0:it->second;}
+bool ConnectionModel::load_tsv(const std::string& path){
+ std::ifstream in(path);if(!in)return false;ConnectionModel parsed;std::string line;
+ while(std::getline(in,line)){if(line.empty()||line[0]=='#')continue;std::stringstream ss(line);std::string a,b,v,extra;
+  if(!std::getline(ss,a,'\t')||!std::getline(ss,b,'\t')||!std::getline(ss,v,'\t')||std::getline(ss,extra,'\t'))return false;
+  try{long x=std::stol(a),y=std::stol(b),z=std::stol(v);if(x<0||x>2147483647L||y<0||y>2147483647L||z<(-2147483647L-1)||z>2147483647L)return false;parsed.set_cost(static_cast<std::int32_t>(x),static_cast<std::int32_t>(y),static_cast<std::int32_t>(z));}catch(...){return false;}
+ }
+ if(!in.eof())return false;*this=std::move(parsed);return true;
+}
+
 
 bool MaskedNgramScorer::load_tsv(const std::string& path){
  std::ifstream in(path);if(!in)return false;
@@ -44,7 +69,7 @@ double MaskedNgramScorer::score(const std::string&c,const std::vector<std::strin
 
 
 bool LexiconTrie::add(const std::string& reading,const LatticeCandidate& candidate){
- if(reading.empty()||candidate.id.empty()||candidate.surface.empty())return false;
+ if(reading.empty()||!valid_utf8_impl(reading)||!valid_utf8_impl(candidate.id)||!valid_utf8_impl(candidate.surface)||candidate.id.empty()||candidate.surface.empty())return false;
  auto chars=utf8_chars(reading);std::size_t node=0;
  for(const auto&ch:chars){auto it=nodes_[node].next.find(ch);if(it==nodes_[node].next.end()){
   std::size_t next=nodes_.size();nodes_[node].next.emplace(ch,next);nodes_.push_back(Node{});node=next;
@@ -61,16 +86,16 @@ bool LexiconTrie::load_tsv(const std::string& path,std::size_t* loaded){
   if(line.empty()||line[0]=='#')continue;
   std::vector<std::string> cols;std::stringstream ss(line);std::string field;
   while(std::getline(ss,field,'\t'))cols.push_back(field);
-  if(cols.size()<5)return false;
+  if(cols.size()<5||cols.size()>10)return false;
   LatticeCandidate candidate;candidate.id=cols.size()>5&&!cols[5].empty()?cols[5]:cols[4];candidate.surface=cols[1];
-  try{if(cols.size()>6&&!cols[6].empty())candidate.word_cost=static_cast<std::int32_t>(std::stol(cols[6]));if(cols.size()>7&&!cols[7].empty())candidate.connection_cost=static_cast<std::int32_t>(std::stol(cols[7]));}catch(...){return false;}
+  try{if(cols.size()>6&&!cols[6].empty())candidate.word_cost=static_cast<std::int32_t>(std::stol(cols[6]));if(cols.size()>7&&!cols[7].empty())candidate.connection_cost=static_cast<std::int32_t>(std::stol(cols[7]));if(cols.size()>8&&!cols[8].empty())candidate.left_id=static_cast<std::int32_t>(std::stol(cols[8]));if(cols.size()>9&&!cols[9].empty())candidate.right_id=static_cast<std::int32_t>(std::stol(cols[9]));}catch(...){return false;}
   if(!parsed.add(cols[0],candidate))return false;++count;
  }
  if(!in.eof())return false;
  *this=std::move(parsed);if(loaded)*loaded=count;return true;
 }
 std::vector<LatticeEdge> LexiconTrie::build_lattice(const std::string& reading,std::size_t max_matches,bool fallback)const{
- std::vector<LatticeEdge> out;auto chars=utf8_chars(reading);if(chars.empty()||max_matches==0)return out;
+ std::vector<LatticeEdge> out;if(!valid_utf8_impl(reading))return out;auto chars=utf8_chars(reading);if(chars.empty()||max_matches==0)return out;
  for(std::size_t start=0;start<chars.size();++start){std::size_t node=0,matches=0;
   for(std::size_t end=start;end<chars.size();++end){auto it=nodes_[node].next.find(chars[end]);if(it==nodes_[node].next.end())break;node=it->second;
    if(!nodes_[node].values.empty()){LatticeEdge edge;edge.start=start;edge.end=end+1;edge.candidates=nodes_[node].values;
@@ -82,20 +107,21 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(const std::string& reading,s
  }return out;
 }
 
-bool load_language_pack(const std::string& directory,LexiconTrie& lexicon,MaskedNgramScorer& scorer,std::size_t* loaded){
+bool load_language_pack(const std::string& directory,LexiconTrie& lexicon,MaskedNgramScorer& scorer,std::size_t* loaded,ConnectionModel* connections){
  std::string base=directory.empty()?std::string("."):directory;
  if(base.back()!='/')base+='/';
  LexiconTrie parsed_lexicon;MaskedNgramScorer parsed_scorer;std::size_t count=0;
  if(!parsed_lexicon.load_tsv(base+"lexicon.tsv",&count)||!parsed_scorer.load_tsv(base+"ngram.tsv"))return false;
- lexicon=std::move(parsed_lexicon);scorer=std::move(parsed_scorer);if(loaded)*loaded=count;return true;
+ ConnectionModel parsed_connections;std::ifstream conn_file(base+"connections.tsv");if(conn_file&&!parsed_connections.load_tsv(base+"connections.tsv"))return false;
+ lexicon=std::move(parsed_lexicon);scorer=std::move(parsed_scorer);if(connections)*connections=std::move(parsed_connections);if(loaded)*loaded=count;return true;
 }
-std::vector<DecodedPath> decode_reading(const std::string& reading,const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,const DecoderOptions& options){
- auto chars=utf8_chars(reading);if(chars.empty())return {};auto lattice=lexicon.build_lattice(reading,16,true);MorphologyDecoder decoder;return decoder.decode(chars.size(),lattice,scorer,{},options);
+std::vector<DecodedPath> decode_reading(const std::string& reading,const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,const DecoderOptions& options,const ConnectionModel* connections){
+ if(!valid_utf8_impl(reading))return {};auto chars=utf8_chars(reading);if(chars.empty())return {};auto lattice=lexicon.build_lattice(reading,16,true);MorphologyDecoder decoder;return decoder.decode(chars.size(),lattice,scorer,{},options,connections);
 }
 StreamingSession::StreamingSession(std::size_t limit):max_reading_codepoints_(limit?limit:1){}
-bool StreamingSession::append(const std::string& chunk,const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,StreamingSnapshot& snapshot,const DecoderOptions& options){
- if(chunk.empty())return false;auto current=utf8_chars(reading_),incoming=utf8_chars(chunk);if(current.size()+incoming.size()>max_reading_codepoints_)return false;
- std::string candidate=reading_+chunk;auto paths=decode_reading(candidate,lexicon,scorer,options);if(paths.empty())return false;
+bool StreamingSession::append(const std::string& chunk,const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,StreamingSnapshot& snapshot,const DecoderOptions& options,const ConnectionModel* connections){
+ if(chunk.empty()||!valid_utf8_impl(chunk))return false;auto current=utf8_chars(reading_),incoming=utf8_chars(chunk);if(current.size()+incoming.size()>max_reading_codepoints_)return false;
+ std::string candidate=reading_+chunk;auto paths=decode_reading(candidate,lexicon,scorer,options,connections);if(paths.empty())return false;
  reading_=std::move(candidate);++revision_;snapshot.revision=revision_;snapshot.reading=reading_;snapshot.paths=std::move(paths);snapshot.provisional=true;return true;
 }
 
@@ -109,7 +135,7 @@ bool StreamingSession::commit_best(StreamingSnapshot& snapshot,std::string& outp
 void StreamingSession::reset(){reading_.clear();revision_=0;}
 std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  const std::vector<LatticeEdge>& lattice,const MaskedNgramScorer& scorer,
- const std::vector<std::string>& right_context,const DecoderOptions& opt) const {
+ const std::vector<std::string>& right_context,const DecoderOptions& opt,const ConnectionModel* connections) const {
  if(length==0||opt.beam_width==0||opt.max_edges_per_position==0||
     opt.max_candidates_per_edge==0||opt.max_paths==0)return {};
  // Hard ceilings keep caller-supplied options from defeating bounded-work guarantees.
@@ -122,7 +148,7 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
   if(edge.start>=edge.end||edge.end>length||edge.candidates.empty())continue;
   at[edge.start].push_back(&edge);
  }
- struct State { DecodedPath path; std::vector<std::string> history; };
+ struct State { DecodedPath path; std::vector<std::string> history; std::int32_t last_right_id=0; bool has_last=false; };
  std::vector<std::vector<State>> beams(length+1);
  beams[0].push_back(State{});
  auto prune=[&](std::vector<State>& states){
@@ -147,13 +173,14 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
    for(const auto& state:beams[pos])for(const auto& candidate:candidates){
     if(candidate.id.empty()||candidate.surface.empty())continue;
     State next=state;
+    const std::int32_t transition=(connections&&state.has_last)?connections->cost(state.last_right_id,candidate.left_id):0;
     const double morph=-static_cast<double>(candidate.word_cost)-
-                       static_cast<double>(candidate.connection_cost);
+                       static_cast<double>(candidate.connection_cost)-static_cast<double>(transition);
     const double ctx=scorer.score(candidate.id,state.history,right_context)*opt.context_weight;
     next.path.score+=morph+ctx;
     next.path.tokens.push_back(DecodedToken{edge->start,edge->end,
       Candidate{candidate.id,candidate.surface},morph,ctx});
-    next.history.push_back(candidate.id);
+    next.history.push_back(candidate.id);next.last_right_id=candidate.right_id;next.has_last=true;
     if(next.history.size()>2)next.history.erase(next.history.begin());
     beams[edge->end].push_back(std::move(next));
    }
