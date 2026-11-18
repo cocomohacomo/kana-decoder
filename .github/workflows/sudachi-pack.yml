@@ -51,7 +51,7 @@ jobs:
 
       - name: Validate size input
         env:
-          MAX_EXPANDED_GIB: \${{ inputs.max_expanded_gib || '8' }}
+          MAX_EXPANDED_GIB: ${{ inputs.max_expanded_gib || '8' }}
         run: |
           python - <<'PY'
           import os
@@ -67,7 +67,7 @@ jobs:
 
       - name: Build and verify Language Pack
         env:
-          MAX_EXPANDED_GIB: \${{ inputs.max_expanded_gib || '8' }}
+          MAX_EXPANDED_GIB: ${{ inputs.max_expanded_gib || '8' }}
         run: |
           python - <<'PY'
           import os, subprocess, sys
@@ -105,6 +105,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kana-decoder-ja-jp-sudachi-small-20260723
-          path: \${{ runner.temp }}/ja-jp-sudachi-small/
+          path: ${{ runner.temp }}/ja-jp-sudachi-small/
           if-no-files-found: error
           retention-days: 30
