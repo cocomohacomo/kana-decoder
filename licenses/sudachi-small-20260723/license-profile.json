@@ -10,7 +10,7 @@
       "redistribution": true,
       "modified_redistribution": true,
       "upstream_url": "https://sudachi.s3.ap-northeast-1.amazonaws.com/sudachidict-raw/20260723/small_lex.zip",
-      "license_file": "Apache-2.0.txt"
+      "license_file": "Apache-2.0-small.txt"
     },
     {
       "id": "sudachi-small-unidic-bsd",
@@ -21,7 +21,7 @@
       "redistribution": true,
       "modified_redistribution": true,
       "upstream_url": "https://sudachi.s3.ap-northeast-1.amazonaws.com/sudachidict-raw/20260723/small_lex.zip",
-      "license_file": "BSD-3-Clause.txt"
+      "license_file": "BSD-3-Clause-small.txt"
     },
     {
       "id": "unidic-matrix-apache",
@@ -32,7 +32,7 @@
       "redistribution": true,
       "modified_redistribution": true,
       "upstream_url": "https://d2ej7fkh96fzlu.cloudfront.net/sudachidict-raw/matrix.def.zip",
-      "license_file": "Apache-2.0.txt"
+      "license_file": "Apache-2.0-matrix.txt"
     },
     {
       "id": "unidic-matrix-bsd",
@@ -43,7 +43,7 @@
       "redistribution": true,
       "modified_redistribution": true,
       "upstream_url": "https://d2ej7fkh96fzlu.cloudfront.net/sudachidict-raw/matrix.def.zip",
-      "license_file": "BSD-3-Clause.txt"
+      "license_file": "BSD-3-Clause-matrix.txt"
     }
   ]
 }
