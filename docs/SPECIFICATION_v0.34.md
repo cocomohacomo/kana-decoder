@@ -83,3 +83,11 @@ No v0.32 accuracy gain is claimed until the new CI and full Pack workflow comple
 - クラスター生成・距離別統計はtrainのみ、beta/margin校正はdevのみ、testは凍結設定で一度評価する。
 - 本変更は評価プローブ内の改善であり、SURGE Core統合や本番デコーダの精度向上を意味しない。
 - テストでは距離2の証拠が距離1の証拠として誤利用されないこと、決定性、クラスターサイズ上限、既存の合成曖昧性解決を検証する。
+
+
+### v0.34.1 評価上のQuestion定義
+
+- Questionは候補集合に異なる表層候補が2つ以上存在する場合に限り生成する。
+- 表層候補が1種類しかないトークンはQuestionでもabstentionでもない。解決率・棄権率の分母から除外する。
+- 指標に question_tokens を追加し、resolved_tokens + abstained_tokens = question_tokens を不変条件とする。
+- この変更は評価カウントの意味を正すものであり、デコーダ出力や候補スコアを変更しない。
