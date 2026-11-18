@@ -44,13 +44,24 @@ bool LexiconTrie::load_tsv(const std::string& path,std::size_t* loaded){
 }
 std::vector<LatticeEdge> LexiconTrie::build_lattice(
  const std::string& reading,std::size_t max_matches,bool fallback,
- std::vector<LatticePositionTrace>* trace) const {
+ std::vector<LatticePositionTrace>* trace,std::size_t max_total_edges,
+ std::size_t max_total_candidates,bool* resource_limit_exceeded) const {
  if (trace) trace->clear();
+ if (resource_limit_exceeded) *resource_limit_exceeded=false;
  std::vector<LatticeEdge> out;
+ if(max_total_edges==0||max_total_candidates==0){
+  if(resource_limit_exceeded)*resource_limit_exceeded=true;
+  return out;
+ }
+ std::size_t retained_candidates=0;
  if (!valid_utf8_impl(reading)) return out;
  auto chars = utf8_chars(reading);
  if (chars.empty()) return out;
  for (std::size_t start = 0; start < chars.size(); ++start) {
+  if(out.size()>=max_total_edges){
+   if(resource_limit_exceeded)*resource_limit_exceeded=true;
+   break;
+  }
   LatticePositionTrace position_trace;
   position_trace.start = start;
   position_trace.fallback_enabled = fallback;
@@ -62,22 +73,34 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
     if (it == nodes_[node].next.end()) break;
     node = it->second;
     if (!nodes_[node].values.empty()) {
+     if(retained_candidates>=max_total_candidates){
+      if(resource_limit_exceeded)*resource_limit_exceeded=true;
+      break;
+     }
      LatticeEdge edge;
      edge.start = start;
      edge.end = end + 1;
-     edge.candidates = nodes_[node].values;
-     std::stable_sort(edge.candidates.begin(), edge.candidates.end(),
-      [](const LatticeCandidate& a, const LatticeCandidate& b) {
-       return static_cast<std::int64_t>(a.word_cost) + a.connection_cost
-            < static_cast<std::int64_t>(b.word_cost) + b.connection_cost;
-      });
-     if (edge.candidates.size() > 8) edge.candidates.resize(8);
+     const std::size_t take=std::min<std::size_t>(
+      8,std::min(nodes_[node].values.size(),max_total_candidates-retained_candidates));
+     edge.candidates.resize(take);
+     auto less_cost=[](const LatticeCandidate& a,const LatticeCandidate& b){
+      return static_cast<std::int64_t>(a.word_cost)+a.connection_cost
+           < static_cast<std::int64_t>(b.word_cost)+b.connection_cost;
+     };
+     std::partial_sort_copy(nodes_[node].values.begin(),nodes_[node].values.end(),
+      edge.candidates.begin(),edge.candidates.end(),less_cost);
+     retained_candidates+=take;
+     if(take==0)break;
      if (trace) {
       position_trace.dictionary_matches.push_back(
        LatticeMatchTrace{edge.start, edge.end, edge.candidates});
      }
      out.push_back(std::move(edge));
      ++matches;
+     if(out.size()>=max_total_edges && end+1<chars.size()){
+      if(resource_limit_exceeded)*resource_limit_exceeded=true;
+      break;
+     }
      if (matches >= max_matches) break;
     }
    }
