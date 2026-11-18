@@ -76,6 +76,9 @@ def train_ngrams(sequence_file):
             if not line.strip() or line.startswith("#"):
                 continue
             tokens = [clean_field(x, "candidate token") for x in line.rstrip("\r\n").split("\t")]
+            unknown = [token for token in tokens if token not in known_candidates]
+            if unknown:
+                raise ValueError(f"{sequence_file}:{line_no}: unknown candidate IDs: {unknown}")
             for i, token in enumerate(tokens):
                 counts[("U", "", token)] += 1
                 if i:
@@ -86,6 +89,8 @@ def train_ngrams(sequence_file):
 
 def write_pack(args):
     out = args.output.resolve()
+    if out.exists() and any(out.iterdir()):
+        raise ValueError("output directory must be empty")
     out.mkdir(parents=True, exist_ok=True)
     rows = import_lexicon(args.lexicon.resolve())
     lexicon_path = out / "lexicon.tsv"
@@ -148,6 +153,8 @@ def main():
     args = parser.parse_args()
     if args.max_expanded_bytes <= 0:
         parser.error("--max-expanded-bytes must be positive")
+    if not args.license_spdx.strip() or not args.upstream.strip():
+        parser.error("license SPDX and upstream metadata are required")
     print(json.dumps(write_pack(args), ensure_ascii=False, indent=2))
 
 if __name__ == "__main__":
