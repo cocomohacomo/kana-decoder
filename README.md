@@ -7,6 +7,7 @@
 - Context-masked n-gram候補順位付け、曖昧性保持、かなフォールバック
 - 接続行列、品詞・活用情報を含む候補デコード
 - C++ / C APIストリーミングセッション、暫定出力、共通接頭辞commit、best-path commit
+- pip install可能なPython ctypesパッケージ、N-best構造化結果、ストリーミングAPI
 - 出力バッファ不足時に入力・revision・commit状態を変更しないトランザクション動作
 - 軽度誤り補正、UTF-8検証、Pack Manifest / SHA-256 / license検証
 - Sudachi V0/V1 import adapter、Pack builder、コーパス分割漏洩検証
@@ -16,6 +17,7 @@
     cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
     cmake --build build
     ctest --test-dir build --output-on-failure
+    python3 -m pip install .
     python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 ## Language Packとサイズ方針
@@ -33,6 +35,7 @@
 - 詳細: docs/PACK_IMPORT_AND_EVALUATION.md
 
 ## 仕様
+- Python API: docs/PYTHON_API.md
 - v0.13: docs/SPECIFICATION_v0.13.md
 - v0.12: docs/SPECIFICATION_v0.12.md
 - v0.11: docs/SPECIFICATION_v0.11.md
