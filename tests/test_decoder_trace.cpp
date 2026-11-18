@@ -2,6 +2,7 @@
 #include <cassert>
 #include <cmath>
 #include <iostream>
+#include <limits>
 int main() {
  using namespace kana_decoder;
  LexiconTrie lexicon;
@@ -103,6 +104,18 @@ int main() {
  bool saw_fallback=false;
  for(const auto& item:trace) if(item.unknown_fallback) saw_fallback=true;
  assert(saw_fallback);
+
+ // Invalid floating-point scoring controls fail closed instead of poisoning beam order.
+ DecoderOptions invalid_scoring;
+ invalid_scoring.context_weight=std::numeric_limits<double>::quiet_NaN();
+ exceeded=false;
+ auto nan_weight=decode_reading("あ",lexicon,scorer,invalid_scoring,nullptr,nullptr,nullptr,&exceeded);
+ assert(nan_weight.empty()&&exceeded);
+ invalid_scoring=DecoderOptions{};
+ invalid_scoring.surge_context_margin=-0.1;
+ exceeded=false;
+ auto negative_margin=decode_reading("あ",lexicon,scorer,invalid_scoring,nullptr,nullptr,nullptr,&exceeded);
+ assert(negative_margin.empty()&&exceeded);
 
  // Input, lattice, and search expansion limits fail closed instead of
  // returning a silently truncated hypothesis.
