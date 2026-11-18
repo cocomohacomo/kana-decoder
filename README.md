@@ -8,6 +8,8 @@
 - Context Cluster / Question / Focusによる話題・曖昧性管理
 - Main / Active / ArchiveによるBranch型の複数正文化候補管理
 - 後続EvidenceによるArchive候補の再活性化
+- 固定容量・固定処理予算によるイベント当たり計算量の上限制御
+- 長文ストリームでも一定サイズの未確定窓とSessionメモリを維持
 - 後続入力による未確定候補の遡及的再評価
 - 同音異義語の文脈推定補正
 - 実行時ホットワード注入
@@ -19,6 +21,7 @@
 
 ## 設計仕様
 
+- [仕様書 v0.4](docs/SPECIFICATION_v0.4.md)
 - [仕様書 v0.3](docs/SPECIFICATION_v0.3.md)
 - [仕様書 v0.2](docs/SPECIFICATION_v0.2.md)
 - [仕様書 v0.1](docs/SPECIFICATION_v0.1.md)
