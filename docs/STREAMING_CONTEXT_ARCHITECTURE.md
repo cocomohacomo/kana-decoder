@@ -103,3 +103,47 @@ MainとActiveのみを通常展開し、Archive全件を毎回走査しない。
 
 長時間ストリーム、Branch/Cluster/Question/Hotword上限、Archive飽和、Pending Queue飽和、長文分割を含むテストを行う。event updateのp50/p95/p99/max、処理ステップ数、再評価数、Archive probe数、Queue深度、peak RSS、allocation countを測定する。入力総量が増えても1イベント当たり処理ステップ数が上限内で一定であることを受け入れ条件とする。
 
+
+
+## 10. 認知ストリーミングパイプライン
+
+### 10.1 二重ループ
+
+kana-decoderは言語形式ループと文脈認知ループを相互接続する。言語形式ループは読み・語彙・形態素境界・品詞・活用・接続を更新する。文脈認知ループは形態素候補からTopic / Entity / Predicate / Discourseの仮説を作り、Cluster・Claim・Evidence・Question・Focusを更新する。文脈認知の結果は候補再ランキングへ戻るが、形態素接続のハード制約を覆さない。
+
+### 10.2 処理段階
+
+1. Input Eventization: UTF-8、sequence、offset、timestamp、boundary hint。
+2. Reading Normalization: かな正規化、未完読み、原入力とのoffset対応。
+3. Lexical Candidate Generation: 辞書Trie、Hotword、未知語候補。
+4. Morphological Lattice: 読み位置を頂点、形態素をエッジとする。
+5. Morphological Decoding: Viterbiを基本に固定幅N-bestを生成。
+6. Semantic / Context Recognition: Topic、Entity、Predicate、Discourseを仮説化。
+7. Context-aware Re-ranking: 形態素基礎スコアと文脈スコアを分離統合。
+8. Orthographic Selection: 語義と表記を分けて漢字・かな等を選択。
+9. Commit Control: Provisional / Stable / Committedを管理。
+10. Punctuation / Formatting: 句読点・表記整形・差分出力。
+
+### 10.3 語義と表記の分離
+
+「どの語を意味しているか」と「その語をどう書くか」は異なる判断である。語義候補はMorphological / Semantic Branchで管理し、同じ語義内の漢字・かな・送り仮名の違いはOrthographic Selectionで扱う。低信頼時はかな表記を許容し、漢字を強制しない。
+
+### 10.4 文脈特徴
+
+初期Context Recognizerは辞書属性、品詞列、格助詞、述語、固有名詞属性、語彙ドメインタグ、Hotwordタグ、直近確定表現を利用する。意味仮説は必ずsource spanとEvidenceを参照し、推測を確定事実として扱わない。
+
+### 10.5 再ランキング
+
+BaseMorphScoreは単語コスト、接続コスト、局所形態素特徴から算出する。ContextScoreはSemanticCompatibility、ClusterAffinity、EntityContinuity、DiscourseCompatibility、HotwordEvidence、TemporalConsistencyから算出し、各項に上限を設ける。RankScoreはBaseMorphScoreにbounded ContextScoreを加え、不確実性ペナルティを差し引く。文脈スコアで接続不能な経路を復活させない。
+
+### 10.6 曖昧性とCommit
+
+候補間marginが小さい、意味解釈が分岐する、または固有名詞等の誤変換コストが高い場合にQuestionを生成する。後続Evidenceで関連Question・Claim・Branchだけを再評価する。右文脈・境界・Question解決・候補marginをCommit条件とし、時間経過だけで確定しない。未解決時はかな表記または保留を優先する。
+
+### 10.7 ストリーミング例
+
+「きしゃが」では複数の語義候補を保持する。「きた」で述語を追加しても複数解釈が成立する場合は保留する。「えきに」「ていしゃした」で交通関連Evidenceが追加された場合、交通ClusterのFocusを高め「汽車」候補を再評価する。確定条件を満たした後にのみCommitする。
+
+### 10.8 初期実装方針
+
+初期版は辞書Trie、Viterbi、固定幅N-best、ルールベースの形態素・談話特徴、固定容量Context Core、線形再ランキングで構成する。大規模ニューラルモデルを必須にしない。将来モデルを交換する場合もCPU・オフライン・固定予算契約を維持する。
