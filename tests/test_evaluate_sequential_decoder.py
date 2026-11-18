@@ -37,7 +37,8 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
             self.assertEqual(dev_result["split"], "dev")
             self.assertFalse(dev_result["test_split_used_for_selection"])
             self.assertEqual(dev_result["morphology_only"]["cases"], 1)
-            self.assertEqual(dev_result["configurations_evaluated"], 24)
+            self.assertEqual(dev_result["configurations_evaluated"], 72)
+            self.assertGreater(dev_result["selected_smoothing_alpha"], 0.0)
             self.assertTrue(calibration.is_file())
             completed = subprocess.run(
                 [str(executable), str(pack), str(train), str(corpus),
