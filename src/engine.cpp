@@ -79,7 +79,7 @@ bool ConnectionModel::load_tsv(const std::string& path){
    continue;
   }
   std::stringstream ss(line);std::string a,b,v,extra;
-  if(!std::getline(ss,a,'\\t')||!std::getline(ss,b,'\\t')||!std::getline(ss,v,'\\t')||std::getline(ss,extra,'\\t'))return false;
+  if(!std::getline(ss,a,'\t')||!std::getline(ss,b,'\t')||!std::getline(ss,v,'\t')||std::getline(ss,extra,'\t'))return false;
   std::int32_t right=0,left=0,value=0;
   if(!parse_i32_strict(a,right,true)||!parse_i32_strict(b,left,true)||!parse_i32_strict(v,value))return false;
   if(parsed.left_size_&&(left>=parsed.left_size_||right>=parsed.right_size_))return false;
