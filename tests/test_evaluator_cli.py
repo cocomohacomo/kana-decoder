@@ -36,6 +36,19 @@ def main():
         assert isinstance(item["decode_failure"], bool)
         assert item["edit_distance"] >= 0
 
+    traced = run([evaluator, pack_dir, corpus, "--trace"])
+    assert traced.returncode == 0, traced.stderr
+    traced_result = json.loads(traced.stdout)
+    assert traced_result["overall"] == normal_result["overall"]
+    assert len(traced_result["details"]) == normal_result["overall"]["cases"]
+    assert all("candidate_trace" in item for item in traced_result["details"])
+    for item in traced_result["details"]:
+        for candidate in item["candidate_trace"]:
+            assert candidate["local_score"] == (
+                candidate["morphology_score"] + candidate["weighted_context_score"]
+            )
+            assert isinstance(candidate["unknown_fallback"], bool)
+
     # CRLF input must not contaminate the domain key.
     with tempfile.TemporaryDirectory() as directory:
         crlf = pathlib.Path(directory) / "crlf.tsv"
