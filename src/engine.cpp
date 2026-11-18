@@ -22,20 +22,6 @@ bool valid_utf8_impl(const std::string& s) {
  return true;
 }
 std::vector<std::string> utf8_chars(const std::string&s){std::vector<std::string>o;if(!valid_utf8_impl(s))return o;for(std::size_t i=0;i<s.size();){unsigned char c=static_cast<unsigned char>(s[i]);std::size_t n=c<0x80?1:(c&0xe0)==0xc0?2:(c&0xf0)==0xe0?3:4;o.push_back(s.substr(i,n));i+=n;}return o;}
-std::string join_utf8(const std::vector<std::string>&v){std::string o;for(const auto&c:v)o+=c;return o;}
-std::string pair_key(std::int32_t a,std::int32_t b){return std::to_string(a)+":"+std::to_string(b);}
-void sat_add(std::uint64_t& target,std::uint64_t value){target=std::numeric_limits<std::uint64_t>::max()-target<value?std::numeric_limits<std::uint64_t>::max():target+value;}
-bool parse_i32_strict(const std::string& text,std::int32_t& value,bool nonnegative=false){
- if(text.empty())return false;
- auto result=std::from_chars(text.data(),text.data()+text.size(),value);
- return result.ec==std::errc{}&&result.ptr==text.data()+text.size()&&(!nonnegative||value>=0);
-}
-bool parse_u32_strict(const std::string& text,std::uint32_t& value){
- if(text.empty())return false;
- auto result=std::from_chars(text.data(),text.data()+text.size(),value);
- return result.ec==std::errc{}&&result.ptr==text.data()+text.size();
-}
-std::size_t byte_offset_for_codepoints(const std::string&s,std::size_t count){auto chars=utf8_chars(s);if(count>chars.size())return std::string::npos;std::size_t n=0;for(std::size_t i=0;i<count;++i)n+=chars[i].size();return n;}
 }
 namespace kana_decoder {
 bool is_valid_utf8(const std::string& text){return valid_utf8_impl(text);}
