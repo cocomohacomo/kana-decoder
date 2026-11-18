@@ -97,7 +97,7 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
      }
      out.push_back(std::move(edge));
      ++matches;
-     if(out.size()>=max_total_edges && end+1<chars.size()){
+     if(out.size()>=max_total_edges){
       if(resource_limit_exceeded)*resource_limit_exceeded=true;
       break;
      }
