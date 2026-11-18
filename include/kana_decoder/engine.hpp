@@ -96,6 +96,7 @@ public:
  bool append(const std::string& chunk,const LexiconTrie& lexicon,
    const MaskedNgramScorer& scorer,StreamingSnapshot& snapshot,
    const DecoderOptions& options={},const ConnectionModel* connections=nullptr);
+ bool commit_common_prefix(StreamingSnapshot& snapshot,std::string& committed_output);
  bool commit_best(StreamingSnapshot& snapshot,std::string& committed_output);
  void reset();
  const std::string& reading() const { return reading_; }
@@ -113,7 +114,7 @@ public:
  std::vector<DecodedPath> decode(std::size_t reading_length,
   const std::vector<LatticeEdge>& lattice,const MaskedNgramScorer& scorer,
   const std::vector<std::string>& right_context={},
-  const DecoderOptions& options={}) const;
+  const DecoderOptions& options={},const ConnectionModel* connections=nullptr) const;
 };
 std::string render_ambiguity(const std::vector<Candidate>&,bool);
 }
