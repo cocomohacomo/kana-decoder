@@ -277,3 +277,5 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Pack生成は全件で \`validate_sudachi_pack_inputs.py\` の段階で失敗し、Artifactはアップロードされていない。従来の \`run_json\` は subprocess の \`CalledProcessError\` をそのまま伝播し、検証器のstderrをログに表示できていなかったため、根本原因はまだ確定していない。
 - \`tools/build_sudachi_pack.py\` の \`run_json\` を修正し、サブコマンド失敗時に終了コード・stdout・stderrを表示するようにした。失敗診断を隠さないための回帰テストを追加。
 - 次回の手動Workflow実行で、検証失敗の具体的な行・列・寸法エラーを取得して修正する。成功Artifactがないため、辞書Packのサイズ、ロード時間、ピークRSS、変換精度は未測定。
+
+- Diagnostic regression-test CI: run \`44370723405\` completed successfully for commit \`477c1f17ff80608fdd0d2510ba2c8246c0d91e5e\`; CTest 12/12 PASS, Python unittest 35 discovered / 31 passed / 4 skipped, including the new captured-stderr test. Later documentation commits are still undergoing CI at report time.
