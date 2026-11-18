@@ -76,8 +76,9 @@ int main(){
  LexiconTrie rejected_lexicon;MaskedNgramScorer rejected_scorer;
  assert(!load_language_pack(manifest_tmp.string(),rejected_lexicon,rejected_scorer));
  std::filesystem::remove_all(manifest_tmp);
- ConnectionModel pack_connections;assert(load_language_pack(std::string(KANA_DECODER_SOURCE_DIR)+"/packs/ja-lite",pack_lexicon,pack_scorer,&pack_entries,&pack_connections));
+ ConnectionModel pack_connections;CorrectionOptions pack_corrections;assert(load_language_pack(std::string(KANA_DECODER_SOURCE_DIR)+"/packs/ja-lite",pack_lexicon,pack_scorer,&pack_entries,&pack_connections,&pack_corrections));
  assert(pack_connections.cost(1,1)==0&&pack_connections.cost(1,2)==20);
+ assert(pack_corrections.rules.size()==3&&pack_corrections.rules.front().rule_id=="ja-voicing-01");
  std::string malformed;malformed.push_back(static_cast<char>(0xf0));malformed.push_back(static_cast<char>(0x28));malformed.push_back(static_cast<char>(0x8c));malformed.push_back(static_cast<char>(0x28));
  assert(is_valid_utf8("こんにちは🙂")&&!is_valid_utf8(malformed));
  std::string overlong;overlong.push_back(static_cast<char>(0xc0));overlong.push_back(static_cast<char>(0xaf));assert(!pack_lexicon.add(overlong,{"bad","bad",0,0}));
