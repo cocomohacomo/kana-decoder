@@ -110,7 +110,7 @@ struct DecoderOptions {
  std::size_t max_paths=8;
  double context_weight=1.0;
  bool surge_left_context_gate=false;
- double surge_context_margin=0.5;;
+ double surge_context_margin=0.5;
  // Deterministic per-decode resource ceilings. Exceeding a ceiling rejects
  // the decode rather than returning a silently truncated/low-quality result.
  std::size_t max_input_codepoints=256;
