@@ -2,8 +2,9 @@ import pathlib,sys,unittest
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/"python"))
 from kana_decoder import KanaDecoder,DecodedPath
-PACK,LIB=sys.argv[1],sys.argv[2]
+PACK,LIB=(sys.argv[1],sys.argv[2]) if len(sys.argv)>2 else (None,None)
 sys.argv=sys.argv[:1]
+@unittest.skipUnless(PACK is not None and LIB is not None, "requires CTest-provided shared-library and Pack paths")
 class PythonApiTests(unittest.TestCase):
  def test_decode_nbest_and_streaming(self):
   with KanaDecoder(PACK,library_path=LIB) as decoder:
