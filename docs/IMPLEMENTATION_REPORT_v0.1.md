@@ -16,7 +16,7 @@
 | 6. 日本語Lite Pack | 語彙・n-gram・接続行列・補正規則・MIT manifest、SHA-256/ライセンス/容量検証 | 小規模fixture。実用語彙カバレッジ/接続精度の30 MiB Packではない |
 
 ## 2. API
-MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位を計算する。AmbiguityResultは候補順位・top score・margin・曖昧性判定を保持する。Ambiguousモードは低確信時に [雨/飴/other] を生成し、Conservativeモードは元かなを保持する。CorrectionEngineは原文を変更せず補正候補を別に生成し、補正コスト控除後の改善幅と最低スコアで自動採用可否を判定する。DependencyGraphは下流依存だけを無効化する。C APIはn-gram scorerを公開する。
+MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位を計算する。AmbiguityResultは候補順位・top score・margin・曖昧性判定を保持する。Ambiguousモードは低確信時に [雨/飴/other] を生成し、Conservativeモードは元かなを保持する。CorrectionEngineは原文を変更せず補正候補を別に生成し、補正コスト控除後の改善幅と最低スコアで自動採用可否を判定する。DependencyGraphは下流依存だけを無効化する。C APIはn-gram scorerに加え、Language Packロードとbest-path単発デコードを公開する。
 
 候補数は最大8件。左右文脈はそれぞれ最大2トークン。n-gramスコアは未校正の順位スコアであり確率として公開しない。
 
@@ -64,7 +64,7 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Beam幅、位置ごとのEdge数、Edgeあたり候補数、返却経路数に上限を設ける。無効な範囲・到達不能な読みは経路を生成しない。
 - デコード結果は上位N経路とトークン範囲、候補ID・表層、形態素スコア・文脈スコアを返す。
 - テスト追加: 後続トークンの文脈で先行同音異義語が選択されること、読み末尾まで到達しないラティスの拒否、Beam/出力件数上限。
-- 注意: これはラティス入力を受け取るデコーダAPIであり、辞書からのラティス自動生成、実用日本語形態素辞書、Viterbi互換の言語Pack接続、ストリーミングCommit制御との統合はまだ未完了。
+- 注意: この段階ではラティス入力APIのみだったが、後続のsection 8で辞書Trieによる自動生成とStreamingSessionに接続し、section 9で接続IDと部分Commitを追加した。実用日本語辞書・大規模接続行列は未完了。
 - 今回、GitHub Actionsワークフロー `.github/workflows/ci.yml` を追加。push / PRでCMakeビルド、CTest、Pack検証を実行する。2026-11-18のGitHub Actions run #4（commit `86583728e1d3de3750641aa7b044f7c0e213a6f0`）でConfigure / Build / CTest / Pack検証がすべて成功。初回CIで検出したfixture Manifestのサイズ・SHA-256不整合を修正し、再実行でPASSを確認した。
 
 
@@ -76,7 +76,7 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - `load_language_pack` はlexicon.tsvとngram.tsvを一時オブジェクトへ読み込み、両方成功した場合のみEngine側へ反映する。Manifest、SHA-256、ライセンス、サイズの検証はC++ローダーではなく既存のオフラインPython検証器で事前実行する必要がある。
 - `decode_reading` により読み文字列→Trieラティス→N-bestデコードを接続。
 - `StreamingSession` は入力チャンクごとに現在の読み全体を再デコードし、単調増加revision付きのprovisional snapshotを返す。最大読み長をcode point数で制限。
-- `commit_best` は呼び出し側が明示した時点で上位経路を文字列化してsegment commitする。自動commit、部分commit、右文脈待ち時間による確定は未実装。commit後は読みバッファを空にして次segmentを受け付ける。
+- `commit_best` は呼び出し側が明示した時点で上位経路を文字列化してsegment commitする。自動commit・右文脈待ち時間による確定は未実装。部分commitはsection 9の `commit_common_prefix` で追加。commit後は読みバッファを空にして次segmentを受け付ける。
 - テスト追加: Pack一括ロード、辞書Trie一致、Unicode code point span、未知かなfallback、文脈データ取込み、stream append/revision、上限拒否、明示commit。
 - 日本語fixtureは7語エントリのみ。実用辞書ではなく、辞書カバレッジ・実運用精度の評価には使用できない。
 
