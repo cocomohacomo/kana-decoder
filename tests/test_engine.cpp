@@ -53,6 +53,19 @@ int main(){
  const auto bad_conn_path=temp_root/"kana_decoder_bad_connections.tsv";
  {std::ofstream f(bad_conn_path);f<<"1x\t1\t0\n";}
  ConnectionModel bad_connections;assert(!bad_connections.load_tsv(bad_conn_path.string()));std::filesystem::remove(bad_conn_path);
+
+ const auto matrix_path=temp_root/"kana_decoder_matrix_dimensions.tsv";
+ {std::ofstream f(matrix_path);f<<"# matrix 3 4\n# right_id\tleft_id\tcost\n2\t1\t-20\n3\t2\t15\n";}
+ ConnectionModel dimensioned;assert(dimensioned.load_tsv(matrix_path.string()));
+ assert(dimensioned.left_size()==3&&dimensioned.right_size()==4&&dimensioned.nonzero_cells()==2);
+ assert(dimensioned.cost(2,1)==-20&&dimensioned.cost(3,2)==15&&dimensioned.cost(1,1)==0);
+ {std::ofstream f(matrix_path);f<<"# matrix 3 4\n2\t3\t1\n";}
+ assert(!dimensioned.load_tsv(matrix_path.string()));
+ {std::ofstream f(matrix_path);f<<"# matrix 3 4\n2\t1\t-20\n2\t1\t-10\n";}
+ assert(!dimensioned.load_tsv(matrix_path.string()));
+ dimensioned.set_cost(2,1,0);assert(dimensioned.cost(2,1)==0&&dimensioned.nonzero_cells()==1);
+ std::filesystem::remove(matrix_path);
+
  ConnectionModel cm;cm.set_cost(5,1,50);cm.set_cost(5,2,0);
  std::vector<LatticeEdge> pos_lattice{
   {0,1,{{"X","共通",10,0,0,5}}},
