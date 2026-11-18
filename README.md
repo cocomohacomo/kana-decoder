@@ -30,6 +30,7 @@
 - source lock: licenses/sudachidict-small-20260723-source-lock.json
 - source acquisition: python3 tools/fetch_sudachi_source.py --output-dir work/archives
 - Pack build: python3 tools/build_sudachi_pack.py --small-zip work/archives/small_lex.zip --matrix-zip work/archives/matrix.def.zip --work-dir work/build --output dist/ja-jp-sudachi-small
+- GitHub Actionsからの手動Pack生成: Actions → Build Sudachi Small Pack → Run workflow（生成Packは30日間Artifactとして保存）
 - V1 header matching is case-insensitive and ignores underscores.
 - train/dev/test leakage guard: tools/validate_corpus_splits.py
 - 詳細: docs/PACK_IMPORT_AND_EVALUATION.md
