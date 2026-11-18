@@ -31,6 +31,9 @@ target_link_libraries(kana_decoder_bench PRIVATE kana_decoder_core)
 
 add_executable(kana_decoder_eval tools/evaluate_corpus.cpp)
 target_link_libraries(kana_decoder_eval PRIVATE kana_decoder_core)
+
+add_executable(kana_decoder_sequential_eval tools/evaluate_sequential_corpus.cpp)
+target_link_libraries(kana_decoder_sequential_eval PRIVATE kana_decoder_core)
 add_test(NAME japanese_smoke_quality COMMAND kana_decoder_eval
   ${CMAKE_CURRENT_SOURCE_DIR}/packs/ja-lite
   ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/ja-smoke-gold.tsv)
@@ -50,6 +53,7 @@ if(Python3_Interpreter_FOUND)
  add_test(NAME ablation_evaluation_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_evaluate_ablation.py)
  add_test(NAME ud_gsd_corpus_adapter_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_prepare_ud_gsd_corpus.py)
  add_test(NAME context_corpus_ablation_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_evaluate_context_ablation.py)
+ add_test(NAME sequential_decoder_evaluator_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_evaluate_sequential_decoder.py $<TARGET_FILE:kana_decoder_sequential_eval> ${CMAKE_CURRENT_SOURCE_DIR}/packs/ja-lite)
 endif()
 
 add_executable(kana_decoder_trace_tests tests/test_decoder_trace.cpp)
