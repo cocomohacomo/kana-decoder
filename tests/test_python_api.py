@@ -22,7 +22,7 @@ class PythonApiTests(unittest.TestCase):
     committed=session.commit_best()
     self.assertIn(committed,("雨","飴","あめ"))
  def test_nbest_limit(self):
-  with KanaDecoder(sys.argv[1],library_path=sys.argv[2]) as decoder:
+  with KanaDecoder(PACK,library_path=LIB) as decoder:
    with self.assertRaises(ValueError):decoder.decode_nbest("あめ",9)
 if __name__=="__main__":
  unittest.main()
