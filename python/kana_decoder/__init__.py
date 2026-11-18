@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Tuple
 
-__version__ = "0.13.0"
+__version__ = "0.14.0"
 KD_C_API_VERSION = 1
 KD_ERR_INVALID_ARGUMENT = -1
 KD_ERR_BUFFER_TOO_SMALL = -2
