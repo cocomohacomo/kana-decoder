@@ -40,6 +40,11 @@ int main(){
  auto one_path=decoder.decode(2,lattice,lattice_scorer,{},bounded);
  assert(one_path.size()==1&&one_path[0].tokens[0].candidate.id=="A");
 
+
+ LexiconTrie pack_lexicon;MaskedNgramScorer pack_scorer;std::size_t pack_entries=0;
+ assert(load_language_pack(std::string(KANA_DECODER_SOURCE_DIR)+"/packs/ja-lite",pack_lexicon,pack_scorer,&pack_entries));
+ assert(pack_entries==7&&pack_lexicon.size()==7);
+ assert(pack_scorer.score("rain",{"あした"},{})>pack_scorer.score("candy",{"あした"},{}));
  // Trie-backed Pack loading, lattice generation and bounded streaming revisions.
  LexiconTrie trie;std::size_t loaded=0;
  const std::string pack_path=std::string(KANA_DECODER_SOURCE_DIR)+"/packs/ja-lite/lexicon.tsv";
@@ -59,5 +64,9 @@ int main(){
  assert(!session.append("がふる",trie,lattice_scorer,snapshot,dop));
  assert(session.reading()=="あめ"&&snapshot.revision==2);
  session.reset();assert(session.reading().empty());
+ assert(session.append("あめ",trie,lattice_scorer,snapshot,dop));
+ std::string committed;assert(session.commit_best(snapshot,committed));
+ assert(committed=="雨"&&!snapshot.provisional&&snapshot.revision==2);
+ assert(session.reading().empty());
  std::cout<<"all C++ tests passed\n";
 }
