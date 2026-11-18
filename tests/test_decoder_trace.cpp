@@ -66,6 +66,11 @@ int main() {
  auto too_long=decode_reading("あめ",lexicon,scorer,limited,nullptr,nullptr,nullptr,&exceeded);
  assert(too_long.empty()&&exceeded);
  limited=DecoderOptions{};
+ limited.max_input_codepoints=100000;
+ exceeded=false;
+ auto hard_cap=decode_reading(std::string(257,'あ'),lexicon,scorer,limited,nullptr,nullptr,nullptr,&exceeded);
+ assert(hard_cap.empty()&&exceeded);
+ limited=DecoderOptions{};
  limited.max_lattice_edges=1;
  exceeded=false;
  auto too_many_edges=decode_reading("あめ",lexicon,scorer,limited,nullptr,nullptr,nullptr,&exceeded);
