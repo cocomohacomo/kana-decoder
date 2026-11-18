@@ -129,7 +129,7 @@ class KanaDecoder:
         lib.kd_engine_load_pack.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
         lib.kd_engine_load_pack.restype = ctypes.c_int
         lib.kd_engine_decode.argtypes = [ctypes.c_void_p, ctypes.c_char_p,
-                                         ctypes.c_void_p, ctypes.c_size_t]
+                                         ctypes.POINTER(ctypes.c_char), ctypes.c_size_t]
         lib.kd_engine_decode.restype = ctypes.c_int
         lib.kd_engine_decode_nbest.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_size_t]
         lib.kd_engine_decode_nbest.restype = ctypes.c_void_p
@@ -149,13 +149,13 @@ class KanaDecoder:
         lib.kd_streaming_session_destroy.argtypes = [ctypes.c_void_p]
         lib.kd_streaming_session_destroy.restype = None
         lib.kd_streaming_append.argtypes = [ctypes.c_void_p, ctypes.c_char_p,
-                                            ctypes.c_void_p, ctypes.c_size_t,
+                                            ctypes.POINTER(ctypes.c_char), ctypes.c_size_t,
                                             ctypes.POINTER(ctypes.c_uint64)]
         lib.kd_streaming_append.restype = ctypes.c_int
-        lib.kd_streaming_commit_common_prefix.argtypes = [ctypes.c_void_p, ctypes.c_void_p,
+        lib.kd_streaming_commit_common_prefix.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_char),
                                                           ctypes.c_size_t, ctypes.POINTER(ctypes.c_uint64)]
         lib.kd_streaming_commit_common_prefix.restype = ctypes.c_int
-        lib.kd_streaming_commit_best.argtypes = [ctypes.c_void_p, ctypes.c_void_p,
+        lib.kd_streaming_commit_best.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_char),
                                                  ctypes.c_size_t, ctypes.POINTER(ctypes.c_uint64)]
         lib.kd_streaming_commit_best.restype = ctypes.c_int
         lib.kd_streaming_reset.argtypes = [ctypes.c_void_p]
