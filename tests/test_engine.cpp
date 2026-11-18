@@ -63,6 +63,8 @@ int main(){
  assert(!dimensioned.load_tsv(matrix_path.string()));
  {std::ofstream f(matrix_path);f<<"# matrix 3 4\n2\t1\t-20\n2\t1\t-10\n";}
  assert(!dimensioned.load_tsv(matrix_path.string()));
+ {std::ofstream f(matrix_path);f<<"# matrix 3 4\n2\t1\t0\n2\t1\t-10\n";}
+ assert(!dimensioned.load_tsv(matrix_path.string()));
  dimensioned.set_cost(2,1,0);assert(dimensioned.cost(2,1)==0&&dimensioned.nonzero_cells()==1);
  std::filesystem::remove(matrix_path);
 
