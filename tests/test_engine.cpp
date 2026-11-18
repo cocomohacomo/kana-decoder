@@ -88,6 +88,12 @@ int main(){
  assert(generated[0].candidates.size()==2);
  auto generated_paths=decode_reading("あめ",trie,lattice_scorer,dop);
  assert(!generated_paths.empty()&&generated_paths[0].tokens.size()==1);
+ CorrectionOptions integrated_correction;integrated_correction.minimum_improvement=1.0;integrated_correction.minimum_score=-1000000000.0;
+ auto corrected_decode=decode_with_corrections("あめめ",trie,lattice_scorer,integrated_correction,dop);
+ assert(corrected_decode.correction_applied&&corrected_decode.decoded_reading=="あめ");
+ assert(!corrected_decode.paths.empty()&&corrected_decode.paths.front().tokens.size()==1);
+ auto protected_decode=decode_with_corrections("12333",trie,lattice_scorer,integrated_correction,dop);
+ assert(!protected_decode.correction_applied&&protected_decode.decoded_reading=="12333");
  auto unknown=trie.build_lattice("ぴ",16,true);
  assert(unknown.size()==1&&unknown[0].candidates[0].surface=="ぴ");
  StreamingSession session(4);StreamingSnapshot snapshot;
