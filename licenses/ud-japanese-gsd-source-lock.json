@@ -1,0 +1,14 @@
+{
+  "dataset": "UD_Japanese-GSD",
+  "repository": "https://github.com/UniversalDependencies/UD_Japanese-GSD",
+  "commit": "c662dc96ed5ee5ac0fc8b5e44261557e431f50e6",
+  "license": "CC-BY-SA-4.0",
+  "license_url": "https://creativecommons.org/licenses/by-sa/4.0/legalcode",
+  "files": [
+    "ja_gsd-ud-train.conllu",
+    "ja_gsd-ud-dev.conllu",
+    "ja_gsd-ud-test.conllu",
+    "LICENSE.txt"
+  ],
+  "policy": "Fetched only in CI; no corpus, derived model, or trained Pack is committed or uploaded."
+}
