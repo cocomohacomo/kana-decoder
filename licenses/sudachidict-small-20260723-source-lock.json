@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "dictionary": "SudachiDict Small",
+  "release": "20260723",
+  "format": "V1",
+  "sources": [
+    {
+      "id": "sudachi-small-lex",
+      "url": "https://sudachi.s3.ap-northeast-1.amazonaws.com/sudachidict-raw/20260723/small_lex.zip",
+      "sha256": "b578ac9545899783d5d7e30d5d78d5d9dcf40b36965d4af0663ec2eb041c1093",
+      "member": "small_lex.csv",
+      "license_components": ["Apache-2.0", "BSD-3-Clause"]
+    },
+    {
+      "id": "unidic-2.1.2-matrix",
+      "url": "https://d2ej7fkh96fzlu.cloudfront.net/sudachidict-raw/matrix.def.zip",
+      "sha256": "3ccaed582481b31be170c7200cf1cb2856f2d14c2fa601b3692d97dbad5a3bd1",
+      "member": "matrix.def",
+      "license_components": ["BSD-3-Clause"]
+    }
+  ],
+  "verification_status": "published-upstream-mirror-checksum-pinned-not-downloaded-in-this-repository",
+  "notes": [
+    "Checksums are published by the Lindera SudachiDict raw lexicon mirror; verify against the downloaded official artifact before release.",
+    "The raw small lexicon archive is not committed to this repository.",
+    "The matrix archive is independently pinned because its contents are UniDic 2.1.2 connection costs."
+  ]
+}
