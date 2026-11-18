@@ -33,6 +33,7 @@ struct CaseResult {
     std::string predicted;
     std::size_t edit_distance = 0;
     bool decode_failure = false;
+    std::vector<kana_decoder::CandidateScoreTrace> trace;
 };
 
 bool split_tsv_row(const std::string& line, EvaluationCase& row) {
@@ -151,18 +152,41 @@ void print_case_result(const CaseResult& result) {
               << "\",\"predicted\":\"" << json_escape(result.predicted)
               << "\",\"domain\":\"" << json_escape(result.input.domain)
               << "\",\"edit_distance\":" << result.edit_distance
-              << ",\"decode_failure\":" << (result.decode_failure ? "true" : "false")
-              << "}";
+              << ",\"decode_failure\":" << (result.decode_failure ? "true" : "false");
+    if (!result.trace.empty()) {
+        std::cout << ",\"candidate_trace\":[";
+        for (std::size_t i = 0; i < result.trace.size(); ++i) {
+            if (i) std::cout << ',';
+            const auto& item = result.trace[i];
+            std::cout << "{\"start\":" << item.start
+                      << ",\"end\":" << item.end
+                      << ",\"candidate_id\":\"" << json_escape(item.candidate_id)
+                      << "\",\"surface\":\"" << json_escape(item.surface)
+                      << "\",\"word_cost\":" << item.word_cost
+                      << ",\"candidate_connection_cost\":" << item.candidate_connection_cost
+                      << ",\"transition_cost\":" << item.transition_cost
+                      << ",\"raw_context_score\":" << item.raw_context_score
+                      << ",\"context_weight\":" << item.context_weight
+                      << ",\"morphology_score\":" << item.morphology_score
+                      << ",\"weighted_context_score\":" << item.weighted_context_score
+                      << ",\"local_score\":" << item.local_score
+                      << ",\"unknown_fallback\":" << (item.unknown_fallback ? "true" : "false")
+                      << "}";
+        }
+        std::cout << ']';
+    }
+    std::cout << "}";
 }
 
 bool evaluate_case(const EvaluationCase& input,
                    const kana_decoder::LexiconTrie& lexicon,
                    const kana_decoder::MaskedNgramScorer& scorer,
                    const kana_decoder::ConnectionModel& connections,
-                   CaseResult& result) {
+                   CaseResult& result, bool include_trace) {
     result.input = input;
     const auto paths = kana_decoder::decode_reading(
-        input.reading, lexicon, scorer, {}, &connections);
+        input.reading, lexicon, scorer, {}, &connections,
+        include_trace ? &result.trace : nullptr);
 
     if (!paths.empty()) {
         for (const auto& token : paths.front().tokens) {
@@ -176,15 +200,22 @@ bool evaluate_case(const EvaluationCase& input,
 }
 
 int usage() {
-    std::cerr << "usage: kana_decoder_eval PACK_DIR CORPUS_TSV [--details]\n";
+    std::cerr << "usage: kana_decoder_eval PACK_DIR CORPUS_TSV [--details] [--trace]\n";
     return 2;
 }
 
 } // namespace
 
 int main(int argc, char** argv) {
-    const bool details = argc == 4 && std::string(argv[3]) == "--details";
-    if (argc < 3 || argc > 4 || (argc == 4 && !details)) return usage();
+    if (argc < 3 || argc > 5) return usage();
+    bool details = false;
+    bool trace = false;
+    for (int i = 3; i < argc; ++i) {
+        const std::string option(argv[i]);
+        if (option == "--details") details = true;
+        else if (option == "--trace") { trace = true; details = true; }
+        else return usage();
+    }
 
     kana_decoder::LexiconTrie lexicon;
     kana_decoder::MaskedNgramScorer scorer;
@@ -223,7 +254,7 @@ int main(int argc, char** argv) {
         }
 
         CaseResult result;
-        evaluate_case(input, lexicon, scorer, connections, result);
+        evaluate_case(input, lexicon, scorer, connections, result, trace);
         accumulate(overall, result);
         accumulate(by_domain[input.domain], result);
         if (details) case_results.push_back(std::move(result));
