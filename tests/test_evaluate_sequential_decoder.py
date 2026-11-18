@@ -6,12 +6,14 @@ import unittest
 from pathlib import Path
 
 
-EXECUTABLE = Path(sys.argv[1])
-PACK = Path(sys.argv[2])
+EXECUTABLE = Path(sys.argv[1]) if len(sys.argv) > 2 else None
+PACK = Path(sys.argv[2]) if len(sys.argv) > 2 else None
 
 
 class SequentialDecoderEvaluatorTests(unittest.TestCase):
     def test_runtime_uses_predicted_left_history_without_gold_boundaries(self):
+        if EXECUTABLE is None or PACK is None:
+            self.skipTest("requires CTest-provided executable and Pack paths")
         executable = EXECUTABLE
         pack = PACK
         with tempfile.TemporaryDirectory() as tmp:
