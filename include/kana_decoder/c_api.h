@@ -2,6 +2,7 @@
 #define KANA_DECODER_C_API_H
 #include <stddef.h>
 #include <stdint.h>
+#define KD_C_API_VERSION 1u
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -23,6 +24,7 @@ typedef struct kd_token_view {
 typedef struct kd_candidate_view { const char* id; const char* surface; } kd_candidate_view;
 enum { KD_OUTPUT_NORMAL=0,KD_OUTPUT_AMBIGUOUS=1,KD_OUTPUT_CONSERVATIVE=2,KD_OUTPUT_DIAGNOSTIC=3 };
 enum { KD_ERR_INVALID_ARGUMENT=-1,KD_ERR_BUFFER_TOO_SMALL=-2,KD_ERR_INTERNAL=-3 };
+uint32_t kd_c_api_version(void);
 kd_ngram_scorer* kd_ngram_scorer_create(void);
 kd_engine* kd_engine_create(void);
 void kd_engine_destroy(kd_engine*);
