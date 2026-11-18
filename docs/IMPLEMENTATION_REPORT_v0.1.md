@@ -404,7 +404,7 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - `DecoderOptions` に入力code point 256、lattice edge 4,096、保持candidate 32,768、形態素展開状態262,144、trace record 4,096の上限を追加。呼出側が上限値を大きく指定してもCore側で絶対上限へclampし、ガードレールを無効化できない。既存のbeam 8 / position edge 16 / edge candidate 8 / output path 8の上限と合わせ、デコード時の探索量・一時構造を決定的に制限する。
 - `LexiconTrie::build_lattice` は候補を全件コピーしてから切り詰める方式を廃止し、上位8候補のみをstable bounded insertionで保持。従来の同点順序を維持しつつedge/candidate総量を上限管理する。
 - `decode_reading` は入力・lattice上限を超えると空結果でfail-closed。MorphologyDecoderも展開上限に達すると処理を中断し、空結果とresource-limit flagを返す。途中までの不完全なbest pathを正常結果として返さない。
-- Sudachi実Pack評価プロセスにLinux RLIMIT_DATA 1,792 MiBを設定し、GNU timeのPeak RSSが同じ上限を超えた場合にCI失敗とするcheckerを追加。Pack常駐分を含む総プロセスRSSと、Coreのデコード作業量上限を分離して管理する。
+- Sudachi実Pack評価プロセスにLinux RLIMIT_DATA 3,072 MiBを設定し、GNU timeのPeak RSSは別途1,792 MiB以下とするcheckerを追加。初回にRLIMIT_DATAも1,792 MiBとしたところPack load中にstd::bad_allocとなったため、allocatorの仮想領域オーバーヘッドを考慮してデータ領域上限を3,072 MiBへ調整。RSS判定上限は1,792 MiBのまま維持。Pack常駐分を含む総プロセスRSSと、Coreのデコード作業量上限を分離して管理する。
 - `tools/evaluate_surge.py` を追加。読みspanごとの候補をClaim clusterとして集約し、異なる表層候補を同一spanの未解決Questionとして記録。候補スコア差が小さいQuestionへFocusを割り当てる。gold surfaceは候補coverageのオフライン評価にのみ使用し、予測選択や自動解決には使用しない。
 - 実Sudachi Packの既存trace（run 44381438082）を再解析: 4件中gold候補は4件すべて候補集合に存在（candidate coverage 4/4）する一方、top-1完全一致は1/4。raw context scoreは全件0で、Packに学習済みn-gram記録がないことと整合。簡易SURGEは曖昧候補を保持し質問化する点では有効だが、外部文脈・学習済み証拠なしに正解候補を決める能力は確認できない。
 - 注意: 1,792 MiBはGitHub Actionsでの実行上限であり、端末全般でのRSS保証ではない。ターゲットCPU/OS/Packごとの実測が必要。4件smoke corpusも一般精度を示すものではない。
