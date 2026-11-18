@@ -1,6 +1,7 @@
 #include "kana_decoder/engine.hpp"
 #include <algorithm>
 #include <cmath>
+#include <fstream>
 #include <set>
 #include <sstream>
 #include <unordered_map>
