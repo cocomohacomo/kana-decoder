@@ -229,9 +229,9 @@ int main(int argc, char** argv) {
               << ",\"future_context_used\":false"
               << ",\"source_test_tokens\":" << source_tokens
               << ",\"sentences\":" << sentences.size()
-              << ",\"morphology_only\":";
+              << ",";
     print_metrics("morphology_only", morphology);
-    std::cout << ",\"trained_unigram_left_context\":";
+    std::cout << ",";
     print_metrics("trained_unigram_left_context", causal);
     std::cout << "}\n";
     return 0;
