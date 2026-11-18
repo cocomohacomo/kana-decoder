@@ -9,7 +9,10 @@ Training sequence TSV: one utterance per line, candidate IDs separated by tabs.
 import argparse
 import hashlib
 import json
+import re
 import shutil
+import subprocess
+import sys
 from collections import Counter
 from pathlib import Path
 
@@ -87,6 +90,53 @@ def train_ngrams(sequence_file, known_candidates):
         raise ValueError("trained n-gram count exceeds uint32 pack format")
     return counts
 
+def copy_license_profile(profile_path, out, payload_names):
+    profile_path = profile_path.resolve()
+    profile = json.loads(profile_path.read_text(encoding="utf-8"))
+    if not isinstance(profile, dict) or profile.get("schema_version") != 1:
+        raise ValueError("license profile schema_version must be 1")
+    components = profile.get("components")
+    if not isinstance(components, list) or not components:
+        raise ValueError("license profile must contain components")
+    normalized = []
+    seen = set()
+    notice_dir = out / "THIRD_PARTY_LICENSES"
+    notice_dir.mkdir(parents=True, exist_ok=True)
+    for item in components:
+        if not isinstance(item, dict):
+            raise ValueError("license component must be an object")
+        ident = item.get("id")
+        if not isinstance(ident, str) or not re.fullmatch(r"[a-z0-9][a-z0-9._-]{1,63}", ident) or ident in seen:
+            raise ValueError("invalid or duplicate license component id")
+        seen.add(ident)
+        source_value = item.get("license_file")
+        if not isinstance(source_value, str) or not source_value:
+            raise ValueError(f"{ident}: license_file is required")
+        source = (profile_path.parent / source_value).resolve()
+        if profile_path.parent.resolve() not in source.parents or source.is_symlink() or not source.is_file():
+            raise ValueError(f"{ident}: license_file missing or outside profile directory")
+        notice_name = f"{ident}.txt"
+        notice_rel = f"THIRD_PARTY_LICENSES/{notice_name}"
+        shutil.copyfile(source, notice_dir / notice_name)
+        payload_names.append(notice_rel)
+        normalized.append({
+            "id": ident,
+            "version": item.get("version"),
+            "spdx": item.get("spdx"),
+            "commercial_use": item.get("commercial_use"),
+            "redistribution": item.get("redistribution"),
+            "modified_redistribution": item.get("modified_redistribution"),
+            "upstream_url": item.get("upstream_url"),
+            "notice_file": notice_rel,
+        })
+    output_profile = {"schema_version": 1, "components": normalized}
+    profile_out = out / "license-profile.json"
+    profile_out.write_text(json.dumps(output_profile, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+    payload_names.append("license-profile.json")
+    validator = Path(__file__).with_name("validate_license_profile.py")
+    subprocess.run([sys.executable, str(validator), str(out)], check=True, capture_output=True, text=True)
+    return normalized
+
 def write_pack(args):
     out = args.output.resolve()
     if out.exists() and any(out.iterdir()):
@@ -123,6 +173,9 @@ def write_pack(args):
         raise ValueError("license file does not exist")
     shutil.copyfile(license_source, out / "LICENSE")
     payload_names.append("LICENSE")
+    license_components = []
+    if args.license_profile:
+        license_components = copy_license_profile(args.license_profile, out, payload_names)
 
     files = []
     for name in payload_names:
@@ -139,7 +192,7 @@ def write_pack(args):
         "reading_encoding_id": args.reading_encoding,
         "normalization_profile": args.normalization_profile,
         "orthography_profile": args.orthography_profile,
-        "license": {"spdx": args.license_spdx, "file": "LICENSE", "upstream": args.upstream},
+        "license": {"spdx": args.license_spdx, "file": "LICENSE", "upstream": args.upstream, "components": license_components, "profile_file": "license-profile.json" if license_components else None},
         "resource_limits": {"max_expanded_bytes": args.max_expanded_bytes, "max_candidates": 8, "max_edit_distance": 1},
         "files": files,
         "status": "imported-pack-requires-accuracy-validation",
@@ -152,6 +205,7 @@ def main():
     parser.add_argument("--lexicon", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--license-file", type=Path, required=True)
+    parser.add_argument("--license-profile", type=Path, help="JSON profile with exact third-party components and local license_file paths")
     parser.add_argument("--license-spdx", required=True)
     parser.add_argument("--upstream", required=True)
     parser.add_argument("--pack-id", required=True)
