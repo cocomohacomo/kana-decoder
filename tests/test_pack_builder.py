@@ -46,11 +46,11 @@ class PackBuilderTests(unittest.TestCase):
             profile = {
                 "schema_version": 1,
                 "components": [
-                    {"id": "sudachidict", "version": "v20261015", "spdx": "Apache-2.0",
+                    {"id": "sudachidict", "version": "v20261015", "source_sha256": "1" * 64, "spdx": "Apache-2.0",
                      "commercial_use": True, "redistribution": True, "modified_redistribution": True,
                      "upstream_url": "https://github.com/WorksApplications/SudachiDict",
                      "license_file": "notices/apache.txt"},
-                    {"id": "unidic-small", "version": "2011-2013", "spdx": "BSD-3-Clause",
+                    {"id": "unidic-small", "version": "2011-2013", "source_sha256": "2" * 64, "spdx": "BSD-3-Clause",
                      "commercial_use": True, "redistribution": True, "modified_redistribution": True,
                      "upstream_url": "https://clrd.ninjal.ac.jp/unidic/",
                      "license_file": "notices/unidic.txt"}
