@@ -354,3 +354,5 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
   - `ぴ` → `ぴ` / `日`（編集距離1）。未知語fallbackが発火せず、辞書側の候補が選ばれている可能性がある。候補生成と未知語優先順位の追加トレースが必要。
 - 集計は従来どおり4件中1件完全一致、CER 1.0。これは4件の診断用smoke corpusに限る結果であり、一般精度の推定値ではない。
 - 重要な判断: 現時点でconnection matrix全体の向きやimporter mappingの不具合と断定できる証拠はない。まず候補一覧・各候補のword cost / connection cost / transition cost / context scoreを可視化し、未知語fallbackの生成条件も追跡する。その後、学習データを用いた同音語選択の評価へ進む。
+
+- Refactor CI verification: run 44376327575 for commit 25ec03e2870d527d41f38c62a60d3cc65e38fd07 completed / success. CTest 13/13 PASS, including the new evaluator CLI contract test; build, bounded decode microbenchmark, reference Pack verification and Python Pack/license tests also passed. Subsequent documentation-only commits have their own CI runs in progress.
