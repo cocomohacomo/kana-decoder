@@ -14,8 +14,8 @@ class SourcePipelineTests(unittest.TestCase):
  def test_validator_accepts_v1_named_header_layout(self):
   with tempfile.TemporaryDirectory() as d:
    root=pathlib.Path(d);lex=root/"lex.csv";mat=root/"matrix.def"
-   lex.write_text("Index_Form,Left_Id,Right_Id,Cost,Headword,POS1,POS2,POS3,POS4,POS5,POS6,Reading_Form,Normalized_Form,Dictionary_Form,Mode,Split_A,Split_B,Word_Structure,Synonym_Groups,Split_C,User_Data,POS_Id,Reference_Id\\nあめ,1,2,-5,雨,名詞,普通名詞,一般,*,*,*,アメ,雨,雨,A,,,,,,,,\\n",encoding="utf-8")
-   mat.write_text("3 4\\n0 0 0\\n",encoding="utf-8")
+   lex.write_text("Index_Form,Left_Id,Right_Id,Cost,Headword,POS1,POS2,POS3,POS4,POS5,POS6,Reading_Form,Normalized_Form,Dictionary_Form,Mode,Split_A,Split_B,Word_Structure,Synonym_Groups,Split_C,User_Data,POS_Id,Reference_Id\nあめ,1,2,-5,雨,名詞,普通名詞,一般,*,*,*,アメ,雨,雨,A,,,,,,,,\n",encoding="utf-8")
+   mat.write_text("3 4\n0 0 0\n",encoding="utf-8")
    result=validate.validate(lex,mat)
    self.assertEqual(result["status"],"valid");self.assertEqual(result["lexicon_rows"],1)
 
