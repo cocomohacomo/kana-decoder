@@ -238,6 +238,6 @@ int main(int argc, char** argv) {
     print_metrics("morphology_only", morphology);
     print_metrics("trained_unigram_left_context", causal);
     print_metrics("surge_evidence_gated_left_context", surge);
-    std::cout << "}\\n";
+    std::cout << "}\n";
     return 0;
 }
