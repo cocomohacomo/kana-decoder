@@ -54,9 +54,12 @@ bool safe_path(const std::string& value){
 namespace kana_decoder {
 bool verify_pack_manifest(const std::string& directory,std::string* error){
  namespace fs=std::filesystem;
- const fs::path root=fs::canonical(fs::path(directory));
+ const fs::path requested_root(directory);
+ if(fs::is_symlink(fs::symlink_status(requested_root)))return fail(error,"Pack root must not be a symlink");
+ const fs::path root=fs::canonical(requested_root);
  const fs::path manifest_path=root/"manifest.json";
  if(fs::is_symlink(fs::symlink_status(manifest_path))||!fs::is_regular_file(manifest_path))return fail(error,"manifest missing or unsafe");
+ if(fs::file_size(manifest_path)>1024u*1024u)return fail(error,"manifest exceeds 1 MiB");
  std::ifstream mf(manifest_path,std::ios::binary);std::string json((std::istreambuf_iterator<char>(mf)),{});
  std::string value;
  if(!capture(json,std::regex(R"rx("core_abi_version"\s*:\s*"([^"]+)")rx"),value)||value!="0.1")return fail(error,"unsupported core ABI");
@@ -71,15 +74,16 @@ bool verify_pack_manifest(const std::string& directory,std::string* error){
  if(limit==0||limit>30u*1024u*1024u)return fail(error,"Pack resource limit exceeds runtime ceiling");
  std::string license_block;
  if(!capture(json,std::regex(R"("license"\s*:\s*\{([\s\S]*?)\})"),license_block))return fail(error,"license metadata missing");
- std::string license_file,spdx;
+ std::string license_file,spdx,upstream;
  if(!capture(license_block,std::regex(R"rx("file"\s*:\s*"([^"]+)")rx"),license_file)||
     !capture(license_block,std::regex(R"rx("spdx"\s*:\s*"([^"]+)")rx"),spdx)||spdx.empty()||!safe_path(license_file))
   return fail(error,"invalid license metadata");
  std::string files_block;
  if(!capture(json,std::regex(R"("files"\s*:\s*\[([\s\S]*?)\])"),files_block))return fail(error,"manifest files list missing");
  const std::regex entry_re(R"rx(\{\s*"path"\s*:\s*"([^"]+)"\s*,\s*"size"\s*:\s*([0-9]+)\s*,\s*"sha256"\s*:\s*"([0-9a-fA-F]{64})"\s*\})rx");
- std::set<std::string> listed;std::uint64_t total=0;bool has_lex=false,has_ngram=false,has_license=false;
+ std::set<std::string> listed;std::uint64_t total=0;std::size_t file_count=0;bool has_lex=false,has_ngram=false,has_license=false;
  for(std::sregex_iterator it(files_block.begin(),files_block.end(),entry_re),end;it!=end;++it){
+  if(++file_count>64)return fail(error,"too many Pack payload files");
   const std::string relative=(*it)[1].str(),hash=(*it)[3].str();
   if(!safe_path(relative)||!listed.insert(relative).second)return fail(error,"unsafe or duplicate Pack path");
   std::uint64_t expected=0;try{expected=std::stoull((*it)[2].str());}catch(...){return fail(error,"invalid file size");}
