@@ -35,6 +35,14 @@
 - 外部辞書はライセンス確認前のため含めていません。
 - 標準軽量Pack目標は展開後30 MiB以下。
 
+## Japanese dictionary adapters and correction-aware decoding
+- Sudachi 17-column CSV: `python3 tools/import_japanese_dictionary.py --input source.csv --format sudachi-csv --output normalized.tsv`
+- IPADIC-compatible 13-column CSV: `--format ipadic-csv`
+- Explicit header mapping for other exports, including audited UniDic conversions: `--format header-csv`
+- Import preserves source POS labels, word cost, and left/right connection IDs. Connection matrices are supplied separately as normalized `connections.tsv`.
+- Runtime correction integration: `decode_with_corrections` scores bounded typo hypotheses through the morphology decoder and applies only candidates meeting configured improvement thresholds. Digits, URL-like strings, and protected spans are not auto-corrected.
+- Evaluation TSV accepts an optional third domain column and reports overall plus per-domain Exact Match / CER.
+
 ## Language Pack import / quality evaluation
 - 仕様と入力形式: docs/PACK_IMPORT_AND_EVALUATION.md
 - 正規化辞書TSVとライセンスファイルからPack生成: `python3 tools/build_language_pack.py --help`
