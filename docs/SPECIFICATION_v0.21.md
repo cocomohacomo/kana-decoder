@@ -33,7 +33,7 @@
 
 - `tests/test_evaluator_cli.py` exercises both CLI modes, parses emitted JSON, verifies that detailed and aggregate metrics agree, checks CRLF normalization, and confirms malformed/empty corpora fail closed.
 - CTest registers this as `evaluator_cli_contract_tests`.
-- A successful CI run is required before this refactor is considered verified.
+- Verified: GitHub Actions run 44376327575 completed successfully; CTest 13/13 PASS, including `evaluator_cli_contract_tests`. Build, bounded decode microbenchmark, reference Pack verification and Python Pack/license checks also passed.
 
 ## 5. Remaining quality gates
 
