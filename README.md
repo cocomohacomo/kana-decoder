@@ -29,8 +29,8 @@
 
 ## Language Pack
 - 日本語Lite参照Pack: packs/ja-lite/manifest.json
-- C++ API `load_language_pack` はlexicon.tsv / ngram.tsv / optional connections.tsvを読み込む。辞書TSVは `kana, surface, lemma, pos, reading_group, candidate_id, word_cost, connection_cost, left_id, right_id`。
-- ロード前に `python3 tools/verify_pack.py packs/ja-lite` でManifest・checksum・サイズ・ライセンス・重複パス・宣言容量を検証する。C++ローダー自体のSHA-256 Manifest検証は未実装のため、C APIでも事前検証を必須とする。
+- C++ API `load_language_pack` はManifestをnative検証した後、lexicon.tsv / ngram.tsv / optional connections.tsv / correction_rules.tsvを一括ロードする。辞書TSVは最大12列: `kana, surface, lemma, pos, reading_group, candidate_id, word_cost, connection_cost, left_id, right_id, inflection_type, inflection_form`。5列/10列形式も後方互換。
+- 配布前は `python3 tools/verify_pack.py packs/ja-lite` で追加検証する。C++ローダーもSHA-256・サイズ・ABI・ライセンス・path・symlink・未登録ファイルを検証するが、現行native verifierはbuilderの限定Manifestスキーマに対応する。
 - 接続行列を含む自作の小規模fixtureであり、実用語彙カバレッジや統計的な品詞接続精度を持つ辞書ではありません。
 - 外部辞書はライセンス確認前のため含めていません。
 - 標準軽量Pack目標は展開後30 MiB以下。
@@ -39,7 +39,7 @@
 - Sudachi 17-column CSV: `python3 tools/import_japanese_dictionary.py --input source.csv --format sudachi-csv --output normalized.tsv`
 - IPADIC-compatible 13-column CSV: `--format ipadic-csv`
 - Explicit header mapping for other exports, including audited UniDic conversions: `--format header-csv`
-- Import preserves source POS labels, word cost, and left/right connection IDs. Connection matrices are supplied separately as normalized `connections.tsv`.
+- Import preserves source POS labels, inflection/conjugation type and form, word cost, and left/right connection IDs. Connection matrices are supplied separately as normalized `connections.tsv`.
 - Runtime correction integration: `decode_with_corrections` scores bounded typo hypotheses through the morphology decoder and applies only candidates meeting configured improvement thresholds. Digits, URL-like strings, and protected spans are not auto-corrected.
 - Native Pack loading verifies Manifest ABI/format, license metadata, payload SHA-256 and size, relative paths, symlinks and unlisted files before reading lexicon/ngram data. Optional correction_rules.tsv is loaded transactionally with a 256-rule ceiling. Runtime ceiling: 30 MiB expanded payload; Manifest file ceiling: 1 MiB; payload count ceiling: 64.
 - Evaluation TSV accepts an optional third domain column and reports overall plus per-domain Exact Match / CER.
