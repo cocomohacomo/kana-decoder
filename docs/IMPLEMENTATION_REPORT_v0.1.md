@@ -511,3 +511,11 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - 仕様: docs/SPECIFICATION_v0.32.md。
 
 - v0.32 code CI run `44415996245`（commit `c6b21bca5379b12d64f0f029cb2567705e714e5d`）: completed / success。Warning-as-error build、CTest 21/21 PASS、Python 63件（58 PASS / 5 SKIP）、bounded benchmark、Japanese reference Pack verificationがPASS。実Sudachi Packでの72構成dev校正とtest評価workflow run `44415786196` は現在実行中で、実測値は未確定。
+
+
+## 43. v0.32 SURGE校正入力の堅牢化
+
+- 校正ファイルの形式を厳密化し、3数値以外の末尾フィールドを拒否。
+- DecoderOptionsのcontext_weight / surge_context_marginについて有限値・非負条件を検証。不正値はfail-closed。
+- C++単体テストとPython統合テストを追加。精度向上は主張せず、数値入力の異常によるBeam順位破壊を防止する安全性変更として扱う。
+- CI検証結果: 実行待ち。
