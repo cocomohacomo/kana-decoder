@@ -199,7 +199,7 @@ def evaluate(sentences, by_reading, token_cluster, cluster_candidates,
             resolved = False
             if len(supported_order) >= 2:
                 gap = supported[supported_order[0]][0] - supported[supported_order[1]][0]
-                if gap >= margin:
+                if beta * gap >= margin:
                     chosen_surface = supported_order[0]
                     resolved = True
             if resolved:
@@ -210,7 +210,7 @@ def evaluate(sentences, by_reading, token_cluster, cluster_candidates,
                 totals["abstained"] += 1
             if chosen_surface == expected:
                 totals["cluster_correct"] += 1
-            selected = morph[chosen_surface][1] if chosen_surface in morph else supported[chosen_surface][1]
+            selected = (supported[chosen_surface][1] if resolved\n                        else morph[chosen_surface][1])
             history.append(selected["candidate_id"])
             if len(history) > 2:
                 history.pop(0)
