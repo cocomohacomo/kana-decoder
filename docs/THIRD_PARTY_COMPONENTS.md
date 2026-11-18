@@ -18,7 +18,7 @@ The upstream notice is preserved at [licenses/UPSTREAM_SUDACHIDICT_LEGAL.txt](..
 
 The upstream README identifies Small as containing UniDic vocabulary, while Core and Full add broader vocabulary. Its LEGAL file specifically identifies `small_lex.csv` and `matrix.def.zip` as UniDic-derived, and `core_lex.csv` / `notcore_lex.csv` as NEologd-derived.
 
-The repository does not currently redistribute the Sudachi dictionary archive or generated lexicon. A candidate release label is not a substitute for pinning the exact source artifact. Before importing, record the immutable release/tag, raw source archive URL, archive SHA-256, matrix checksum, complete license texts, and import mapping.
+The PyPI release page currently lists SudachiDict-small 20261015 with a 42.5 MB wheel. This is a package artifact size, not the final kana-decoder Pack size, but it is already above the project's 30 MiB lightweight-Pack target; the normalized Pack must be measured and may require a compact index, selective vocabulary, or an explicitly larger extension tier. See [the exact PyPI release](https://pypi.org/project/sudachidict-small/20261015/).\n\nThe repository does not currently redistribute the Sudachi dictionary archive or generated lexicon. A candidate release label is not a substitute for pinning the exact source artifact. Before importing, record the immutable release/tag, raw source archive URL, archive SHA-256, matrix checksum, complete license texts, and import mapping.
 
 ## Official references
 
