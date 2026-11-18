@@ -17,6 +17,7 @@ public:
  void add_left_ngram(const std::vector<std::string>&,const std::string&,std::uint32_t);
  void add_right_ngram(const std::string&,const std::vector<std::string>&,std::uint32_t);
  void add_unigram(const std::string&,std::uint32_t);
+ bool load_tsv(const std::string& path);
  double score(const std::string&,const std::vector<std::string>&,const std::vector<std::string>&) const;
  AmbiguityResult resolve(const std::vector<Candidate>&,const std::vector<std::string>&,const std::vector<std::string>&,
   OutputMode,double minimum_score=-8.0,double minimum_margin=1.25,bool include_other=true,const std::string& original_reading={}) const;
@@ -85,6 +86,7 @@ public:
  bool append(const std::string& chunk,const LexiconTrie& lexicon,
    const MaskedNgramScorer& scorer,StreamingSnapshot& snapshot,
    const DecoderOptions& options={});
+ bool commit_best(StreamingSnapshot& snapshot,std::string& committed_output);
  void reset();
  const std::string& reading() const { return reading_; }
 private:
@@ -92,6 +94,7 @@ private:
  std::uint64_t revision_=0;
  std::string reading_;
 };
+bool load_language_pack(const std::string& directory,LexiconTrie& lexicon,MaskedNgramScorer& scorer,std::size_t* loaded_entries=nullptr);
 std::vector<DecodedPath> decode_reading(const std::string& reading,
  const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,
  const DecoderOptions& options={});
