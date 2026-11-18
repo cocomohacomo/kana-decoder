@@ -1,5 +1,6 @@
 #include "kana_decoder/engine.hpp"
 #include <algorithm>
+#include <charconv>
 #include <cmath>
 #include <fstream>
 #include <limits>
@@ -23,6 +24,16 @@ std::vector<std::string> utf8_chars(const std::string&s){std::vector<std::string
 std::string join_utf8(const std::vector<std::string>&v){std::string o;for(const auto&c:v)o+=c;return o;}
 std::string pair_key(std::int32_t a,std::int32_t b){return std::to_string(a)+":"+std::to_string(b);}
 void sat_add(std::uint64_t& target,std::uint64_t value){target=std::numeric_limits<std::uint64_t>::max()-target<value?std::numeric_limits<std::uint64_t>::max():target+value;}
+bool parse_i32_strict(const std::string& text,std::int32_t& value,bool nonnegative=false){
+ if(text.empty())return false;
+ auto result=std::from_chars(text.data(),text.data()+text.size(),value);
+ return result.ec==std::errc{}&&result.ptr==text.data()+text.size()&&(!nonnegative||value>=0);
+}
+bool parse_u32_strict(const std::string& text,std::uint32_t& value){
+ if(text.empty())return false;
+ auto result=std::from_chars(text.data(),text.data()+text.size(),value);
+ return result.ec==std::errc{}&&result.ptr==text.data()+text.size();
+}
 std::size_t byte_offset_for_codepoints(const std::string&s,std::size_t count){auto chars=utf8_chars(s);if(count>chars.size())return std::string::npos;std::size_t n=0;for(std::size_t i=0;i<count;++i)n+=chars[i].size();return n;}
 }
 namespace kana_decoder {
@@ -40,7 +51,7 @@ bool ConnectionModel::load_tsv(const std::string& path){
  std::ifstream in(path);if(!in)return false;ConnectionModel parsed;std::string line;
  while(std::getline(in,line)){if(line.empty()||line[0]=='#')continue;std::stringstream ss(line);std::string a,b,v,extra;
   if(!std::getline(ss,a,'\t')||!std::getline(ss,b,'\t')||!std::getline(ss,v,'\t')||std::getline(ss,extra,'\t'))return false;
-  try{long x=std::stol(a),y=std::stol(b),z=std::stol(v);if(x<0||x>2147483647L||y<0||y>2147483647L||z<(-2147483647L-1)||z>2147483647L)return false;parsed.set_cost(static_cast<std::int32_t>(x),static_cast<std::int32_t>(y),static_cast<std::int32_t>(z));}catch(...){return false;}
+  std::int32_t x=0,y=0,z=0;if(!parse_i32_strict(a,x,true)||!parse_i32_strict(b,y,true)||!parse_i32_strict(v,z))return false;parsed.set_cost(x,y,z);
  }
  if(!in.eof())return false;*this=std::move(parsed);return true;
 }
@@ -54,7 +65,7 @@ bool MaskedNgramScorer::load_tsv(const std::string& path){
   std::vector<std::string> cols;std::stringstream ss(line);std::string field;
   while(std::getline(ss,field,'\t'))cols.push_back(field);
   if(cols.size()!=4)return false;
-  std::uint32_t count=0;try{auto n=std::stoul(cols[3]);if(n>std::numeric_limits<std::uint32_t>::max())return false;count=static_cast<std::uint32_t>(n);}catch(...){return false;}
+  std::uint32_t count=0;if(!parse_u32_strict(cols[3],count))return false;
   if(cols[0]=="L")parsed.add_left_bigram(cols[1],cols[2],count);
   else if(cols[0]=="R")parsed.add_right_bigram(cols[2],cols[1],count);
   else if(cols[0]=="U")parsed.add_unigram(cols[2],count);
@@ -110,7 +121,10 @@ bool LexiconTrie::load_tsv(const std::string& path,std::size_t* loaded){
   while(std::getline(ss,field,'\t'))cols.push_back(field);
   if(cols.size()<5||cols.size()>10)return false;
   LatticeCandidate candidate;candidate.id=cols.size()>5&&!cols[5].empty()?cols[5]:cols[4];candidate.surface=cols[1];
-  try{auto parse_i32=[](const std::string&v){long n=std::stol(v);if(n<(-2147483647L-1)||n>2147483647L)throw std::out_of_range("int32");return static_cast<std::int32_t>(n);};if(cols.size()>6&&!cols[6].empty())candidate.word_cost=parse_i32(cols[6]);if(cols.size()>7&&!cols[7].empty())candidate.connection_cost=parse_i32(cols[7]);if(cols.size()>8&&!cols[8].empty())candidate.left_id=parse_i32(cols[8]);if(cols.size()>9&&!cols[9].empty())candidate.right_id=parse_i32(cols[9]);}catch(...){return false;}
+  if(cols.size()>6&&!cols[6].empty()&&!parse_i32_strict(cols[6],candidate.word_cost))return false;
+  if(cols.size()>7&&!cols[7].empty()&&!parse_i32_strict(cols[7],candidate.connection_cost))return false;
+  if(cols.size()>8&&!cols[8].empty()&&!parse_i32_strict(cols[8],candidate.left_id,true))return false;
+  if(cols.size()>9&&!cols[9].empty()&&!parse_i32_strict(cols[9],candidate.right_id,true))return false;
   if(!parsed.add(cols[0],candidate))return false;++count;
  }
  if(!in.eof())return false;
