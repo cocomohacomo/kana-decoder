@@ -38,6 +38,22 @@ The adapter converts Katakana readings to Hiragana, skips rows without a usable 
 
 Then build and verify the Pack using the existing builder. The optional `--correction-rules` argument includes a five-column correction rule TSV; the native loader validates and loads at most 256 rules. The builder's SPDX and upstream fields are declarations only, not a license compliance check.
 
+### Current Sudachi V1 source import and connection matrix
+
+For the current Sudachi V1 release family, use the strict V1 importer rather than the legacy 17-column V0 adapter:
+
+    python3 tools/verify_sudachi_source.py --small-zip ./small_lex.zip --small-sha256 b578ac9545899783d5d7e30d5d78d5d9dcf40b36965d4af0663ec2eb041c1093 --matrix-zip ./matrix.def.zip --matrix-sha256 3ccaed582481b31be170c7200cf1cb2856f2d14c2fa601b3692d97dbad5a3bd1 --output ./work/sudachi-small
+
+    python3 tools/import_sudachi_v1.py lexicon --input ./work/sudachi-small/small_lex.csv --output ./work/normalized/lexicon.tsv
+
+    python3 tools/import_sudachi_v1.py matrix --input ./work/sudachi-small/matrix.def --output ./work/normalized/connections.tsv
+
+The immutable source lock is licenses/sudachidict-small-20260723-source-lock.json. It pins the 20260723 V1 small_lex.zip and the UniDic 2.1.2 matrix.def.zip. Published SHA-256 values are taken from the Lindera SudachiDict raw-source mirror. The repository does not contain these archives; the verification tool checks the bytes supplied locally before extraction. Confirm the downloaded bytes against the published lock and upstream release metadata before publishing a derived Pack.
+
+The V1 importer requires the official 18-column header (SURFACE through WORD_STRUCTURE) and maps READING_FORM, WRITING, POS1-6, DICTIONARY_FORM, conjugation type/form, and connection IDs. The matrix importer parses the first left_size right_size dimension line, validates every (right_id, left_id, cost) cell, rejects duplicates/out-of-range IDs, and emits sparse TSV by omitting zero-cost cells. The native ConnectionModel treats absent cells as zero. This reduces Pack size, but actual matrix size and runtime RSS must still be measured; the sparse unordered-map implementation is not yet a compact production matrix.
+
+The 20261015 release is V1 as well, but this initial lock deliberately uses the 20260723 raw-source artifact for which source ZIP hashes are published by the mirror. Do not substitute a newer version without refreshing both source hashes and the legal/source audit.
+
 ## Training sequence input
 One tokenized utterance per line. Candidate IDs are separated by TAB. Every ID must exist in the imported lexicon. The builder emits:
 - U: unigram counts
