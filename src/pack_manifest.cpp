@@ -57,10 +57,10 @@ bool verify_pack_manifest(const std::string& directory,std::string* error){
  if(fs::is_symlink(fs::symlink_status(manifest_path))||!fs::is_regular_file(manifest_path))return fail(error,"manifest missing or unsafe");
  std::ifstream mf(manifest_path,std::ios::binary);std::string json((std::istreambuf_iterator<char>(mf)),{});
  std::string value;
- if(!capture(json,std::regex(R"("core_abi_version"\s*:\s*"([^"]+)")"),value)||value!="0.1")return fail(error,"unsupported core ABI");
+ if(!capture(json,std::regex(R"rx("core_abi_version"\s*:\s*"([^"]+)")rx"),value)||value!="0.1")return fail(error,"unsupported core ABI");
  if(!capture(json,std::regex(R"("format_version"\s*:\s*([0-9]+))"),value)||value!="1")return fail(error,"unsupported Pack format");
  for(const char* key:{"pack_id","language_id","pack_version"}){
-  if(!capture(json,std::regex(std::string("\"")+key+R"("\s*:\s*"([^"]+)")"),value)||value.empty())return fail(error,"missing Pack identity field");
+  if(!capture(json,std::regex(std::string("\"")+key+R"rx("\s*:\s*"([^"]+)")rx"),value)||value.empty())return fail(error,"missing Pack identity field");
  }
  std::uint64_t limit=30u*1024u*1024u;
  if(capture(json,std::regex(R"("max_expanded_bytes"\s*:\s*([0-9]+))"),value)){
@@ -70,8 +70,8 @@ bool verify_pack_manifest(const std::string& directory,std::string* error){
  std::string license_block;
  if(!capture(json,std::regex(R"("license"\s*:\s*\{([\s\S]*?)\})"),license_block))return fail(error,"license metadata missing");
  std::string license_file,spdx;
- if(!capture(license_block,std::regex(R"("file"\s*:\s*"([^"]+)")"),license_file)||
-    !capture(license_block,std::regex(R"("spdx"\s*:\s*"([^"]+)")"),spdx)||spdx.empty()||!safe_path(license_file))
+ if(!capture(license_block,std::regex(R"rx("file"\s*:\s*"([^"]+)")rx"),license_file)||
+    !capture(license_block,std::regex(R"rx("spdx"\s*:\s*"([^"]+)")rx"),spdx)||spdx.empty()||!safe_path(license_file))
   return fail(error,"invalid license metadata");
  std::string files_block;
  if(!capture(json,std::regex(R"("files"\s*:\s*\[([\s\S]*?)\])"),files_block))return fail(error,"manifest files list missing");
