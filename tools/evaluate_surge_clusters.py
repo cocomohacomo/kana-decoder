@@ -210,7 +210,8 @@ def evaluate(sentences, by_reading, token_cluster, cluster_candidates,
                 totals["abstained"] += 1
             if chosen_surface == expected:
                 totals["cluster_correct"] += 1
-            selected = (supported[chosen_surface][1] if resolved\n                        else morph[chosen_surface][1])
+            selected = (supported[chosen_surface][1] if resolved
+                        else morph[chosen_surface][1])
             history.append(selected["candidate_id"])
             if len(history) > 2:
                 history.pop(0)
