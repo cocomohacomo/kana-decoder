@@ -26,8 +26,9 @@ def main():
  if a.max_expanded_bytes<=0:p.error("--max-expanded-bytes must be positive")
  for path in (a.small_zip,a.matrix_zip,a.lock,a.license_profile,a.license_file,a.upstream_legal_notice):
   if not path.is_file() or path.is_symlink():raise ValueError(f"required input missing or unsafe: {path}")
+ if a.work_dir.is_symlink():raise ValueError("work directory must not be a symlink")
+ if a.output.is_symlink():raise ValueError("Pack output must not be a symlink")
  work=a.work_dir.resolve();work.mkdir(parents=True,exist_ok=True)
- if work.is_symlink():raise ValueError("work directory must not be a symlink")
  source=work/"source";normalized=work/"normalized";source.mkdir(exist_ok=True);normalized.mkdir(exist_ok=True)
  verification=run_json([sys.executable,str(ROOT/"tools"/"verify_sudachi_source.py"),"--lock",str(a.lock.resolve()),"--small-zip",str(a.small_zip.resolve()),"--matrix-zip",str(a.matrix_zip.resolve()),"--output",str(source)])
  extracted_lex=Path(verification["small_lex_csv"]);matrix=Path(verification["matrix_def"])
