@@ -18,9 +18,9 @@ class SurgeProbeTests(unittest.TestCase):
                     "candidates": [{"surface": "アメ"}, {"surface": "雨"}, {"surface": "飴"}]}]}],
                 "candidate_trace": [
                     {"start": 0, "end": 2, "surface": "アメ", "local_score": 10.0,
-                     "morphology_score": 10.0, "raw_context_score": 0.0},
+                     "morphology_score": 10.0, "context_evidence_score": 0.0},
                     {"start": 0, "end": 2, "surface": "雨", "local_score": -90.0,
-                     "morphology_score": -90.0, "raw_context_score": 0.0}
+                     "morphology_score": -90.0, "context_evidence_score": 0.0}
                 ]
             }]
         }
@@ -38,9 +38,9 @@ class SurgeProbeTests(unittest.TestCase):
             "candidate_generation": [{"matches": [{"start": 0, "end": 2,
                 "candidates": [{"surface": "橋"}, {"surface": "箸"}]}]}],
             "candidate_trace": [
-                {"start": 0, "end": 2, "surface": "橋", "raw_context_score": -0.2,
+                {"start": 0, "end": 2, "surface": "橋", "context_evidence_score": -0.2,
                  "local_score": -500.0, "morphology_score": -500.0},
-                {"start": 0, "end": 2, "surface": "箸", "raw_context_score": -1.4,
+                {"start": 0, "end": 2, "surface": "箸", "context_evidence_score": -1.4,
                  "local_score": -100.0, "morphology_score": -100.0}
             ]
         }]}
