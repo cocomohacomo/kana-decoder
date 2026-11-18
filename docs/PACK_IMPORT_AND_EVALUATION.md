@@ -15,15 +15,17 @@ UTF-8 TSV, one candidate per row:
 8. candidate connection cost (optional signed int32)
 9. left connection class ID (optional non-negative int32)
 10. right connection class ID (optional non-negative int32)
+11. inflection / conjugation type (optional)
+12. inflection / conjugation form (optional)
 
 Five-column inputs are accepted. Optional fields are padded with defaults. Duplicate complete rows are removed and output is sorted deterministically. Reading and surface must be non-empty. A language-specific upstream importer must normalize the source dictionary's own schema into this contract; this generic tool does not parse arbitrary Sudachi/UniDic/MeCab database formats.
 
 ## Japanese source dictionary adapters
 
 `tools/import_japanese_dictionary.py` converts licensed CSV exports into the normalized TSV above:
-- `--format sudachi-csv`: strict 17-column Sudachi source CSV mapping. Uses reading_form, dictionary_form, POS1-4, source word cost, and left/right connection IDs.
+- `--format sudachi-csv`: strict 17-column Sudachi source CSV mapping. Uses reading_form, dictionary_form, POS1-4, conjugation type/form, source word cost, and left/right connection IDs.
 - `--format ipadic-csv`: strict 13-column IPADIC-compatible MeCab CSV mapping. Uses reading, base form, POS1-4, conjugation type/form, word cost, and connection IDs.
-- `--format header-csv`: named-column CSV requiring surface, reading, pos, word_cost, left_id, and right_id; optional lemma, candidate_id and reading_group.
+- `--format header-csv`: named-column CSV requiring surface, reading, pos, word_cost, left_id, and right_id; optional lemma, candidate_id, reading_group, inflection_type and inflection_form.
 
 Example:
 
@@ -34,7 +36,7 @@ Example:
 
 The adapter converts Katakana readings to Hiragana, skips rows without a usable reading (e.g. `*`), emits deterministic candidate IDs when none are supplied, and preserves connection class IDs and inflection metadata into decoded tokens. It does not import the source connection matrix; provide a compatible normalized `connections.tsv` separately. Sudachi/UniDic/IPADIC releases have differing schemas and licensing terms. Confirm the exact source version and export layout before import. UniDic distributions are not assumed to be IPADIC-compatible; use header-csv with an explicit, audited field mapping for a UniDic export. No third-party dictionary data is included in this repository.
 
-Then build and verify the Pack using the existing builder. The builder's SPDX and upstream fields are declarations only, not a license compliance check.
+Then build and verify the Pack using the existing builder. The optional `--correction-rules` argument includes a five-column correction rule TSV; the native loader validates and loads at most 256 rules. The builder's SPDX and upstream fields are declarations only, not a license compliance check.
 
 ## Training sequence input
 One tokenized utterance per line. Candidate IDs are separated by TAB. Every ID must exist in the imported lexicon. The builder emits:
@@ -65,7 +67,7 @@ Validate the resulting pack before use:
 
     python3 tools/verify_pack.py ./dist/ja-domain-pack
 
-The verifier rejects malformed manifests, absolute/traversal/Windows paths, symlinks, missing or unhashed license files, unlisted payload files, size/hash mismatches and resource-limit violations. The C++ runtime loader still does not independently validate manifest hashes, so verification remains a required preflight step.
+The Python verifier and C++ runtime loader both check ABI/format metadata, license provenance, relative paths, symlinks, unlisted payloads, file sizes and SHA-256 hashes before Pack use. The native verifier accepts the repository's current builder Manifest schema (not arbitrary JSON extensions), with 1 MiB manifest, 64-file and 30 MiB expanded-payload ceilings. Run the Python verifier as an additional preflight check.
 
 ## Evaluation corpus
 UTF-8 TSV with exactly two columns:
