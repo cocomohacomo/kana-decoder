@@ -16,6 +16,10 @@ on:
       - "src/engine.cpp"
       - "src/lexicon_trie.cpp"
       - "src/morphology_decoder.cpp"
+      - "tools/check_memory_budget.py"
+      - "tools/evaluate_surge.py"
+      - "tests/test_memory_budget.py"
+      - "tests/test_surge_probe.py"
   workflow_dispatch:
     inputs:
       max_expanded_gib:
@@ -73,14 +77,22 @@ jobs:
           subprocess.run(command, check=True)
           PY
 
-      - name: Build native runtime and evaluate real Pack
+      - name: Build native runtime and evaluate real Pack under memory ceiling
         run: |
-          set -o pipefail
+          set -euo pipefail
           cmake -S . -B "$RUNNER_TEMP/kana-runtime-build" -DCMAKE_BUILD_TYPE=Release
           cmake --build "$RUNNER_TEMP/kana-runtime-build" --target kana_decoder_eval --parallel 2
-          /usr/bin/time -v "$RUNNER_TEMP/kana-runtime-build/kana_decoder_eval" \
+          # RLIMIT_DATA bounds heap/data allocations; the post-run RSS check
+          # independently guards total resident memory including mapped pages.
+          ulimit -d $((1792 * 1024))
+          /usr/bin/time -v -o "$RUNNER_TEMP/sudachi-runtime-time.log" \
+            "$RUNNER_TEMP/kana-runtime-build/kana_decoder_eval" \
             "$RUNNER_TEMP/ja-jp-sudachi-small" tests/data/ja-smoke-gold.tsv --trace --lattice-trace \
-            2>&1 | tee "$RUNNER_TEMP/sudachi-runtime-evaluation.log"
+            > "$RUNNER_TEMP/sudachi-runtime-evaluation.json"
+          cat "$RUNNER_TEMP/sudachi-runtime-evaluation.json"
+          cat "$RUNNER_TEMP/sudachi-runtime-time.log"
+          python tools/check_memory_budget.py --log "$RUNNER_TEMP/sudachi-runtime-time.log" --max-rss-mib 1792
+          python tools/evaluate_surge.py "$RUNNER_TEMP/sudachi-runtime-evaluation.json"
 
       - name: Upload verified Pack artifact
         uses: actions/upload-artifact@v4
