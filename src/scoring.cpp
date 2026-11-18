@@ -111,6 +111,17 @@ double MaskedNgramScorer::contextual_score(const std::string&c,const std::vector
  }
  return result;
 }
+bool MaskedNgramScorer::has_left_context_evidence(
+ const std::string& candidate,const std::vector<std::string>& left) const {
+ if(candidate.empty()||left.empty())return false;
+ std::string context=context_key(left);
+ if(left_counts_.find(key(context,candidate))!=left_counts_.end())return true;
+ if(left.size()>1){
+  context=left.back();
+  return left_counts_.find(key(context,candidate))!=left_counts_.end();
+ }
+ return false;
+}
 double MaskedNgramScorer::score(const std::string&c,const std::vector<std::string>&l,const std::vector<std::string>&r)const{
  constexpr double alpha=.5;
  const double vocab=static_cast<double>(std::max<std::size_t>(1,unigram_counts_.size()));
