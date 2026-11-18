@@ -42,13 +42,37 @@ class SurgeClusterTests(unittest.TestCase):
         ]]
         metrics = evaluator.evaluate(
             sentences, candidates, {"id-weather": 0},
-            {0: {"id-rain": 10, "id-candy": 1}}, {0: 11},
+            {0: {("id-rain", 1): 10, ("id-candy", 1): 1}},
+            {(0, 1): 11},
             beta=1.0, margin=0.0)
         self.assertEqual(metrics["morphology_accuracy"], 0.5)
         self.assertEqual(metrics["cluster_gated_accuracy"], 1.0)
         self.assertEqual(metrics["resolved_tokens"], 1)
         self.assertEqual(metrics["resolution_precision"], 1.0)
 
+    def test_cluster_evidence_preserves_left_distance(self):
+        candidates = {
+            "ctx": [{"reading": "ctx", "surface": "Context",
+                     "candidate_id": "id-context", "word_cost": 0,
+                     "connection_cost": 0}],
+            "x": [
+                {"reading": "x", "surface": "X", "candidate_id": "id-x",
+                 "word_cost": 0, "connection_cost": 0},
+                {"reading": "x", "surface": "Y", "candidate_id": "id-y",
+                 "word_cost": 1, "connection_cost": 0},
+            ],
+        }
+        sentences = [[
+            ("ctx", "Context", candidates["ctx"][0]),
+            ("x", "X", {"candidate_id": "id-x"}),
+        ]]
+        # Evidence observed only at distance 2 must not resolve at distance 1.
+        metrics = evaluator.evaluate(
+            sentences, candidates, {"id-context": 0},
+            {0: {("id-x", 2): 9, ("id-y", 2): 1}},
+            {(0, 2): 10}, beta=1.0, margin=0.0)
+        self.assertEqual(metrics["resolved_tokens"], 0)
+        self.assertEqual(metrics["abstained_tokens"], 1)
 
 if __name__ == "__main__":
     unittest.main()
