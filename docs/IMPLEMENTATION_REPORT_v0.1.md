@@ -408,4 +408,4 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - `tools/evaluate_surge.py` を追加。読みspanごとの候補をClaim clusterとして集約し、異なる表層候補を同一spanの未解決Questionとして記録。候補スコア差が小さいQuestionへFocusを割り当てる。gold surfaceは候補coverageのオフライン評価にのみ使用し、予測選択や自動解決には使用しない。
 - 実Sudachi Packの既存trace（run 44381438082）を再解析: 4件中gold候補は4件すべて候補集合に存在（candidate coverage 4/4）する一方、top-1完全一致は1/4。raw context scoreは全件0で、Packに学習済みn-gram記録がないことと整合。簡易SURGEは曖昧候補を保持し質問化する点では有効だが、外部文脈・学習済み証拠なしに正解候補を決める能力は確認できない。
 - 注意: 1,792 MiBはGitHub Actionsでの実行上限であり、端末全般でのRSS保証ではない。ターゲットCPU/OS/Packごとの実測が必要。4件smoke corpusも一般精度を示すものではない。
-- 新規テスト: decoder resource ceilings / fail-closed / trace cap、SURGE question/focus/coverage、RSS log parser。CIでの最終PASS結果はrun完了後に追記する。
+- 新規テスト: decoder resource ceilings / fail-closed / trace cap、SURGE question/focus/coverage、RSS log parser。GitHub Actions run `44385030265`（main HEAD `80387892`）でwarning-as-error build成功、CTest 16/16 PASS、Python unittest 49件PASS。実Sudachi Packのメモリ上限・SURGE probe workflow run `44385008956` は実行中であり、実RSSとprobe集計は完了後に追記する。
