@@ -152,3 +152,9 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - `load_language_pack` はoptional CorrectionOptions出力を受け、Lexicon・N-gram・Connection Matrix・Correction Rulesを一時オブジェクトにロードしてから一括反映する。
 - C++テストは12列normalized TSVから読み込んだPOS/活用属性がDecodedTokenまで保持されること、Packから3件のCorrection Ruleが読み込まれることを確認する。
 - 最新のテスト実行はGitHub Actions run `44347934698` で6/6 PASS（形態素属性追加前）。12列辞書の最終変更後のActions run `44348011281` とREADME更新後の `44348037203` は確認中。
+
+
+## 16. 最終main更新確認
+- READMEとv0.7仕様書の説明整合後、GitHub Actions run `44348679722`（commit `0187a5da9d206a9ea52b2179c98596234f7c9599`）もcompleted / success。
+- CTest 6/6 PASS、Pack検証PASS。
+- このCI runの小規模ベンチマーク: n-gram resolve 3,776.49 ns/resolve、2-token/5-edge decoder 1,851.51 ns/decode。単一CI測定であり、性能保証や実用辞書評価ではない。
