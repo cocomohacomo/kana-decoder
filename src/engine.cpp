@@ -25,11 +25,24 @@ std::vector<std::string> utf8_chars(const std::string&s){std::vector<std::string
 }
 namespace kana_decoder {
 bool is_valid_utf8(const std::string& text){return valid_utf8_impl(text);}
-std::vector<DecodedPath> decode_reading(const std::string& reading,const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,const DecoderOptions& options,const ConnectionModel* connections,std::vector<CandidateScoreTrace>* trace,std::vector<LatticePositionTrace>* lattice_trace){
+std::vector<DecodedPath> decode_reading(const std::string& reading,const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,const DecoderOptions& options,const ConnectionModel* connections,std::vector<CandidateScoreTrace>* trace,std::vector<LatticePositionTrace>* lattice_trace,bool* resource_limit_exceeded){
+ if(resource_limit_exceeded)*resource_limit_exceeded=false;
  if (!valid_utf8_impl(reading)) return {};
  auto chars = utf8_chars(reading);
  if (chars.empty()) return {};
- auto lattice = lexicon.build_lattice(reading, 16, true, lattice_trace);
+ if(options.max_input_codepoints==0||chars.size()>options.max_input_codepoints||
+    options.max_lattice_edges==0||options.max_lattice_candidates==0||
+    options.max_expanded_states==0){
+  if(resource_limit_exceeded)*resource_limit_exceeded=true;
+  return {};
+ }
+ bool lattice_limit=false;
+ auto lattice = lexicon.build_lattice(reading, options.max_edges_per_position, true,
+  lattice_trace,options.max_lattice_edges,options.max_lattice_candidates,&lattice_limit);
+ if(lattice_limit){
+  if(resource_limit_exceeded)*resource_limit_exceeded=true;
+  return {};
+ }
  MorphologyDecoder decoder;
  return decoder.decode(chars.size(), lattice, scorer, {}, options, connections, trace,
   resource_limit_exceeded);
