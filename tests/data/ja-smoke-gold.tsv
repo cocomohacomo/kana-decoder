@@ -1,5 +1,5 @@
-# kana reading<TAB>expected_surface
-あめ	雨
-はし	橋
-きしゃ	汽車
-ぴ	ぴ
+# reading<TAB>expected_surface<TAB>domain
+あめ	雨	general
+はし	橋	general
+きしゃ	汽車	general
+ぴ	ぴ	unknown
