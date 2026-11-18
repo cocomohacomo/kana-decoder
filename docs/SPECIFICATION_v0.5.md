@@ -866,3 +866,53 @@ E3/E4で「駅」「停車」に関するEvidenceが追加される。交通Clus
 - Commit済み出力が通常更新で変化しない。
 - 句読点の挿入・撤回が文字列変換と独立した差分イベントとして扱える。
 - 同一入力・辞書世代・モデル世代・設定から同一結果を再現できる。
+
+
+## 21. 最終出力契約と多言語辞書モデル
+
+### 21.1 最終目的
+
+本ライブラリの最終アウトプットは、純かなテキストを入力として、対象言語の正書法・語彙・文法・文脈・表記規則に従い、漢字、ひらがな、カタカナ、ラテン文字等の文字体系、数字、記号、句読点を適切に組み合わせた正文を生成することである。出力は漢字かな交じり文に限定しない。言語パックが定義する文字体系・正書法に従い、必要な文字種を混在させた自然な文章を生成する。
+
+### 21.2 入力契約
+
+入力は純かなテキストを基本とし、漢字等の正書法表記を含まない読み表現として扱う。内部では入力文字列を保持しつつ、言語パックが定義する読み正規化形式へ変換する。「かな」は入力表現の契約であり、内部の言語モデル・辞書・形態素体系を日本語に固定する意味ではない。異なる言語を扱う場合は、その言語の読み表現をかな入力へ対応付けるInput Encoding Adapterを用意する。読み表現が一意に対応付けられない場合、Language Packまたは呼び出し側から言語・読み方式を明示する。
+
+### 21.3 出力文字種
+
+Rendererは漢字および言語固有の表意文字、ひらがな・カタカナ、ラテン文字等のアルファベット、数字（算用数字・漢数字・言語固有数字表記）、単位・通貨・数学・技術記号、句読点・括弧・引用符・区切り記号、空白・改行・段落境界、言語固有の約物・書字方向・禁則を扱う。どの文字種をいつ使用するかはLanguage PackのOrthography PolicyとFormatting Policyで決める。コアが日本語固有の漢字優先規則を全言語へ適用してはならない。
+
+### 21.4 言語パック換装モデル
+
+辞書モデルは言語ごとに独立したLanguage Packとして換装可能にする。Coreは特定辞書形式・品詞体系・接続行列・表記慣習へ直接依存しない。Language PackはInput Encoding Adapter / Reading Normalizer、Lexicon Provider / Trie Index、Morphological Schema / Token Attribute Mapper、Connection Model / Morphological Decoder Adapter、Lexical and Morphological Scorer、Semantic Feature Mapper / Language-specific Context Features、Orthographic Lexicon / Variant Policy、Number and Symbol Formatter、Punctuation and Boundary Model、Unicode Normalization / Script Policy、Pack Manifest / Version / License Metadataを提供する。
+
+### 21.5 言語非依存Coreと言語依存Packの境界
+
+CoreはStream Event管理、Branch / Main / Active / Archive、固定予算・固定容量制御、Candidate lifecycle / Revision / Commit、汎用Evidence・Question・Focus管理、汎用スコア合成インターフェース、差分出力・診断・C ABIを担当する。Language Packは読みの解釈・正規化、辞書検索・語彙候補、品詞体系・活用体系・接続制約、言語固有の形態素デコード、意味特徴の抽出規則、漢字・かな・アルファベット等の表記選択、数字・単位・記号・句読点の表記規則を担当する。Context Coreは言語固有特徴を直接解釈せず、Packが出力する共通Feature IDと型付き属性を受け取る。
+
+### 21.6 Language Pack識別と選択
+
+Manifestはlanguage_id、pack_id、pack_version、core_abi_version、dictionary_version、model_version、reading_encoding_id、normalization_profile、orthography_profile、license_manifest、resource_limitsを持つ。PackはEngine生成時またはSession生成時に明示選択する。初期仕様では自動言語判定を必須としない。明示指定がない場合はEngineのdefault packを使う。稼働中SessionのPackを暗黙に差し替えてはならない。変更する場合はSessionをDrainまたはResetし、辞書世代・モデル世代を更新する。
+
+### 21.7 正文化パイプラインへの統合
+
+既存10段階を維持し、言語依存処理をPack経由で呼び出す。Input Eventizationは共通Core、Reading Normalization・Lexical Candidate GenerationはPack、Morphological LatticeはPack Adapterと共通候補格納、Morphological DecodingはPack Decoder Adapter、Semantic / Context RecognitionはPack Feature Mapperと共通Context Core、Context-aware Re-rankingは共通スコア統合とPack Scorer、Orthographic SelectionはPack、Commit Controlは共通Core、Punctuation / FormattingはPack Rendererと共通差分出力が担当する。
+
+### 21.8 数字・記号・句読点の正文化
+
+数詞・助数詞・日付・時刻・金額・割合・単位・数式・略語は、読み・意味・文脈を持つ候補として扱う。数字・記号は単純な後処理置換に限定しない。桁区切り、小数点、符号、単位、通貨、日付順序などはLanguage PackとFormatting Policyに従う。数値の意味を変える正規化は禁止する。曖昧な数値読みはQuestionとして保持し、必要に応じ原読み表記を残す。句読点・括弧・引用符等は言語固有の配置・間隔・禁則に従う。明示入力と推定挿入のprovenanceを区別し、推定記号のみ未確定範囲で撤回可能とする。
+
+### 21.9 辞書・モデルのライセンスと配布
+
+Language Packごとに辞書・モデル・接続行列・文字定義・変換規則の由来とライセンスを個別管理する。Manifestにライセンス識別子、著作権表示、upstream、version、hash、再配布条件を記録する。CoreのMITライセンスと外部Language Packのライセンスは区別し、Packのライセンス条件がCore全体へ暗黙に波及する設計にしない。
+
+### 21.10 多言語受け入れ条件
+
+- Coreに日本語固有の品詞ID・接続ID・表記規則をハードコードしない。
+- Language Packを交換して別言語の辞書・形態素体系・正書法を利用できる。
+- 同一Core ABIで異なるLanguage Packをロード・検証できる。
+- Pack不一致・ABI不一致・辞書破損・ライセンス情報欠落を検出し、明示エラーにする。
+- 出力が漢字・かなだけに限定されず、Packの定義する文字種・数字・記号・句読点を扱える。
+- 数字・単位・記号の正規化で値や意味を変えない。
+- Pack変更時に既存Sessionの状態を暗黙に混在させない。
+- 言語・Pack・辞書・モデル世代を診断情報と再現性キーに含める。
