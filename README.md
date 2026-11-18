@@ -21,6 +21,7 @@
 
 ## 設計仕様
 
+- [仕様書 v0.5](docs/SPECIFICATION_v0.5.md)
 - [仕様書 v0.4](docs/SPECIFICATION_v0.4.md)
 - [仕様書 v0.3](docs/SPECIFICATION_v0.3.md)
 - [仕様書 v0.2](docs/SPECIFICATION_v0.2.md)
@@ -32,4 +33,4 @@ SudachiDictを第一候補としてライセンス監査を行い、UniDic等を
 
 ## 状態
 
-基本設計段階。辞書インポーター、ストリーミングContext Core、C APIの順に実装を進めます。
+基本設計段階。v0.5で認知ストリーミングパイプラインを詳細化。辞書インポーター、形態素デコーダ、Context Core、C APIの順に実装を進めます。
