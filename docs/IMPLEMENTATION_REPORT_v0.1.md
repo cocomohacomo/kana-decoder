@@ -301,3 +301,5 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - V1 small archiveの公開SHA-256として \`e49936daef64043657752eb9f4ada912cf0316e26dd158a6200c770e2f93e706\` を採用し、source lockとlicense profileのURL/hashをV1 endpointへ変更。fetcherのURL規約も \`/v1/{release}/\` に固定。
 - ImporterをV1ヘッダー形式に対応。Index_Form/Headwordをsurface/writingへ正規化し、V1の追加メタデータ列（Synonym_Groups、Split_C、User_Data、POS_Id、Reference_Id）を許容。V0 headerless CSVはV1 importerで誤読せず、明示的に拒否する。
 - 23列V1ヘッダーfixtureとheaderless V0拒否fixtureを追加。実アーカイブの新SHA-256照合と実データPack生成は、修正後Workflowで再確認するまで未成功扱い。
+
+- Added v0.17 regression gates for the official 23-column V1 named header, V0 headerless rejection, and exact pinned V1 source URL/hash. The Sudachi Pack workflow now also runs on pushes that change the pinned source lock, source importer/fetcher/validator, or this workflow definition, so the corrected source pipeline is retried from the new main commit without a manual dispatch.
