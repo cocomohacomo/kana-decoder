@@ -2,9 +2,11 @@ import pathlib,sys,unittest
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/"python"))
 from kana_decoder import KanaDecoder,DecodedPath
+PACK,LIB=sys.argv[1],sys.argv[2]
+sys.argv=sys.argv[:1]
 class PythonApiTests(unittest.TestCase):
  def test_decode_nbest_and_streaming(self):
-  with KanaDecoder(sys.argv[1],library_path=sys.argv[2]) as decoder:
+  with KanaDecoder(PACK,library_path=LIB) as decoder:
    result=decoder.decode("あめ")
    self.assertIn(result,("雨","飴","あめ"))
    paths=decoder.decode_nbest("あめ",8)
@@ -23,6 +25,4 @@ class PythonApiTests(unittest.TestCase):
   with KanaDecoder(sys.argv[1],library_path=sys.argv[2]) as decoder:
    with self.assertRaises(ValueError):decoder.decode_nbest("あめ",9)
 if __name__=="__main__":
- pack,library=sys.argv[1],sys.argv[2]
- sys.argv=sys.argv[:1]
  unittest.main()
