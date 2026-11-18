@@ -137,13 +137,13 @@ void evaluate(const std::vector<Sentence>& sentences,
               Metrics& metrics) {
     for (const auto& sentence : sentences) {
         ++metrics.cases;
-        metrics.gold_tokens += sentence.tokens.size();
         const auto reading_points = codepoints(sentence.reading);
         const auto expected_points = codepoints(sentence.expected);
         if (reading_points.size() > 256) {
             ++metrics.over_limit;
             continue;
         }
+        metrics.gold_tokens += sentence.tokens.size();
         const auto paths = kana_decoder::decode_reading(
             sentence.reading, lexicon, scorer, {}, &connections);
         std::string predicted;
