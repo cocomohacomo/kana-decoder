@@ -224,8 +224,8 @@ bool load_language_pack(const std::string& directory,LexiconTrie& lexicon,Masked
  lexicon=std::move(parsed_lexicon);scorer=std::move(parsed_scorer);if(connections)*connections=std::move(parsed_connections);
  if(corrections)*corrections=std::move(parsed_corrections);if(loaded)*loaded=count;return true;
 }
-std::vector<DecodedPath> decode_reading(const std::string& reading,const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,const DecoderOptions& options,const ConnectionModel* connections){
- if(!valid_utf8_impl(reading))return {};auto chars=utf8_chars(reading);if(chars.empty())return {};auto lattice=lexicon.build_lattice(reading,16,true);MorphologyDecoder decoder;return decoder.decode(chars.size(),lattice,scorer,{},options,connections);
+std::vector<DecodedPath> decode_reading(const std::string& reading,const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,const DecoderOptions& options,const ConnectionModel* connections,std::vector<CandidateScoreTrace>* trace){
+ if(!valid_utf8_impl(reading))return {};auto chars=utf8_chars(reading);if(chars.empty())return {};auto lattice=lexicon.build_lattice(reading,16,true);MorphologyDecoder decoder;return decoder.decode(chars.size(),lattice,scorer,{},options,connections,trace);
 }
 CorrectionDecodeResult decode_with_corrections(const std::string& reading,const LexiconTrie& lexicon,
  const MaskedNgramScorer& scorer,const CorrectionOptions& correction_options,
