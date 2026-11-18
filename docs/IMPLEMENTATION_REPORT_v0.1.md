@@ -496,3 +496,16 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Historical v0.30 full-path baseline: 2,414 sentences / 10,317 tokens; morphology-only exact 24.6479%, CER 48.6578%; unigram + predicted-left exact 24.8136%, CER 48.4772%; Peak RSS 1,425,568 KiB and elapsed 19.18 seconds on GitHub-hosted runner.
 - v0.31 CI and full Sudachi Pack evaluation are pending. No v0.31 accuracy or memory improvement is claimed until those measurements complete.
 - Specification: docs/SPECIFICATION_v0.31.md.
+
+
+## 45. dev-only SURGE校正とtest固定評価（v0.32）
+
+- v0.31の実Sudachi Pack評価では、native SURGE gateの既定margin 0.5が実コーパスで解決に至らず、SURGE-gated full-path結果はmorphology-onlyと同一だった。したがってgateの単体テストPASSだけでは実データ上の有効性を示さないことを確認した。
+- C++逐次評価器にsplit明示モードを追加。\`dev-calibrate\`はdev行のみ読み、\`test\`はtest行のみ読む。いずれもdecoderにはgold token境界を渡さず、gold tokenizationはdecode後のalignment計測にだけ使う。
+- dev校正はcontext weight 4水準（0.25/0.5/1.0/2.0）、evidence margin 6水準（0/0.01/0.05/0.1/0.25/0.5）、smoothing alpha 3水準（0.1/0.5/1.0）の計72構成を評価する。
+- 選択基準はCER最小、同値ならsentence exact accuracy最大、さらに同値ならexact token alignment最大。devでmorphology-onlyを上回るSURGE構成がなければcontext weight=0.0を出力し、既定alpha/marginへ戻す。devで悪化する設定をtestへ持ち込まない。
+- MaskedNgramScorerにset_smoothing_alpha / smoothing_alphaを追加。alphaは有限かつ0より大きく100以下のみ許可し、default 0.5は維持。unigramとcontextual scoreの加算平滑化へ同じalphaを適用する。既存Pack形式・C ABI・既定挙動は変更しない。
+- CIテストではalpha変更によるscore変化、0/非有限値の拒否、dev/test split分離、72構成の実行、校正TSVを使ったtest評価を検証する。
+- Sudachi Pack workflowはdev校正とtest評価を別プロセスで実行し、Peak RSSを個別に1,792 MiB以下で検査する。校正値・コーパス・派生ngramはCI workspace限定であり、ArtifactやPackへ含めない。
+- v0.32の精度結果はCI完了後に追記する。test結果を見て校正値を再調整しない。
+- 仕様: docs/SPECIFICATION_v0.32.md。
