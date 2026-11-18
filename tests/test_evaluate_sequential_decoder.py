@@ -60,6 +60,18 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
                 result["morphology_only"]["cases"])
             self.assertIn("cer", result["surge_evidence_gated_left_context"])
 
+            # Calibration artifacts are strict three-number records. Reject trailing
+            # fields and non-finite values rather than silently accepting corruption.
+            for payload in ("1.0\\t0.5\\t0.5\\textra\\n",
+                            "nan\\t0.5\\t0.5\\n"):
+                malformed = root / "malformed-calibration.tsv"
+                malformed.write_text(payload, encoding="utf-8")
+                rejected = subprocess.run(
+                    [str(executable), str(pack), str(train), str(corpus),
+                     "test", str(malformed)],
+                    capture_output=True, text=True)
+                self.assertNotEqual(rejected.returncode, 0)
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])
