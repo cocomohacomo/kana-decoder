@@ -169,7 +169,7 @@ void evaluate(const std::vector<Sentence>& sentences,
     }
 }
 
-void print_metrics(const char* name, const Metrics& m) {
+void print_metrics(const Metrics& m) {
     const auto scored = m.cases - m.over_limit;
     const double exact = scored ? static_cast<double>(m.exact) / scored : 0.0;
     const double cer = m.reference_codepoints
@@ -178,7 +178,7 @@ void print_metrics(const char* name, const Metrics& m) {
         ? static_cast<double>(m.aligned_tokens) / m.predicted_tokens : 0.0;
     const double recall = m.gold_tokens
         ? static_cast<double>(m.aligned_tokens) / m.gold_tokens : 0.0;
-    std::cout << "\"" << name << "\":{"
+    std::cout << "{"
         << "\"cases\":" << m.cases
         << ",\"scored_cases\":" << scored
         << ",\"exact_matches\":" << m.exact
@@ -231,9 +231,9 @@ int main(int argc, char** argv) {
               << ",\"source_test_tokens\":" << source_tokens
               << ",\"sentences\":" << sentences.size()
               << ",";
-    print_metrics("morphology_only", morphology);
+    print_metrics(morphology);
     std::cout << ",";
-    print_metrics("trained_unigram_left_context", causal);
+    print_metrics(causal);
     std::cout << "}\n";
     return 0;
 }
