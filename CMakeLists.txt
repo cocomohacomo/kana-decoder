@@ -48,6 +48,8 @@ if(Python3_Interpreter_FOUND)
  add_test(NAME memory_budget_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_memory_budget.py)
  add_test(NAME context_corpus_preparation_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_prepare_context_corpus.py)
  add_test(NAME ablation_evaluation_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_evaluate_ablation.py)
+ add_test(NAME ud_gsd_corpus_adapter_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_prepare_ud_gsd_corpus.py)
+ add_test(NAME context_corpus_ablation_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_evaluate_context_ablation.py)
 endif()
 
 add_executable(kana_decoder_trace_tests tests/test_decoder_trace.cpp)
