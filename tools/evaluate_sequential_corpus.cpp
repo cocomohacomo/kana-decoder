@@ -179,21 +179,21 @@ void print_metrics(const char* name, const Metrics& m) {
         ? static_cast<double>(m.aligned_tokens) / m.predicted_tokens : 0.0;
     const double recall = m.gold_tokens
         ? static_cast<double>(m.aligned_tokens) / m.gold_tokens : 0.0;
-    std::cout << ",\\""<< name << "\\":{"
-        << "\\"cases\\":" << m.cases
-        << ",\\"scored_cases\\":" << scored
-        << ",\\"exact_matches\\":" << m.exact
-        << ",\\"exact_accuracy\\":" << exact
-        << ",\\"edit_distance\\":" << m.edit_distance
-        << ",\\"reference_codepoints\\":" << m.reference_codepoints
-        << ",\\"cer\\":" << cer
-        << ",\\"decode_failures\\":" << m.decode_failures
-        << ",\\"over_limit_sentences\\":" << m.over_limit
-        << ",\\"gold_tokens\\":" << m.gold_tokens
-        << ",\\"predicted_tokens\\":" << m.predicted_tokens
-        << ",\\"exact_token_alignment\\":" << m.aligned_tokens
-        << ",\\"token_alignment_precision\\":" << precision
-        << ",\\"token_alignment_recall\\":" << recall << "}";
+    std::cout << ",\""<< name << "\":{"
+        << "\"cases\":" << m.cases
+        << ",\"scored_cases\":" << scored
+        << ",\"exact_matches\":" << m.exact
+        << ",\"exact_accuracy\":" << exact
+        << ",\"edit_distance\":" << m.edit_distance
+        << ",\"reference_codepoints\":" << m.reference_codepoints
+        << ",\"cer\":" << cer
+        << ",\"decode_failures\":" << m.decode_failures
+        << ",\"over_limit_sentences\":" << m.over_limit
+        << ",\"gold_tokens\":" << m.gold_tokens
+        << ",\"predicted_tokens\":" << m.predicted_tokens
+        << ",\"exact_token_alignment\":" << m.aligned_tokens
+        << ",\"token_alignment_precision\":" << precision
+        << ",\"token_alignment_recall\":" << recall << "}";
 }
 } // namespace
 
@@ -229,12 +229,12 @@ int main(int argc, char** argv) {
     surge_options.surge_left_context_gate = true;
     surge_options.surge_context_margin = 0.5;
     evaluate(sentences, lexicon, trained_scorer, connections, surge, surge_options);
-    std::cout << "{\\"mode\\":\\"end_to_end_sentence_reading_with_predicted_left_history\\""
-              << ",\\"gold_token_boundaries_used_for_decoding\\":false"
-              << ",\\"gold_token_boundaries_used_for_alignment_only\\":true"
-              << ",\\"future_context_used\\":false"
-              << ",\\"source_test_tokens\\":" << source_tokens
-              << ",\\"sentences\\":" << sentences.size();
+    std::cout << "{\"mode\":\"end_to_end_sentence_reading_with_predicted_left_history\""
+              << ",\"gold_token_boundaries_used_for_decoding\":false"
+              << ",\"gold_token_boundaries_used_for_alignment_only\":true"
+              << ",\"future_context_used\":false"
+              << ",\"source_test_tokens\":" << source_tokens
+              << ",\"sentences\":" << sentences.size();
     print_metrics("morphology_only", morphology);
     print_metrics("trained_unigram_left_context", causal);
     print_metrics("surge_evidence_gated_left_context", surge);
