@@ -17,7 +17,7 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  const std::size_t path_limit=std::min<std::size_t>(opt.max_paths,8);
  const std::size_t expansion_limit=std::min<std::size_t>(opt.max_expanded_states,262144);
  const std::size_t trace_limit=std::min<std::size_t>(opt.max_trace_records,4096);
- if(expansion_limit==0)return {};
+ if(expansion_limit==0){if(resource_limit_exceeded)*resource_limit_exceeded=true;return {};}
  std::size_t expanded_states=0;
  std::vector<std::vector<const LatticeEdge*>> at(length+1);
  for(const auto& edge:lattice){
@@ -58,12 +58,13 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     const double morph=-static_cast<double>(candidate.word_cost)-
                        static_cast<double>(candidate.connection_cost)-static_cast<double>(transition);
     const double raw_context=scorer.score(candidate.id,state.history,right_context);
+    const double context_evidence=scorer.contextual_score(candidate.id,state.history,right_context);
     const double ctx=raw_context*opt.context_weight;
     const double local=morph+ctx;
     if(trace && trace->size()<trace_limit) trace->push_back(CandidateScoreTrace{
       edge->start,edge->end,candidate.id,candidate.surface,
       candidate.word_cost,candidate.connection_cost,transition,
-      raw_context,opt.context_weight,morph,ctx,local,
+      raw_context,context_evidence,opt.context_weight,morph,ctx,local,
       candidate.id.rfind("kana:",0)==0});
     next.path.score+=local;
     next.path.tokens.push_back(DecodedToken{edge->start,edge->end,
