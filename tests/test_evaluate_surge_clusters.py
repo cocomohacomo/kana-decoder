@@ -72,7 +72,21 @@ class SurgeClusterTests(unittest.TestCase):
             {0: {("id-x", 2): 9, ("id-y", 2): 1}},
             {(0, 2): 10}, beta=1.0, margin=0.0)
         self.assertEqual(metrics["resolved_tokens"], 0)
-        self.assertEqual(metrics["abstained_tokens"], 2)
+        self.assertEqual(metrics["question_tokens"], 1)
+        self.assertEqual(metrics["abstained_tokens"], 1)
+
+    def test_single_surface_candidate_is_not_a_surge_question(self):
+        candidates = {
+            "only": [{"reading": "only", "surface": "Only",
+                      "candidate_id": "id-only", "word_cost": 0,
+                      "connection_cost": 0}]
+        }
+        sentences = [[("only", "Only", candidates["only"][0])]]
+        metrics = evaluator.evaluate(
+            sentences, candidates, {}, {}, {}, beta=1.0, margin=0.0)
+        self.assertEqual(metrics["question_tokens"], 0)
+        self.assertEqual(metrics["resolved_tokens"], 0)
+        self.assertEqual(metrics["abstained_tokens"], 0)
 
 if __name__ == "__main__":
     unittest.main()
