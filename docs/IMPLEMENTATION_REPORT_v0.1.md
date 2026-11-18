@@ -528,3 +528,5 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - devでbeta / marginを選択し、testで凍結評価する。クラスターモデルの学習にdev/testを使用しない。
 - この評価はSURGE Core統合前の実現可能性診断であり、gold token境界・読みを使うため完全なかな入力CERではない。
 - 実Sudachi Packの数値はCI完了後に追記する。
+
+- Code CI: run `44417936909` passed. Warning-as-error build and CTest 21/21 PASS; Python 65 tests (60 PASS / 5 SKIP). Full Sudachi Pack cluster evaluation run `44417936824` is still running; no corpus accuracy conclusion yet.
