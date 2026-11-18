@@ -117,7 +117,7 @@ public:
  explicit StreamingSession(std::size_t max_reading_codepoints=256);
  bool append(const std::string& chunk,const LexiconTrie& lexicon,
    const MaskedNgramScorer& scorer,StreamingSnapshot& snapshot,
-   const DecoderOptions& options={},const ConnectionModel* connections=nullptr);
+   const DecoderOptions& options={},const ConnectionModel* connections=nullptr,\n std::vector<CandidateScoreTrace>* trace=nullptr);
  bool commit_common_prefix(StreamingSnapshot& snapshot,std::string& committed_output);
  bool commit_best(StreamingSnapshot& snapshot,std::string& committed_output);
  void reset();
