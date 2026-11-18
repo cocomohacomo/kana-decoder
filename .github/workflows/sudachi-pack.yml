@@ -11,6 +11,8 @@ on:
       - "tools/import_sudachi_v1.py"
       - "tools/validate_sudachi_pack_inputs.py"
       - "tools/build_sudachi_pack.py"
+      - "tools/prepare_context_corpus.py"
+      - "tools/evaluate_ablation.py"
       - "tools/evaluate_corpus.cpp"
       - "include/kana_decoder/engine.hpp"
       - "src/engine.cpp"
@@ -22,6 +24,8 @@ on:
       - "tests/test_memory_budget.py"
       - "tests/test_surge_probe.py"
       - "tests/test_decoder_trace.cpp"
+      - "tests/test_prepare_context_corpus.py"
+      - "tests/test_evaluate_ablation.py"
   workflow_dispatch:
     inputs:
       max_expanded_gib:
@@ -47,7 +51,7 @@ jobs:
 
       - name: Validate size input
         env:
-          MAX_EXPANDED_GIB: ${{ inputs.max_expanded_gib || '8' }}
+          MAX_EXPANDED_GIB: \${{ inputs.max_expanded_gib || '8' }}
         run: |
           python - <<'PY'
           import os
@@ -63,7 +67,7 @@ jobs:
 
       - name: Build and verify Language Pack
         env:
-          MAX_EXPANDED_GIB: ${{ inputs.max_expanded_gib || '8' }}
+          MAX_EXPANDED_GIB: \${{ inputs.max_expanded_gib || '8' }}
         run: |
           python - <<'PY'
           import os, subprocess, sys
@@ -95,11 +99,12 @@ jobs:
           cat "$RUNNER_TEMP/sudachi-runtime-time.log"
           python tools/check_memory_budget.py --log "$RUNNER_TEMP/sudachi-runtime-time.log" --max-rss-mib 1792
           python tools/evaluate_surge.py "$RUNNER_TEMP/sudachi-runtime-evaluation.json"
+          python tools/evaluate_ablation.py "$RUNNER_TEMP/sudachi-runtime-evaluation.json"
 
       - name: Upload verified Pack artifact
         uses: actions/upload-artifact@v4
         with:
           name: kana-decoder-ja-jp-sudachi-small-20260723
-          path: ${{ runner.temp }}/ja-jp-sudachi-small/
+          path: \${{ runner.temp }}/ja-jp-sudachi-small/
           if-no-files-found: error
           retention-days: 30
