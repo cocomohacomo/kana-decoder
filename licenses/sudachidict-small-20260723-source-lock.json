@@ -9,20 +9,26 @@
       "url": "https://sudachi.s3.ap-northeast-1.amazonaws.com/sudachidict-raw/20260723/small_lex.zip",
       "sha256": "b578ac9545899783d5d7e30d5d78d5d9dcf40b36965d4af0663ec2eb041c1093",
       "member": "small_lex.csv",
-      "license_components": ["Apache-2.0", "BSD-3-Clause"]
+      "license_components": [
+        "Apache-2.0",
+        "BSD-3-Clause"
+      ]
     },
     {
       "id": "unidic-2.1.2-matrix",
       "url": "https://d2ej7fkh96fzlu.cloudfront.net/sudachidict-raw/matrix.def.zip",
       "sha256": "3ccaed582481b31be170c7200cf1cb2856f2d14c2fa601b3692d97dbad5a3bd1",
       "member": "matrix.def",
-      "license_components": ["BSD-3-Clause"]
+      "license_components": [
+        "Apache-2.0",
+        "BSD-3-Clause"
+      ]
     }
   ],
-  "verification_status": "published-upstream-mirror-checksum-pinned-not-downloaded-in-this-repository",
+  "verification_status": "published-upstream-checksum-pinned-not-downloaded-in-this-repository",
   "notes": [
-    "Checksums are published by the Lindera SudachiDict raw lexicon mirror; verify against the downloaded official artifact before release.",
-    "The raw small lexicon archive is not committed to this repository.",
-    "The matrix archive is independently pinned because its contents are UniDic 2.1.2 connection costs."
+    "The upstream SudachiDict LEGAL notice states that all distribution files are covered by Apache-2.0 and identifies small_lex.csv and matrix.def as UniDic-derived data subject to the UniDic BSD-3-Clause conditions.",
+    "The pinned SHA-256 values are independently published by the Lindera SudachiDict raw-source mirror; the official archive bytes still require local download and checksum verification.",
+    "Core and Full dictionaries are excluded from this Small-only profile because their additional NEologd-derived content requires separate provenance and license review."
   ]
 }
