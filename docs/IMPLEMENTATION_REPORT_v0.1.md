@@ -279,3 +279,14 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - 次回の手動Workflow実行で、検証失敗の具体的な行・列・寸法エラーを取得して修正する。成功Artifactがないため、辞書Packのサイズ、ロード時間、ピークRSS、変換精度は未測定。
 
 - Diagnostic regression-test CI: run \`44370723405\` completed successfully for commit \`477c1f17ff80608fdd0d2510ba2c8246c0d91e5e\`; CTest 12/12 PASS, Python unittest 35 discovered / 31 passed / 4 skipped, including the new captured-stderr test. Later documentation commits are still undergoing CI at report time.
+
+
+## 27. v0.16: 大規模辞書インポートのメモリ上限対策
+- 実データのCIログを再調査し、2026-11-18のSudachi Pack生成が辞書CSVヘッダー検査で停止していたことを特定。診断改善後のrun 44371482922で duplicate lexicon header after normalization が確認された。重複している実ヘッダー名そのものは、このrunのログには含まれていないため未確定。次回実行ではraw headerと正規化後の重複名を例外に含めて採取する。
+- validate_sudachi_pack_inputs.py のmatrix cellキー全件リスト・ソートを廃止し、一時SQLite DBのPRIMARY KEYで重複を検出する方式へ変更。ゼロコストセルも重複判定対象。
+- import_sudachi_v1.py の語彙全件list/set保持を廃止。SQLiteの一意制約で重複排除し、SQL ORDER BYで決定的な順序でTSVへストリーム出力する。
+- matrix importerも全セルキー・非ゼロ行のlist保持を廃止し、一時SQLiteへ逐次格納。重複検出後、packed cell key順で非ゼロ行のみをストリーム出力する。
+- SQLiteは一時ディレクトリ内に作成し、終了時に削除する。アプリケーション側の行配列保持をなくし、SQLite cacheを8MiBに制限。ディスク空き容量は入力規模に応じて必要。
+- 追加した境界テスト: 5,000行のvalidator入力、ゼロコスト重複、matrixの順序正規化・重複拒否、語彙の重複排除と決定的出力。
+- 初回CIではテストfixtureのmatrix座標を重複生成していたことと、テストが古い戻り値キーを参照していたことを検出。fixtureと診断を修正し、最新CIで再検証する。
+- 実Sudachiアーカイブは引き続きダウンロード・SHA-256照合に成功。Pack Artifactはまだ生成されていない。raw header診断を含む最新コードで手動Workflowを再実行し、実ヘッダー互換性を確定させる必要がある。
