@@ -142,3 +142,13 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Smoke corpus: 4件。domainラベル付きJSON集計を確認。小規模fixtureなので精度性能を示すものではない。
 - CI microbenchmark: n-gram resolve 5,422.39 ns/resolve、2-token/5-edge decoder 2,183.57 ns/decode。native verifier追加前の以前の測定値とは実行条件・ビルド内容が異なるため、直接の速度比較に使わない。
 - この時点で実用Sudachi/UniDic辞書の投入は未実施。辞書Adapterは形式変換機能であり、辞書ライセンス確認、connection matrixの取得/変換、領域別の実データ精度評価は引き続き必要。
+
+
+## 14. 日本語形態素属性の保持とPack correction rules
+- 正規化辞書を12列へ拡張。既存10列は後方互換を維持し、11列目にinflection/conjugation type、12列目にformを追加。
+- Sudachi CSVのconjugation type/form、IPADIC CSVのctype/cformを保持し、POS・活用情報をLatticeCandidateからDecodedTokenのCandidateまで伝搬する。
+- IPADIC adapterのbase form列を修正。IPADICの13列配置に従い、base formはindex 10、readingはindex 11、pronunciationはindex 12。
+- Pack builderに `--correction-rules` を追加。生成Manifestにcorrection_rules.tsvを含め、native loaderでUTF-8、種別、コスト、重複IDを検証。最大256ルール、from/to各256 bytes以下。
+- `load_language_pack` はoptional CorrectionOptions出力を受け、Lexicon・N-gram・Connection Matrix・Correction Rulesを一時オブジェクトにロードしてから一括反映する。
+- C++テストは12列normalized TSVから読み込んだPOS/活用属性がDecodedTokenまで保持されること、Packから3件のCorrection Ruleが読み込まれることを確認する。
+- 最新のテスト実行はGitHub Actions run `44347934698` で6/6 PASS（形態素属性追加前）。12列辞書の最終変更後のActions run `44348011281` とREADME更新後の `44348037203` は確認中。
