@@ -23,15 +23,31 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
             corpus = root / "test_tokens.tsv"
             corpus.write_text(
                 "document_id\tsentence_id\treading\tsurface\tdomain\tsplit\n"
-                "d1\ts1\tあめ\t雨\tnews-blog\ttest\n"
-                "d1\ts1\tはし\t箸\tnews-blog\ttest\n",
+                "d1\tdev1\t あめ\t雨\tnews-blog\tdev\n".replace("\t あめ", "\tあめ")
+                "d1\tdev1\tはし\t箸\tnews-blog\tdev\n"
+                "d2\ttest1\tあめ\t雨\tnews-blog\ttest\n"
+                "d2\ttest1\tはし\t箸\tnews-blog\ttest\n",
                 encoding="utf-8")
+            calibration = root / "surge-calibration.tsv"
+            dev = subprocess.run(
+                [str(executable), str(pack), str(train), str(corpus),
+                 "dev-calibrate", str(calibration)],
+                check=True, capture_output=True, text=True)
+            dev_result = json.loads(dev.stdout)
+            self.assertEqual(dev_result["split"], "dev")
+            self.assertFalse(dev_result["test_split_used_for_selection"])
+            self.assertEqual(dev_result["morphology_only"]["cases"], 1)
+            self.assertEqual(dev_result["configurations_evaluated"], 24)
+            self.assertTrue(calibration.is_file())
             completed = subprocess.run(
-                [str(executable), str(pack), str(train), str(corpus)],
+                [str(executable), str(pack), str(train), str(corpus),
+                 "test", str(calibration)],
                 check=True, capture_output=True, text=True)
             result = json.loads(completed.stdout)
             self.assertFalse(result["gold_token_boundaries_used_for_decoding"])
             self.assertFalse(result["future_context_used"])
+            self.assertEqual(result["split"], "test")
+            self.assertGreaterEqual(result["dev_selected_context_weight"], 0.0)
             self.assertEqual(result["source_test_tokens"], 2)
             self.assertEqual(result["morphology_only"]["exact_matches"], 0)
             self.assertEqual(result["trained_unigram_left_context"]["exact_matches"], 1)
