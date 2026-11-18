@@ -39,6 +39,32 @@ class BoundedImportTests(unittest.TestCase):
             self.assertEqual(result["matrix_rows"], 5000)
             self.assertIn("SQLite", result["validation_storage"])
 
+    def test_validator_allows_minus_one_composition_only_context_ids(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            lex, matrix = root / "lex.csv", root / "matrix.def"
+            lex.write_text("SURFACE,LEFT_ID,RIGHT_ID\\n語,1,2\\n構成,-1,2\\n", encoding="utf-8")
+            matrix.write_text("3 4\\n0 0 0\\n", encoding="utf-8")
+            result = validate.validate(lex, matrix)
+            self.assertEqual(result["lexicon_rows"], 2)
+            self.assertEqual(result["non_decodable_rows"], 1)
+
+    def test_importer_skips_composition_only_entries_with_minus_one_id(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            source, output = root / "lex.csv", root / "lex.tsv"
+            header = ["Index_Form","Left_Id","Right_Id","Cost","Headword","POS1","POS2","POS3","POS4","POS5","POS6","Reading_Form","Normalized_Form","Dictionary_Form","Mode","Split_A","Split_B","Word_Structure","Synonym_Groups","Split_C","User_Data","POS_Id","Reference_Id"]
+            rows = [
+                ["あめ","1","2","-5","雨","名詞","普通名詞","一般","*","*","*","アメ","雨","雨","A","","","","","","","",""],
+                ["構成","-1","2","0","構成","名詞","普通名詞","一般","*","*","*","コウセイ","","","A","","","","","","","",""],
+            ]
+            with source.open("w", encoding="utf-8", newline="") as stream:
+                writer = csv.writer(stream); writer.writerow(header); writer.writerows(rows)
+            result = importer.import_lexicon(source, output)
+            self.assertEqual(result["entries"], 1)
+            self.assertEqual(result["non_decodable_skipped"], 1)
+            self.assertEqual(len(output.read_text(encoding="utf-8").splitlines()), 2)
+
     def test_matrix_import_is_sorted_deduplicated_and_keeps_zero_only_for_validation(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
