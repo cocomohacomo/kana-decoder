@@ -444,3 +444,14 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - CIはcandidate-covered test token 1,000件未満を失敗とし、coverage / morphology accuracy / combined accuracy / SURGE resolution precision・recall / abstentionを出力する。コーパス本体・train sequences・derived modelはArtifactとしてアップロードしない。
 - C++/Pack CI run 44393631002（commit e734e3893757212598b63bf40a362777a6115d4c）: completed / success。Warning-as-error build、CTest 20/20、Python unittest 61件（57 PASS / 4 SKIP）、bounded decode benchmark、Japanese reference Pack verificationがPASS。
 - 実コーパス計測 workflow run 44393633264 は実行中。GSDの実データcoverageと3方式の測定値は完了後に追記し、現時点では精度向上を未主張。
+
+
+## 42. 逐次予測履歴を用いた文脈評価リファクタ（v0.30）
+
+- v0.29の実コーパスworkflow run `44394039136` がcompleted / success。UD Japanese-GSD test 10,317 token中、候補coverage 9,774（94.74%）。morphology-only Top-1 45.2936%、gold左右文脈を与えたcombinedは45.4164%（差+0.1228ポイント）。oracle SURGEは875件を解決、8,899件を棄却、解決適合率90.8571%、covered tokenに対する正解解決recall 8.1338%。この数値はgold左右neighborを使うoracle評価であり、逐次予測精度ではない。
+- この結果から、gold future contextを使わない逐次評価を追加。tools/evaluate_context_ablation.pyを責務分割し、辞書読込・train count集計・oracle評価・causal sequential評価を独立関数化。出力JSONも `oracle_ablation` と `causal_sequential` に分離し、評価境界を明示する。
+- Causal評価ではgold token境界・readingのみを入力アラインメントとして使用し、各policyが独立した予測candidate ID履歴を維持する。morphology-only、morphology+unigram+left context、SURGE context-evidence gateの3方式を比較。gold neighbor IDとfuture contextは参照しない。
+- SURGEは2つ以上の異なる候補surfaceに非ゼロの左文脈証拠があり、best-vs-second marginが閾値以上の場合のみ解決。その他はmorphology top-1へfallbackし、選択結果を当該policy自身の履歴へ追加する。別policyの予測履歴を共有しない。
+- 追加テスト: oracle/causal出力の分離、予測履歴での文脈改善、SURGE解決・fallback、証拠不足時の棄却、候補上限・candidate miss、非有限margin拒否。
+- 評価上の制約: gold token境界は維持するため、全文かな入力からの自動形態素分割やend-to-end CERの検証ではない。C++ runtimeのスコアリング/API/Pack schema/メモリ上限は変更しない。
+- 次の検証はcausal結果の実測と、C++ decoderの実際の逐次経路との一致確認。causal評価が悪化する場合、context weightを増やすのではなく、予測履歴誤りの伝播とSURGE fallback条件を先に分析する。
