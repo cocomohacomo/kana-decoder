@@ -86,6 +86,18 @@ struct CandidateScoreTrace {
  double raw_context_score=0.0,context_weight=1.0,morphology_score=0.0,weighted_context_score=0.0,local_score=0.0;
  bool unknown_fallback=false;
 };
+struct LatticeMatchTrace {
+ std::size_t start=0,end=0;
+ std::vector<LatticeCandidate> candidates;
+};
+struct LatticePositionTrace {
+ std::size_t start=0;
+ std::size_t dictionary_match_count=0;
+ bool fallback_enabled=false;
+ bool fallback_generated=false;
+ bool fallback_suppressed_by_dictionary=false;
+ std::vector<LatticeMatchTrace> dictionary_matches;
+};
 struct DecoderOptions {
  std::size_t beam_width=8;
  std::size_t max_edges_per_position=16;
@@ -99,7 +111,8 @@ public:
  bool add(const std::string& reading,const LatticeCandidate& candidate);
  bool load_tsv(const std::string& path,std::size_t* loaded=nullptr);
  std::vector<LatticeEdge> build_lattice(const std::string& reading,
-   std::size_t max_matches_per_start=16,bool kana_fallback=true) const;
+   std::size_t max_matches_per_start=16,bool kana_fallback=true,
+   std::vector<LatticePositionTrace>* trace=nullptr) const;
  std::size_t size() const { return entry_count_; }
 private:
  struct Node { std::unordered_map<std::string,std::size_t> next; std::vector<LatticeCandidate> values; };
@@ -131,7 +144,8 @@ bool load_language_pack(const std::string& directory,LexiconTrie& lexicon,Masked
 std::vector<DecodedPath> decode_reading(const std::string& reading,
  const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,
  const DecoderOptions& options={},const ConnectionModel* connections=nullptr,
- std::vector<CandidateScoreTrace>* trace=nullptr);
+ std::vector<CandidateScoreTrace>* trace=nullptr,
+ std::vector<LatticePositionTrace>* lattice_trace=nullptr);
 CorrectionDecodeResult decode_with_corrections(const std::string& reading,
  const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,
  const CorrectionOptions& correction_options={},const DecoderOptions& decoder_options={},
