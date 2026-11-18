@@ -36,6 +36,7 @@
 
 ## 仕様
 - Python API: docs/PYTHON_API.md
+- v0.14: docs/SPECIFICATION_v0.14.md
 - v0.13: docs/SPECIFICATION_v0.13.md
 - v0.12: docs/SPECIFICATION_v0.12.md
 - v0.11: docs/SPECIFICATION_v0.11.md
