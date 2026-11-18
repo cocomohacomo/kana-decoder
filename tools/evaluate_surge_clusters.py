@@ -212,9 +212,15 @@ def evaluate(sentences, by_reading, token_cluster, cluster_candidates,
                 if values:
                     cluster_scores[cid] = sum(values) / len(values)
                     evidence[cid] = support
+            # A SURGE Question exists only when morphology exposes at least
+            # two distinct surface alternatives. Single-surface tokens are not
+            # counted as unresolved questions or abstentions.
+            is_question = len(morph) >= 2
+            if is_question:
+                totals["questions"] += 1
             supported_order, supported = rank_by_surface(candidates, cluster_scores)
             resolved = False
-            if len(supported_order) >= 2:
+            if is_question and len(supported_order) >= 2:
                 gap = supported[supported_order[0]][0] - supported[supported_order[1]][0]
                 if beta * gap >= margin:
                     chosen_surface = supported_order[0]
@@ -223,7 +229,7 @@ def evaluate(sentences, by_reading, token_cluster, cluster_candidates,
                 totals["resolved"] += 1
                 if chosen_surface == expected:
                     totals["correct_resolutions"] += 1
-            else:
+            elif is_question:
                 totals["abstained"] += 1
             if chosen_surface == expected:
                 totals["cluster_correct"] += 1
@@ -239,6 +245,7 @@ def evaluate(sentences, by_reading, token_cluster, cluster_candidates,
         "candidate_misses": totals["candidate_misses"],
         "morphology_accuracy": totals["morph_correct"] / covered if covered else None,
         "cluster_gated_accuracy": totals["cluster_correct"] / covered if covered else None,
+        "question_tokens": totals["questions"],
         "resolved_tokens": resolved, "abstained_tokens": totals["abstained"],
         "resolution_precision": totals["correct_resolutions"] / resolved if resolved else None,
         "correct_resolution_recall": totals["correct_resolutions"] / covered if covered else None,
