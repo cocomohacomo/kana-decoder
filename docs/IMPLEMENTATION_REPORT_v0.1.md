@@ -199,3 +199,15 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - GitHub Actions run 44354197584 for commit 5ffd4a304345be9e38f8c54992662a86a8b784b2: completed / success. CTest 6/6 PASS; Python unittest 25/25 PASS; bounded decode microbenchmark PASS; Japanese reference Pack verification PASS.
 - No real Sudachi source archive has been acquired or verified as part of this milestone. The lock-driven verifier is tested with synthetic archives only. Production dictionary creation, upstream notice audit, connection matrix memory behavior, representative held-out quality, target hardware latency and peak RSS remain pending.
 - Size optimization is deferred until the full Japanese Pack and real workload are available. This policy does not waive runtime safety, checksum verification, offline operation or upstream license obligations.
+
+
+## 20. C ABI streaming sessions (v0.11)
+- Added opaque kd_streaming_session API: create/destroy, append, common-prefix commit, best-path commit and reset.
+- Each session owns a copy of the loaded engine's LexiconTrie, MaskedNgramScorer and ConnectionModel. Destroying or reloading the source engine does not invalidate an existing session.
+- Streaming append returns the best retained path as provisional UTF-8 text and exposes the monotonic session revision.
+- Append and commit operations stage state changes in a temporary session/snapshot copy. Output buffer insufficiency returns KD_ERR_BUFFER_TOO_SMALL without consuming input, committing tokens or writing the revision output.
+- Common-prefix commit delegates to the C++ retained-N-best equality check; if no common token prefix exists, it returns KD_ERR_INVALID_ARGUMENT without mutation. Best-path commit is an explicit caller choice.
+- C API integration tests cover chunked append, provisional output, best-path commit, empty-session commit rejection, buffer-too-small transaction behavior, common-prefix rejection under ambiguity, and session validity after destroying the source engine.
+- Added docs/SPECIFICATION_v0.11.md and docs/C_API.md.
+- GitHub Actions run 44354758942 for commit e84f4420abfa5e7e8a65ee62d15efe1f9491696a: completed / success. CTest 6/6 PASS; Python unittest 25/25 PASS; bounded decode microbenchmark PASS; Japanese reference Pack verification PASS.
+- Remaining C ABI work: structured N-best snapshots/token spans, a positive common-prefix C API fixture, Python ctypes integration, ABI compatibility tests, and target-hardware streaming latency/RSS measurement.
