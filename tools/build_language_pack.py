@@ -112,6 +112,12 @@ def write_pack(args):
             raise ValueError("connections file does not exist")
         shutil.copyfile(connection_source, out / "connections.tsv")
         payload_names.append("connections.tsv")
+    if args.correction_rules:
+        rules_source = args.correction_rules.resolve()
+        if not rules_source.is_file():
+            raise ValueError("correction rules file does not exist")
+        shutil.copyfile(rules_source, out / "correction_rules.tsv")
+        payload_names.append("correction_rules.tsv")
     license_source = args.license_file.resolve()
     if not license_source.is_file():
         raise ValueError("license file does not exist")
@@ -154,6 +160,7 @@ def main():
     parser.add_argument("--dictionary-version", default="imported")
     parser.add_argument("--sequences", type=Path)
     parser.add_argument("--connections", type=Path)
+    parser.add_argument("--correction-rules", type=Path)
     parser.add_argument("--reading-encoding", default="utf8")
     parser.add_argument("--normalization-profile", default="none-declared")
     parser.add_argument("--orthography-profile", default="language-default")
