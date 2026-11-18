@@ -112,8 +112,11 @@ def copy_license_profile(profile_path, out, payload_names):
         source_value = item.get("license_file")
         if not isinstance(source_value, str) or not source_value:
             raise ValueError(f"{ident}: license_file is required")
-        source = (profile_path.parent / source_value).resolve()
-        if profile_path.parent.resolve() not in source.parents or source.is_symlink() or not source.is_file():
+        source_input = profile_path.parent / source_value
+        if source_input.is_symlink():
+            raise ValueError(f"{ident}: symlink license_file is not permitted")
+        source = source_input.resolve()
+        if profile_path.parent.resolve() not in source.parents or not source.is_file():
             raise ValueError(f"{ident}: license_file missing or outside profile directory")
         notice_name = f"{ident}.txt"
         notice_rel = f"THIRD_PARTY_LICENSES/{notice_name}"
@@ -131,7 +134,7 @@ def copy_license_profile(profile_path, out, payload_names):
         })
     output_profile = {"schema_version": 1, "components": normalized}
     profile_out = out / "license-profile.json"
-    profile_out.write_text(json.dumps(output_profile, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+    profile_out.write_text(json.dumps(output_profile, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     payload_names.append("license-profile.json")
     validator = Path(__file__).with_name("validate_license_profile.py")
     subprocess.run([sys.executable, str(validator), str(out)], check=True, capture_output=True, text=True)
