@@ -52,4 +52,5 @@ class PackTests(unittest.TestCase):
    m["files"]=[item for item in m["files"] if item["path"]!="LICENSE"]
    (d/"manifest.json").write_text(json.dumps(m),encoding="utf-8")
    with self.assertRaisesRegex(ValueError,"license file"):module.verify_pack(d)
-\nif __name__=="__main__":unittest.main()
+
+if __name__=="__main__":unittest.main()
