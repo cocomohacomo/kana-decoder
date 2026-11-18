@@ -416,6 +416,6 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - 簡易SURGE probeは候補surfaceをClaim cluster、競合候補をQuestionとして扱う。Morphology/word costやunigram priorの差だけではQuestionを解決しない。少なくとも2候補に差別化された非ゼロの隣接文脈証拠があり、context score marginが既定0.5以上の場合のみ、probe上で解決扱いにする。gold labelはcoverage計測だけに使う。
 - 各候補表層のcontext evidenceは、同一候補のbest local-path observationに付随する値を保持し、異なるbeam履歴から別々に最大値を寄せ集めて比較しない。
 - 文脈証拠がないQuestionは未解決のままFocusへ送る。Focusは未解決Questionのうちcontext marginが最小のものを優先。decoder出力は変更しない。
-- MorphologyDecoderの直接APIにもexpanded stateの絶対上限262,144を適用。0 budgetもresource-limit flag付きでfail-closed。decode_reading経由でなくても上限を迂回できない。
+- MorphologyDecoderの直接APIにも入力長256、lattice edge 4,096、総candidate 32,768、expanded state 262,144の絶対上限を適用。0 budgetや上限超過はresource-limit flag付きでfail-closed。外部latticeのedge/candidateを無制限にコピーせず、上位8候補のpointerだけをbounded insertionで保持。decode_reading経由でなくても上限を迂回できない。
 - C++テストでunigram/contextの分離、context score差、direct decoder zero-budget fail-closedを検証。Pythonテストで大きなmorphology marginだけでは解決しないこと、文脈証拠のmarginでQuestionが解決可能になることを検証。
 - v0.26実Pack run `44385008956`: completed/success。Peak RSS 1,425,500 KiB（1,792 MiB gate内）。smoke 4件は1/4 exact、CER 1.0、decode failure 0。SURGE baselineは13 clusters / 84 claims / 12 questions / 4 focus cases / candidate coverage 4/4。Packのcontext evidenceは空で、解決件数0。今回v0.27の新しいCI/実Pack評価は別runで確認する。
