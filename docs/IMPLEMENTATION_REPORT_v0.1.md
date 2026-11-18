@@ -63,4 +63,4 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - デコード結果は上位N経路とトークン範囲、候補ID・表層、形態素スコア・文脈スコアを返す。
 - テスト追加: 後続トークンの文脈で先行同音異義語が選択されること、読み末尾まで到達しないラティスの拒否、Beam/出力件数上限。
 - 注意: これはラティス入力を受け取るデコーダAPIであり、辞書からのラティス自動生成、実用日本語形態素辞書、Viterbi互換の言語Pack接続、ストリーミングCommit制御との統合はまだ未完了。
-- 今回、GitHub Actionsワークフロー `.github/workflows/ci.yml` を追加。push / PRでCMakeビルド、CTest、Pack検証を実行する。ワークフローの実行結果は別途確認する。
+- 今回、GitHub Actionsワークフロー `.github/workflows/ci.yml` を追加。push / PRでCMakeビルド、CTest、Pack検証を実行する。2026-11-18のGitHub Actions run #4（commit `86583728e1d3de3750641aa7b044f7c0e213a6f0`）でConfigure / Build / CTest / Pack検証がすべて成功。初回CIで検出したfixture Manifestのサイズ・SHA-256不整合を修正し、再実行でPASSを確認した。
