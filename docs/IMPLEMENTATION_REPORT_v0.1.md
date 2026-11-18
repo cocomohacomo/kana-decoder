@@ -433,3 +433,13 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 
 - v0.28 CI run 44391162031（main commit 392cadd270977b6c3b7f7a3b8f0959f7f1600bd3）: completed / success。Configure / Build（-Werror）/ CTest / bounded decode benchmark / Japanese reference Pack verification / Python Pack and license tests all passed。CTest 18/18 PASS。Python unittest 56 tests: 52 PASS, 4 SKIP。新規corpus preparation 3 testsとablation 3 testsを含む。
 - 実Sudachi Packへのv0.28 ablation追加検証run 44391164599は、ソース取得・サイズ検査・Pack生成の進行中。実Packの追加ablation出力はrun完了後に確認する。v0.27実Packの基準値は上記のとおりで、v0.28で精度向上したとはまだ判定しない。
+
+
+## 41. UD Japanese-GSD実コーパスと文脈アブレーション（v0.29）
+- UniversalDependencies/UD_Japanese-GSDをcommit c662dc96ed5ee5ac0fc8b5e44261557e431f50e6へ固定し、CI時のみtrain/dev/test CoNLL-UとLICENSE.txtを取得する。データはCC BY-SA 4.0の注記を持ち、上流は注釈と元文章の権利を区別しているため、評価専用の一時データとして扱い、データ・学習済みngram・訓練Packをコミット/Artifact公開しない。
+- tools/prepare_ud_gsd_corpus.pyを追加。UniDicInfo.pronから読みを取得してひらがな化し、Sudachi正規化辞書のreading/surface完全一致で語彙カバレッジを確認する。未知語・読み欠損で連続区間を分断し、未知語をまたぐ誤った隣接bigramを作らない。splitは上流train/dev/testを維持し、source commitとファイルSHA-256、coverage統計をmanifestに記録する。
+- tools/evaluate_context_ablation.pyを追加。train_sequences.tsvからunigram / 左右bigramを再集計し、src/scoring.cppと同じalpha=0.5の平滑化式を用いる。形態素のみ、unigram+context、context evidence gated SURGEの3方式をtest token単位で比較する。候補surfaceは最大8候補に制限し、同一surfaceの複数形態素IDは方式別best scoreで集約する。
+- morphology scoreはword cost、candidate connection cost、gold前後tokenの接続行列costを反映。SURGEは少なくとも2つの候補surfaceに実観測されたcontext countがあり、supported候補間marginが0.5以上のときのみ解決し、それ以外はabstainする。
+- 重要な評価境界: test tokenの正解ラベルは精度計測にのみ使用するが、左右neighbor IDはgoldをteacher-forceする。したがって文脈スコアの寄与を切り分けるoracle-context upper boundであり、全文デコードCERや本番時のSURGE効果を示すものではない。
+- CIはcandidate-covered test token 1,000件未満を失敗とし、coverage / morphology accuracy / combined accuracy / SURGE resolution precision・recall / abstentionを出力する。コーパス本体・train sequences・derived modelはArtifactとしてアップロードしない。
+- v0.29の実コーパス計測値はCI完了後に追記する。現時点で精度向上は未主張。
