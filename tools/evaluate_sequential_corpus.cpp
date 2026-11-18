@@ -169,7 +169,7 @@ void evaluate(const std::vector<Sentence>& sentences,
     }
 }
 
-void print_metrics(const Metrics& m) {
+void print_metrics(const char* name, const Metrics& m) {
     const auto scored = m.cases - m.over_limit;
     const double exact = scored ? static_cast<double>(m.exact) / scored : 0.0;
     const double cer = m.reference_codepoints
@@ -178,21 +178,21 @@ void print_metrics(const Metrics& m) {
         ? static_cast<double>(m.aligned_tokens) / m.predicted_tokens : 0.0;
     const double recall = m.gold_tokens
         ? static_cast<double>(m.aligned_tokens) / m.gold_tokens : 0.0;
-    std::cout << "{"
-        << "\"cases\":" << m.cases
-        << ",\"scored_cases\":" << scored
-        << ",\"exact_matches\":" << m.exact
-        << ",\"exact_accuracy\":" << exact
-        << ",\"edit_distance\":" << m.edit_distance
-        << ",\"reference_codepoints\":" << m.reference_codepoints
-        << ",\"cer\":" << cer
-        << ",\"decode_failures\":" << m.decode_failures
-        << ",\"over_limit_sentences\":" << m.over_limit
-        << ",\"gold_tokens\":" << m.gold_tokens
-        << ",\"predicted_tokens\":" << m.predicted_tokens
-        << ",\"exact_token_alignment\":" << m.aligned_tokens
-        << ",\"token_alignment_precision\":" << precision
-        << ",\"token_alignment_recall\":" << recall << "}";
+    std::cout << ",\\""<< name << "\\":{"
+        << "\\"cases\\":" << m.cases
+        << ",\\"scored_cases\\":" << scored
+        << ",\\"exact_matches\\":" << m.exact
+        << ",\\"exact_accuracy\\":" << exact
+        << ",\\"edit_distance\\":" << m.edit_distance
+        << ",\\"reference_codepoints\\":" << m.reference_codepoints
+        << ",\\"cer\\":" << cer
+        << ",\\"decode_failures\\":" << m.decode_failures
+        << ",\\"over_limit_sentences\\":" << m.over_limit
+        << ",\\"gold_tokens\\":" << m.gold_tokens
+        << ",\\"predicted_tokens\\":" << m.predicted_tokens
+        << ",\\"exact_token_alignment\\":" << m.aligned_tokens
+        << ",\\"token_alignment_precision\\":" << precision
+        << ",\\"token_alignment_recall\\":" << recall << "}";
 }
 } // namespace
 
@@ -224,16 +224,14 @@ int main(int argc, char** argv) {
     Metrics morphology, causal;
     evaluate(sentences, lexicon, morphology_scorer, connections, morphology);
     evaluate(sentences, lexicon, trained_scorer, connections, causal);
-    std::cout << "{\"mode\":\"end_to_end_sentence_reading_with_predicted_left_history\""
-              << ",\"gold_token_boundaries_used_for_decoding\":false"
-              << ",\"gold_token_boundaries_used_for_alignment_only\":true"
-              << ",\"future_context_used\":false"
-              << ",\"source_test_tokens\":" << source_tokens
-              << ",\"sentences\":" << sentences.size()
-              << ",";
-    print_metrics(morphology);
-    std::cout << ",";
-    print_metrics(causal);
-    std::cout << "}\n";
+    std::cout << "{\\"mode\\":\\"end_to_end_sentence_reading_with_predicted_left_history\\""
+              << ",\\"gold_token_boundaries_used_for_decoding\\":false"
+              << ",\\"gold_token_boundaries_used_for_alignment_only\\":true"
+              << ",\\"future_context_used\\":false"
+              << ",\\"source_test_tokens\\":" << source_tokens
+              << ",\\"sentences\\":" << sentences.size();
+    print_metrics("morphology_only", morphology);
+    print_metrics("trained_unigram_left_context", causal);
+    std::cout << "}\\n";
     return 0;
 }
