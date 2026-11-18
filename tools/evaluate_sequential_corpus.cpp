@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cmath>
+#include <iomanip>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -77,8 +79,8 @@ std::size_t distance(const std::vector<std::string>& a,
     return prev.back();
 }
 
-bool load_sentences(const std::string& path, std::vector<Sentence>& sentences,
-                    std::size_t& source_tokens) {
+bool load_sentences(const std::string& path, const std::string& split,
+                    std::vector<Sentence>& sentences, std::size_t& source_tokens) {
     std::ifstream input(path);
     if (!input) return false;
     std::map<std::pair<std::string, std::string>, std::size_t> index;
@@ -88,7 +90,7 @@ bool load_sentences(const std::string& path, std::vector<Sentence>& sentences,
         const auto fields = split_tabs(line);
         if (!fields.empty() && fields[0] == "document_id") continue;
         if (fields.size() != 6) return false;
-        if (fields[5] != "test") continue;
+        if (fields[5] != split) continue;
         if (fields[0].empty() || fields[1].empty() || fields[2].empty()
             || fields[3].empty() || !kana_decoder::is_valid_utf8(fields[2])
             || !kana_decoder::is_valid_utf8(fields[3])) return false;
@@ -195,13 +197,58 @@ void print_metrics(const char* name, const Metrics& m) {
         << ",\"token_alignment_precision\":" << precision
         << ",\"token_alignment_recall\":" << recall << "}";
 }
+
+double cer_of(const Metrics& m) {
+    return m.reference_codepoints
+        ? static_cast<double>(m.edit_distance) / m.reference_codepoints : 0.0;
+}
+double exact_of(const Metrics& m) {
+    const auto scored = m.cases - m.over_limit;
+    return scored ? static_cast<double>(m.exact) / scored : 0.0;
+}
+bool better_metrics(const Metrics& candidate, const Metrics& current) {
+    const double a = cer_of(candidate), b = cer_of(current);
+    if (std::abs(a - b) > 1e-12) return a < b;
+    const double ae = exact_of(candidate), be = exact_of(current);
+    if (std::abs(ae - be) > 1e-12) return ae > be;
+    return candidate.aligned_tokens > current.aligned_tokens;
+}
+bool write_calibration(const std::string& path, double weight, double margin) {
+    std::ofstream out(path, std::ios::trunc);
+    if (!out) return false;
+    out << std::setprecision(17) << weight << "\\t" << margin << "\\n";
+    return static_cast<bool>(out);
+}
+bool read_calibration(const std::string& path, double& weight, double& margin) {
+    std::ifstream in(path);
+    if (!(in >> weight >> margin)) return false;
+    return std::isfinite(weight) && weight >= 0.0
+        && std::isfinite(margin) && margin >= 0.0;
+}
+void print_calibration_metrics(const char* name, const Metrics& m) {
+    const auto scored = m.cases - m.over_limit;
+    std::cout << ",\\""<<name<<"\\":{"
+        << "\\"cases\\":" << m.cases
+        << ",\\"exact_matches\\":" << m.exact
+        << ",\\"exact_accuracy\\":" << exact_of(m)
+        << ",\\"edit_distance\\":" << m.edit_distance
+        << ",\\"reference_codepoints\\":" << m.reference_codepoints
+        << ",\\"cer\\":" << cer_of(m)
+        << ",\\"decode_failures\\":" << m.decode_failures
+        << ",\\"over_limit_sentences\\":" << m.over_limit
+        << ",\\"gold_tokens\\":" << m.gold_tokens
+        << ",\\"predicted_tokens\\":" << m.predicted_tokens
+        << ",\\"exact_token_alignment\\":" << m.aligned_tokens << "}";
+}
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 4) {
-        std::cerr << "usage: kana_decoder_sequential_eval PACK_DIR TRAIN_SEQUENCES.tsv TEST_TOKENIZED.tsv\n";
+    if (argc != 4 && argc != 6) {
+        std::cerr << "usage: kana_decoder_sequential_eval PACK_DIR TRAIN_SEQUENCES.tsv TOKENIZED.tsv [dev-calibrate CALIBRATION.tsv | test CALIBRATION.tsv]\n";
         return 2;
     }
+    const std::string mode = argc == 4 ? "test" : argv[4];
+    if (mode != "test" && mode != "dev-calibrate") return 2;
     kana_decoder::LexiconTrie lexicon;
     kana_decoder::MaskedNgramScorer pack_scorer;
     kana_decoder::ConnectionModel connections;
@@ -217,22 +264,82 @@ int main(int argc, char** argv) {
     }
     std::vector<Sentence> sentences;
     std::size_t source_tokens = 0;
-    if (!load_sentences(argv[3], sentences, source_tokens)) {
-        std::cerr << "failed to load test token corpus\n";
+    const std::string split = mode == "dev-calibrate" ? "dev" : "test";
+    if (!load_sentences(argv[3], split, sentences, source_tokens)) {
+        std::cerr << "failed to load " << split << " token corpus\n";
         return 2;
     }
     kana_decoder::MaskedNgramScorer morphology_scorer;
-    Metrics morphology, causal, surge;
+    Metrics morphology, causal;
     evaluate(sentences, lexicon, morphology_scorer, connections, morphology);
     evaluate(sentences, lexicon, trained_scorer, connections, causal);
+
+    if (mode == "dev-calibrate") {
+        const double weights[] = {0.25, 0.5, 1.0, 2.0};
+        const double margins[] = {0.0, 0.01, 0.05, 0.1, 0.25, 0.5};
+        Metrics best;
+        double best_weight = 0.0, best_margin = 0.5;
+        bool have_best = false;
+        std::size_t configurations = 0;
+        for (double weight : weights) {
+            for (double margin : margins) {
+                kana_decoder::DecoderOptions options;
+                options.surge_left_context_gate = true;
+                options.context_weight = weight;
+                options.surge_context_margin = margin;
+                Metrics candidate;
+                evaluate(sentences, lexicon, trained_scorer, connections,
+                         candidate, options);
+                ++configurations;
+                if (!have_best || better_metrics(candidate, best)) {
+                    best = candidate;
+                    best_weight = weight;
+                    best_margin = margin;
+                    have_best = true;
+                }
+            }
+        }
+        // Never deploy a dev configuration that is worse than morphology-only.
+        if (!have_best || !better_metrics(best, morphology)) {
+            best_weight = 0.0;
+            best_margin = 0.5;
+            best = morphology;
+        }
+        if (!write_calibration(argv[5], best_weight, best_margin)) {
+            std::cerr << "failed to write calibration file\n";
+            return 2;
+        }
+        std::cout << "{\"mode\":\"dev_only_surge_calibration\""
+                  << ",\"split\":\"dev\""
+                  << ",\"test_split_used_for_selection\":false"
+                  << ",\"configurations_evaluated\":" << configurations
+                  << ",\"selected_context_weight\":" << best_weight
+                  << ",\"selected_evidence_margin\":" << best_margin;
+        print_calibration_metrics("morphology_only", morphology);
+        print_calibration_metrics("trained_unigram_left_context", causal);
+        print_calibration_metrics("selected_surge_gate", best);
+        std::cout << "}\n";
+        return 0;
+    }
+
+    double selected_weight = 1.0, selected_margin = 0.5;
+    if (argc == 6 && !read_calibration(argv[5], selected_weight, selected_margin)) {
+        std::cerr << "invalid calibration file\n";
+        return 2;
+    }
     kana_decoder::DecoderOptions surge_options;
     surge_options.surge_left_context_gate = true;
-    surge_options.surge_context_margin = 0.5;
+    surge_options.context_weight = selected_weight;
+    surge_options.surge_context_margin = selected_margin;
+    Metrics surge;
     evaluate(sentences, lexicon, trained_scorer, connections, surge, surge_options);
     std::cout << "{\"mode\":\"end_to_end_sentence_reading_with_predicted_left_history\""
+              << ",\"split\":\"test\""
               << ",\"gold_token_boundaries_used_for_decoding\":false"
               << ",\"gold_token_boundaries_used_for_alignment_only\":true"
               << ",\"future_context_used\":false"
+              << ",\"dev_selected_context_weight\":" << selected_weight
+              << ",\"dev_selected_evidence_margin\":" << selected_margin
               << ",\"source_test_tokens\":" << source_tokens
               << ",\"sentences\":" << sentences.size();
     print_metrics("morphology_only", morphology);
