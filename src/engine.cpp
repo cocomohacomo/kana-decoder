@@ -31,7 +31,8 @@ std::vector<DecodedPath> decode_reading(const std::string& reading,const Lexicon
  if (chars.empty()) return {};
  auto lattice = lexicon.build_lattice(reading, 16, true, lattice_trace);
  MorphologyDecoder decoder;
- return decoder.decode(chars.size(), lattice, scorer, {}, options, connections, trace);
+ return decoder.decode(chars.size(), lattice, scorer, {}, options, connections, trace,
+  resource_limit_exceeded);
 }
 std::string render_ambiguity(const std::vector<Candidate>&c,bool other){std::ostringstream o;o<<'[';bool f=true;for(const auto&x:c){if(x.surface.empty())continue;if(!f)o<<'/';o<<x.surface;f=false;}if(other){if(!f)o<<'/';o<<"other";}o<<']';return o.str();}
 bool DependencyGraph::add(HypothesisNode n){if(n.id.empty()||nodes_.count(n.id))return false;for(const auto&d:n.dependencies){auto i=nodes_.find(d);if(i==nodes_.end()||static_cast<int>(i->second.layer)>static_cast<int>(n.layer))return false;}nodes_.emplace(n.id,std::move(n));return true;}
