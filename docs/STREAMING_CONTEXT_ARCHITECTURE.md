@@ -206,3 +206,24 @@ Core常駐5 MB以下、Lightweight Pack追加RSS 50 MB以下を初期目標と�
 ManifestにPack ID、language ID、Pack/Core ABI version、dictionary/model/format version、ファイルサイズ、SHA-256、ライセンス・upstream、resource limitsを含める。ロード時にABI、形式、必須ファイル、checksum、サイズ上限、ライセンス情報を検証する。失敗時は部分ロードを成功扱いせず、既存Sessionを破壊しない。
 
 Coreはネットワーク通信・自動ダウンロード・テレメトリを行わない。Packの導入・更新は利用者による明示操作とし、ローカルファイルからのオフライン導入をサポートする。
+
+
+## 12. 曖昧性の明示出力
+
+同音異義語の候補が文脈・形態素・n-gramで十分に絞れない場合、単一候補へ強制収束させず、Ambiguity Segmentとして保持する。人間可読表示の既定形式は `[雨/飴/other]` とする。`other` は具体的な語彙候補ではなく、未知語・未登録語義を含むオープンセット枠である。
+
+対象spanを `<MASK>` とした左右文脈n-gram推定を補助Evidenceとして使える。ストリーム途中では左文脈による暫定評価を行い、右文脈到着後に再評価する。未校正スコアを確率として扱わず、候補順位として扱う。候補margin、Evidenceの独立性、otherの残余可能性、ドメイン差を含めて確信度を判定する。
+
+曖昧性出力の有効化は呼び出し元設定に従う。無効時はかな表記へフォールバックする。API上は専用Segmentとして返し、ユーザーが入力した角括弧とシステム生成表示をprovenanceで区別する。
+
+## 13. 軽度誤り補正
+
+Correction Engineは原入力を不変に保持し、挿入・削除・置換・重複/脱落・Language Pack定義の音韻近接置換など、限定された編集操作から補正仮説を生成する。補正仮説は通常候補と別Branchとして評価し、原文を破壊的に上書きしない。
+
+文脈適合だけでは補正せず、形態素成立性、前後文脈、n-gram、混同規則、編集コスト、任意の音声認識信頼度を組み合わせる。低信頼時は原文を維持し、補正案は診断情報または曖昧性候補として提示する。テキストだけで言い間違いとASR誤認識の原因を区別しない。
+
+数字・単位・日付・金額・固有名詞・URL・識別子は保護対象とし、強い根拠なしに変更しない。自動補正は無効化可能とする。Correction Gateを通過するまで該当範囲をCommitしない。確定後の自動補正は禁止する。
+
+## 14. 三層不確実性の依存管理
+
+Morphological / Semantic / Orthographic Hypothesisは独立した候補集合・スコア・確信度・revision・Commit Gateを持つ。上流仮説の変更は依存する下流仮説だけを再評価する。Morphological変更はSemanticおよびOrthographicを、Semantic変更はOrthographicを再評価する。Orthographic変更だけで意味・形態素を変更しない。語義確定と表記確定を混同しない。
