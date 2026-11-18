@@ -120,12 +120,15 @@ bool LexiconTrie::load_tsv(const std::string& path,std::size_t* loaded){
   if(line.empty()||line[0]=='#')continue;
   std::vector<std::string> cols;std::stringstream ss(line);std::string field;
   while(std::getline(ss,field,'\t'))cols.push_back(field);
-  if(cols.size()<5||cols.size()>10)return false;
+  if(cols.size()<5||cols.size()>12)return false;
   LatticeCandidate candidate;candidate.id=cols.size()>5&&!cols[5].empty()?cols[5]:cols[4];candidate.surface=cols[1];
   if(cols.size()>6&&!cols[6].empty()&&!parse_i32_strict(cols[6],candidate.word_cost))return false;
   if(cols.size()>7&&!cols[7].empty()&&!parse_i32_strict(cols[7],candidate.connection_cost))return false;
   if(cols.size()>8&&!cols[8].empty()&&!parse_i32_strict(cols[8],candidate.left_id,true))return false;
   if(cols.size()>9&&!cols[9].empty()&&!parse_i32_strict(cols[9],candidate.right_id,true))return false;
+  candidate.pos=cols.size()>3?cols[3]:std::string{};
+  if(cols.size()>10)candidate.inflection_type=cols[10];
+  if(cols.size()>11)candidate.inflection_form=cols[11];
   if(!parsed.add(cols[0],candidate))return false;++count;
  }
  if(!in.eof())return false;
@@ -303,7 +306,7 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     const double ctx=scorer.score(candidate.id,state.history,right_context)*opt.context_weight;
     next.path.score+=morph+ctx;
     next.path.tokens.push_back(DecodedToken{edge->start,edge->end,
-      Candidate{candidate.id,candidate.surface},morph,ctx});
+      Candidate{candidate.id,candidate.surface,candidate.pos,candidate.inflection_type,candidate.inflection_form},morph,ctx});
     next.history.push_back(candidate.id);next.last_right_id=candidate.right_id;next.has_last=true;
     if(next.history.size()>2)next.history.erase(next.history.begin());
     beams[edge->end].push_back(std::move(next));
