@@ -167,6 +167,7 @@ void print_case_result(const CaseResult& result) {
                       << ",\"candidate_connection_cost\":" << item.candidate_connection_cost
                       << ",\"transition_cost\":" << item.transition_cost
                       << ",\"raw_context_score\":" << item.raw_context_score
+                      << ",\"context_evidence_score\":" << item.context_evidence_score
                       << ",\"context_weight\":" << item.context_weight
                       << ",\"morphology_score\":" << item.morphology_score
                       << ",\"weighted_context_score\":" << item.weighted_context_score
