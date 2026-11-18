@@ -24,7 +24,7 @@
 
 ## 設計仕様
 
-- [仕様書 v0.5](docs/SPECIFICATION_v0.5.md)
+- [仕様書 v0.6](docs/SPECIFICATION_v0.6.md)\n- [仕様書 v0.5](docs/SPECIFICATION_v0.5.md)
 - [仕様書 v0.4](docs/SPECIFICATION_v0.4.md)
 - [仕様書 v0.3](docs/SPECIFICATION_v0.3.md)
 - [仕様書 v0.2](docs/SPECIFICATION_v0.2.md)
@@ -34,6 +34,16 @@
 
 辞書モデルは言語ごとのLanguage Packとして換装可能にします。日本語Packの初期候補はSudachiDictとし、UniDic等を補完候補として評価します。辞書・接続行列・文字定義・モデルはファイル単位で由来とライセンスを確認し、未確認データは配布物に含めません。CoreとLanguage Packのライセンスは分離管理します。
 
+## 配布サイズ目標（v0.6）
+
+- Core runtime: 5 MB以下
+- Lightweight Language Pack: 30 MB以下
+- Core + 1 Lightweight Pack: 35 MB以下
+- 専門語彙・高精度Packは任意拡張として分離
+- サイズは展開後を基準とし、実測で検証する目標値
+
+Coreは言語非依存とし、利用者は必要なLanguage Packだけを導入します。辞書・モデルはPack単位でバージョン、checksum、ライセンス、資源上限を管理します。
+
 ## 状態
 
-基本設計段階。v0.5で認知ストリーミングパイプラインを詳細化。辞書インポーター、形態素デコーダ、Context Core、C APIの順に実装を進めます。
+基本設計段階。v0.6でCoreと言語パックの分離配布、および軽量Pack（展開後30 MB以下）を標準目標として定義。辞書インポーター、Pack ABI、形態素デコーダ、Context Core、C APIの順に実装・検証を進めます。
