@@ -19,6 +19,8 @@ on:
       - "tools/evaluate_ablation.py"
       - "tools/prepare_ud_gsd_corpus.py"
       - "tools/evaluate_context_ablation.py"
+      - "tools/evaluate_surge_clusters.py"
+      - "tests/test_evaluate_surge_clusters.py"
       - "licenses/ud-japanese-gsd-source-lock.json"
       - "tools/evaluate_corpus.cpp"
       - "tools/evaluate_sequential_corpus.cpp"
@@ -127,6 +129,12 @@ jobs:
           cat "$RUNNER_TEMP/context-corpus/ud_gsd_manifest.json"
           cat "$RUNNER_TEMP/context-corpus/compiled/corpus_manifest.json"
           cat "$RUNNER_TEMP/context-ablation.json"
+          python tools/evaluate_surge_clusters.py \
+            --lexicon "$LEXICON" \
+            --corpus "$RUNNER_TEMP/context-corpus/tokenized.tsv" \
+            --train-sequences "$RUNNER_TEMP/context-corpus/compiled/train_sequences.tsv" \
+            --output "$RUNNER_TEMP/surge-cluster-evaluation.json"
+          cat "$RUNNER_TEMP/surge-cluster-evaluation.json"
 
       - name: Build native runtime and evaluate real Pack under memory ceiling
         run: |
