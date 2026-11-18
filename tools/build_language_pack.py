@@ -17,7 +17,7 @@ MAX_I32 = 2**31 - 1
 
 def clean_field(value, label):
     value = value.strip()
-    if not value or any(ch in value for ch in "\\t\\r\\n"):
+    if not value or any(ch in value for ch in "\t\r\n"):
         raise ValueError(f"invalid {label}")
     return value
 
@@ -37,7 +37,7 @@ def import_lexicon(source):
         for line_no, line in enumerate(stream, 1):
             if not line.strip() or line.startswith("#"):
                 continue
-            cols = line.rstrip("\\r\\n").split("\\t")
+            cols = line.rstrip("\r\n").split("\t")
             if len(cols) < 5 or len(cols) > 10:
                 raise ValueError(f"{source}:{line_no}: expected 5..10 columns")
             cols += [""] * (10 - len(cols))
@@ -75,7 +75,7 @@ def train_ngrams(sequence_file):
         for line_no, line in enumerate(stream, 1):
             if not line.strip() or line.startswith("#"):
                 continue
-            tokens = [clean_field(x, "candidate token") for x in line.rstrip("\\r\\n").split("\\t")]
+            tokens = [clean_field(x, "candidate token") for x in line.rstrip("\r\n").split("\t")]
             for i, token in enumerate(tokens):
                 counts[("U", "", token)] += 1
                 if i:
@@ -90,14 +90,14 @@ def write_pack(args):
     rows = import_lexicon(args.lexicon.resolve())
     lexicon_path = out / "lexicon.tsv"
     with lexicon_path.open("w", encoding="utf-8", newline="\n") as stream:
-        stream.write("# kana\\tsurface\\tlemma\\tpos\\treading_group\\tcandidate_id\\tword_cost\\tconnection_cost\\tleft_id\\tright_id\\n")
+        stream.write("# kana\tsurface\tlemma\tpos\treading_group\tcandidate_id\tword_cost\tconnection_cost\tleft_id\tright_id\n")
         for row in rows:
-            stream.write("\\t".join(row) + "\\n")
+            stream.write("\t".join(row) + "\n")
     counts = train_ngrams(args.sequences.resolve() if args.sequences else None)
     with (out / "ngram.tsv").open("w", encoding="utf-8", newline="\n") as stream:
-        stream.write("# direction\\tcontext_token\\tcandidate_id\\tcount\\n")
+        stream.write("# direction\tcontext_token\tcandidate_id\tcount\n")
         for (direction, context, candidate), count in sorted(counts.items()):
-            stream.write(f"{direction}\\t{context}\\t{candidate}\\t{count}\\n")
+            stream.write(f"{direction}\t{context}\t{candidate}\t{count}\n")
     if args.connections:
         shutil.copyfile(args.connections.resolve(), out / "connections.tsv")
     shutil.copyfile(args.license_file.resolve(), out / "LICENSE")
@@ -125,7 +125,7 @@ def write_pack(args):
         "files": files,
         "status": "imported-pack-requires-accuracy-validation"
     }
-    (out / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+    (out / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return {"pack_id": args.pack_id, "entries": len(rows), "trained_ngram_records": len(counts), "files": payload_names}
 
 def main():
