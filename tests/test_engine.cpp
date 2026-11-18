@@ -84,10 +84,11 @@ int main(){
  assert(snapshot.revision==2&&snapshot.reading=="あめ"&&!snapshot.paths.empty());
  assert(!session.append("がふる",trie,lattice_scorer,snapshot,dop));
  assert(session.reading()=="あめ"&&snapshot.revision==2);
- session.reset();assert(session.reading().empty());
+ StreamingSnapshot stale_snapshot=snapshot;session.reset();assert(session.reading().empty());
+ std::string stale_output;assert(!session.commit_best(stale_snapshot,stale_output));
  assert(session.append("あめ",trie,lattice_scorer,snapshot,dop));
  std::string committed;assert(session.commit_best(snapshot,committed));
- assert(committed=="雨"&&!snapshot.provisional&&snapshot.revision==2);
+ assert(committed=="雨"&&!snapshot.provisional&&snapshot.revision==5);
  assert(session.reading().empty());
 
  // Integrated C ABI: load a local Language Pack and decode kana to a surface form.
