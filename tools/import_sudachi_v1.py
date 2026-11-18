@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Import Sudachi V1 CSV and MeCab matrix.def into normalized Pack TSV."""
+"""Import Sudachi V1 lexicon CSV and MeCab matrix.def into normalized Pack TSV."""
 import argparse
 import csv
 import hashlib
@@ -9,7 +9,22 @@ import sqlite3
 import tempfile
 from pathlib import Path
 
-HEADER = ["surface", "left_id", "right_id", "cost", "writing", "pos1", "pos2", "pos3", "pos4", "pos5", "pos6", "reading_form", "normalized_form", "dictionary_form", "mode", "split_a", "split_b", "word_structure"]
+# V1 source headers use Index_Form/Headword and include optional metadata fields.
+# Legacy named 18-column fixtures are accepted for compatibility, but headerless
+# V0 data is intentionally rejected rather than misread as a header.
+ALIASES = {
+    "indexform": "surface", "surface": "surface",
+    "headword": "writing", "writing": "writing",
+    "leftid": "left_id", "rightid": "right_id", "cost": "cost",
+    "pos1": "pos1", "pos2": "pos2", "pos3": "pos3",
+    "pos4": "pos4", "pos5": "pos5", "pos6": "pos6",
+    "readingform": "reading_form", "normalizedform": "normalized_form",
+    "dictionaryform": "dictionary_form", "mode": "mode",
+    "splita": "split_a", "splitb": "split_b", "wordstructure": "word_structure",
+    "synonymgroups": "synonym_groups", "splitc": "split_c",
+    "userdata": "user_data", "posid": "pos_id", "referenceid": "reference_id",
+}
+REQUIRED = {"surface", "left_id", "right_id", "cost", "reading_form"}
 
 
 def norm(value):
@@ -30,9 +45,34 @@ def _database(directory, schema):
     return db
 
 
+def _canonical_header(raw, source):
+    normalized = [norm(value) for value in raw]
+    if len(set(normalized)) != len(normalized):
+        duplicates = sorted({name for name in normalized if normalized.count(name) > 1})
+        raise ValueError(f"{source}: duplicate normalized CSV header {duplicates}; raw={raw!r}")
+    canonical = [ALIASES.get(name, name) for name in normalized]
+    if len(set(canonical)) != len(canonical):
+        duplicates = sorted({name for name in canonical if canonical.count(name) > 1})
+        raise ValueError(f"{source}: multiple columns map to the same field {duplicates}; raw={raw!r}")
+    missing = sorted(REQUIRED - set(canonical))
+    if missing:
+        raise ValueError(
+            f"{source}: not a named Sudachi V1 header; missing required fields {missing}; "
+            f"raw={raw!r}. Headerless V0 CSV is not accepted by this V1 importer."
+        )
+    return canonical
+
+
+def _value(row, key, default=""):
+    value = row.get(key)
+    return default if value is None else value.strip()
+
+
 def import_lexicon(source, output):
     skipped = 0
     inserted = 0
+    raw = []
+    recognized = []
     with tempfile.TemporaryDirectory(prefix="kana-decoder-lexicon-") as tmp:
         db = _database(tmp, """
             CREATE TABLE entries (
@@ -48,34 +88,42 @@ def import_lexicon(source, output):
             with source.open(encoding="utf-8-sig", newline="") as stream:
                 reader = csv.DictReader(stream)
                 raw = reader.fieldnames or []
-                names = [norm(value) for value in raw]
-                expected = {norm(value): value for value in HEADER}
-                if len(set(names)) != len(names):
-                    duplicates = sorted({name for name in names if names.count(name) > 1})
-                    raise ValueError(f"duplicate CSV header after case/underscore normalization: {duplicates}; raw={raw!r}")
-                missing = [value for value in HEADER if norm(value) not in names]
-                if missing:
-                    raise ValueError("missing required Sudachi V1 columns: " + ",".join(missing))
-                mapping = {name: expected[normalized] for name, normalized in zip(raw, names) if normalized in expected}
-                reader.fieldnames = [mapping.get(value, value) for value in raw]
+                canonical = _canonical_header(raw, source)
+                recognized = [name for name in canonical if name in set(ALIASES.values())]
+                reader.fieldnames = canonical
                 for line_no, row in enumerate(reader, 2):
                     try:
                         if None in row or any(value is None for value in row.values()):
                             raise ValueError("CSV row column count does not match header")
-                        reading = hira((row["reading_form"] or "").strip())
-                        surface = (row["writing"] or row["surface"] or "").strip()
-                        lemma = (row["dictionary_form"] or row["normalized_form"] or surface).strip()
-                        if not reading or reading == "*" or not surface:
+                        index_form = _value(row, "surface")
+                        headword = _value(row, "writing", index_form) or index_form
+                        surface = headword
+                        reading = hira(_value(row, "reading_form"))
+                        if not reading or reading == "*" or not surface or surface == "*":
                             skipped += 1
                             continue
-                        pos = "/".join((row[f"pos{i}"] or "").strip() for i in range(1, 7)).rstrip("/")
-                        left, right, cost = int(row["left_id"]), int(row["right_id"]), int(row["cost"])
+                        lemma = _value(row, "dictionary_form")
+                        if not lemma or lemma == "*":
+                            lemma = _value(row, "normalized_form")
+                        if not lemma or lemma == "*":
+                            lemma = surface
+                        pos_parts = [_value(row, f"pos{i}") for i in range(1, 7)]
+                        pos = "/".join(pos_parts).rstrip("/")
+                        left, right, cost = int(_value(row, "left_id")), int(_value(row, "right_id")), int(_value(row, "cost"))
                         if min(left, right) < 0 or max(left, right, cost) > 2**31 - 1 or cost < -(2**31):
                             raise ValueError("numeric field outside int32 range")
                         fields = [reading, surface, lemma, pos or "未知語", pos or "未知語"]
-                        ident = "sudachi_" + hashlib.sha256("\x1f".join(fields + [str(left), str(right), str(cost)]).encode()).hexdigest()[:20]
-                        item = fields + [ident, str(cost), "0", str(left), str(right), (row["pos5"] or "").strip(), (row["pos6"] or "").strip()]
-                        cursor = db.execute("INSERT OR IGNORE INTO entries VALUES (" + ",".join("?" for _ in item) + ")", item)
+                        ident = "sudachi_" + hashlib.sha256(
+                            "\x1f".join(fields + [str(left), str(right), str(cost)]).encode()
+                        ).hexdigest()[:20]
+                        item = fields + [
+                            ident, str(cost), "0", str(left), str(right),
+                            _value(row, "pos5"), _value(row, "pos6")
+                        ]
+                        cursor = db.execute(
+                            "INSERT OR IGNORE INTO entries VALUES (" + ",".join("?" for _ in item) + ")",
+                            item,
+                        )
                         inserted += cursor.rowcount
                     except Exception as exc:
                         raise ValueError(f"{source}:{line_no}: {exc}") from exc
@@ -94,7 +142,12 @@ def import_lexicon(source, output):
                     stream.write("\t".join(row) + "\n")
         finally:
             db.close()
-    return {"entries": inserted, "skipped": skipped, "extra_columns_ignored": len(raw) - len(mapping), "import_storage": "temporary SQLite database; bounded application memory"}
+    return {
+        "entries": inserted, "skipped": skipped,
+        "extra_columns_ignored": len(raw) - len(recognized),
+        "source_columns": len(raw),
+        "import_storage": "temporary SQLite database; bounded application memory",
+    }
 
 
 def import_matrix(source, output):
@@ -142,13 +195,17 @@ def import_matrix(source, output):
             with output.open("w", encoding="utf-8", newline="\n") as stream:
                 stream.write(f"# matrix {left_size} {right_size}\n")
                 stream.write("# right_id\tleft_id\tcost\n")
-                for right, left, cost in db.execute("SELECT right_id,left_id,cost FROM cells WHERE cost != 0 ORDER BY cell_key"):
+                for right, left, cost in db.execute(
+                    "SELECT right_id,left_id,cost FROM cells WHERE cost != 0 ORDER BY cell_key"
+                ):
                     stream.write(f"{right}\t{left}\t{cost}\n")
         finally:
             db.close()
-    return {"left_size": left_size, "right_size": right_size, "input_cells": input_cells,
-            "nonzero_cells": nonzero, "representation": "sorted sparse TSV with explicit matrix dimensions",
-            "import_storage": "temporary SQLite database; bounded application memory"}
+    return {
+        "left_size": left_size, "right_size": right_size, "input_cells": input_cells,
+        "nonzero_cells": nonzero, "representation": "sorted sparse TSV with explicit matrix dimensions",
+        "import_storage": "temporary SQLite database; bounded application memory",
+    }
 
 
 def main():
