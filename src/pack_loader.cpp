@@ -5,9 +5,6 @@
 #include <fstream>
 #include <set>
 #include <sstream>
-namespace {
-bool parse_i32_strict(const std::string& text,std::int32_t& value,bool nonnegative=false){if(text.empty())return false;auto r=std::from_chars(text.data(),text.data()+text.size(),value);return r.ec==std::errc{}&&r.ptr==text.data()+text.size()&&(!nonnegative||value>=0);}
-}
 namespace kana_decoder {
 static bool load_correction_rules_file(const std::string& path,std::vector<CorrectionRule>& rules){
  std::ifstream in(path);if(!in)return false;
