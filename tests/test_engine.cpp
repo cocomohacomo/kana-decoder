@@ -80,9 +80,12 @@ int main(){
  StreamingSession session(4);StreamingSnapshot snapshot;
  assert(session.append("あ",trie,lattice_scorer,snapshot,dop));
  assert(snapshot.revision==1&&snapshot.provisional&&snapshot.reading=="あ");
+ StreamingSnapshot stale_after_append=snapshot;std::string stale_commit;
  assert(session.append("め",trie,lattice_scorer,snapshot,dop));
+ assert(!session.commit_best(stale_after_append,stale_commit));
  assert(snapshot.revision==2&&snapshot.reading=="あめ"&&!snapshot.paths.empty());
  assert(!session.append("がふる",trie,lattice_scorer,snapshot,dop));
+ assert(!session.append(malformed,trie,lattice_scorer,snapshot,dop));
  assert(session.reading()=="あめ"&&snapshot.revision==2);
  StreamingSnapshot stale_snapshot=snapshot;session.reset();assert(session.reading().empty());
  std::string stale_output;assert(!session.commit_best(stale_snapshot,stale_output));
