@@ -147,14 +147,44 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(const std::string& reading,s
  }return out;
 }
 
-bool load_language_pack(const std::string& directory,LexiconTrie& lexicon,MaskedNgramScorer& scorer,std::size_t* loaded,ConnectionModel* connections){
+static bool load_correction_rules_file(const std::string& path,std::vector<CorrectionRule>& rules){
+ std::ifstream in(path);if(!in)return false;
+ std::vector<CorrectionRule> parsed;std::set<std::string> ids;std::string line;
+ while(std::getline(in,line)){
+  if(line.empty()||line[0]=='#')continue;
+  std::vector<std::string> cols;std::stringstream ss(line);std::string field;
+  while(std::getline(ss,field,'\t'))cols.push_back(field);
+  if(cols.size()!=5||cols[2].empty()||!ids.insert(cols[2]).second)return false;
+  if(!is_valid_utf8(cols[0])||!is_valid_utf8(cols[1])||!is_valid_utf8(cols[2]))return false;
+  CorrectionKind kind;
+  if(cols[3]=="insert")kind=CorrectionKind::Insert;
+  else if(cols[3]=="delete")kind=CorrectionKind::Delete;
+  else if(cols[3]=="replace")kind=CorrectionKind::Replace;
+  else if(cols[3]=="duplicate")kind=CorrectionKind::Duplicate;
+  else if(cols[3]=="phonetic")kind=CorrectionKind::Phonetic;
+  else return false;
+  if((kind==CorrectionKind::Insert&&(cols[0].size()!=0||cols[1].empty()))||
+     (kind==CorrectionKind::Delete&&(cols[0].empty()||!cols[1].empty()))||
+     ((kind==CorrectionKind::Replace||kind==CorrectionKind::Phonetic)&&(cols[0].empty()||cols[1].empty())))return false;
+  std::size_t used=0;double cost=0.0;
+  try{cost=std::stod(cols[4],&used);}catch(...){return false;}
+  if(used!=cols[4].size()||!std::isfinite(cost)||cost<0.0)return false;
+  parsed.push_back({cols[0],cols[1],cols[2],kind,cost});
+ }
+ if(!in.eof())return false;rules=std::move(parsed);return true;
+}
+
+bool load_language_pack(const std::string& directory,LexiconTrie& lexicon,MaskedNgramScorer& scorer,std::size_t* loaded,ConnectionModel* connections,CorrectionOptions* corrections){
  std::string base=directory.empty()?std::string("."):directory;
  if(!verify_pack_manifest(base))return false;
  if(base.back()!='/')base+='/';
  LexiconTrie parsed_lexicon;MaskedNgramScorer parsed_scorer;std::size_t count=0;
  if(!parsed_lexicon.load_tsv(base+"lexicon.tsv",&count)||!parsed_scorer.load_tsv(base+"ngram.tsv"))return false;
  ConnectionModel parsed_connections;std::ifstream conn_file(base+"connections.tsv");if(conn_file&&!parsed_connections.load_tsv(base+"connections.tsv"))return false;
- lexicon=std::move(parsed_lexicon);scorer=std::move(parsed_scorer);if(connections)*connections=std::move(parsed_connections);if(loaded)*loaded=count;return true;
+ CorrectionOptions parsed_corrections;std::ifstream correction_file(base+"correction_rules.tsv");
+ if(correction_file&&!load_correction_rules_file(base+"correction_rules.tsv",parsed_corrections.rules))return false;
+ lexicon=std::move(parsed_lexicon);scorer=std::move(parsed_scorer);if(connections)*connections=std::move(parsed_connections);
+ if(corrections)*corrections=std::move(parsed_corrections);if(loaded)*loaded=count;return true;
 }
 std::vector<DecodedPath> decode_reading(const std::string& reading,const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,const DecoderOptions& options,const ConnectionModel* connections){
  if(!valid_utf8_impl(reading))return {};auto chars=utf8_chars(reading);if(chars.empty())return {};auto lattice=lexicon.build_lattice(reading,16,true);MorphologyDecoder decoder;return decoder.decode(chars.size(),lattice,scorer,{},options,connections);
