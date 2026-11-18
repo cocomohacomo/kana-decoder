@@ -35,6 +35,11 @@
 - train/dev/test leakage guard: tools/validate_corpus_splits.py
 - 詳細: docs/PACK_IMPORT_AND_EVALUATION.md
 
+## 実行時メモリとSURGE診断
+- v0.26で入力長・ラティス・候補・展開状態・trace量の決定的上限を導入。上限超過は不完全な候補を返さずfail-closed。
+- Sudachi実PackのCIは1,792 MiBのプロセスメモリ上限とPeak RSS検査を実施。
+- `tools/evaluate_surge.py` は候補cluster・矛盾Question・Focus・gold候補coverageを測定する非変更型の簡易SURGE probeです。
+
 ## 仕様
 - Python API: docs/PYTHON_API.md
 - v0.15: docs/SPECIFICATION_v0.15.md
