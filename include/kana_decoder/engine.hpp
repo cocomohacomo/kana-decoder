@@ -109,7 +109,7 @@ struct DecoderOptions {
  std::size_t max_input_codepoints=256;
  std::size_t max_lattice_edges=4096;
  std::size_t max_lattice_candidates=32768;
- std::size_t max_expanded_states=32768;
+ std::size_t max_expanded_states=262144;
  std::size_t max_trace_records=4096;
 };
 
