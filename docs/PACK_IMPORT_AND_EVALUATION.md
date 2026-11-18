@@ -77,3 +77,10 @@ The orchestrator verifies both archive hashes, extracts only the expected member
 The source lock records the upstream LEGAL notice's Apache-2.0 distribution license and UniDic BSD-3-Clause conditions for both the Small lexicon and the matrix. The Pack data license expression is therefore Apache-2.0 AND BSD-3-Clause; the repository's original Core code remains MIT.
 
 No production dictionary Pack is claimed until the real source archives are downloaded and their pinned checksums verified. The 30 MiB size is only a provisional optimization target. The build's default declared expanded-size budget is 8 GiB.
+
+
+## Build the real Sudachi Pack through GitHub Actions
+
+The repository also provides a manual workflow at .github/workflows/sudachi-pack.yml. In GitHub, open Actions, select Build Sudachi Small Pack, choose the expanded Pack budget (default 8 GiB), and run the workflow. It downloads the pinned archives, verifies both SHA-256 values, builds and verifies the Pack, then uploads a 30-day Actions artifact. The Pack binary is not committed to the source repository.
+
+This workflow has been added but has not yet been manually dispatched in this development session. Its success must be confirmed by a completed workflow run and inspection of the uploaded artifact before treating the real dictionary Pack as available.
