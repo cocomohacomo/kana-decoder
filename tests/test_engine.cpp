@@ -45,6 +45,14 @@ int main(){
  assert(load_language_pack(std::string(KANA_DECODER_SOURCE_DIR)+"/packs/ja-lite",pack_lexicon,pack_scorer,&pack_entries));
  assert(pack_entries==7&&pack_lexicon.size()==7);
  assert(pack_scorer.score("rain",{"あした"},{})>pack_scorer.score("candy",{"あした"},{}));
+ LexiconTrie contextual_trie;
+ assert(contextual_trie.add("あした",{"あした","明日",100,0}));
+ assert(contextual_trie.add("あめ",{"rain","雨",100,0}));
+ assert(contextual_trie.add("あめ",{"candy","飴",100,0}));
+ auto context_paths=decode_reading("あしたあめ",contextual_trie,pack_scorer,dop);
+ assert(!context_paths.empty()&&context_paths[0].tokens.size()==2);
+ assert(context_paths[0].tokens[1].candidate.id=="rain");
+
  // Trie-backed Pack loading, lattice generation and bounded streaming revisions.
  LexiconTrie trie;std::size_t loaded=0;
  const std::string pack_path=std::string(KANA_DECODER_SOURCE_DIR)+"/packs/ja-lite/lexicon.tsv";
