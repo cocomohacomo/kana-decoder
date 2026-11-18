@@ -211,3 +211,19 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Added docs/SPECIFICATION_v0.11.md and docs/C_API.md.
 - GitHub Actions run 44354758942 for commit e84f4420abfa5e7e8a65ee62d15efe1f9491696a: completed / success. CTest 6/6 PASS; Python unittest 25/25 PASS; bounded decode microbenchmark PASS; Japanese reference Pack verification PASS.
 - Remaining C ABI work: structured N-best snapshots/token spans, a positive common-prefix C API fixture, Python ctypes integration, ABI compatibility tests, and target-hardware streaming latency/RSS measurement.
+
+
+## 21. v0.12: structured N-best ABI and Sudachi acquisition pipeline
+- Added opaque owned kd_decode_result API: kd_engine_decode_nbest, result destruction, path count/score, token count and token view.
+- Token views expose Unicode-code-point start/end spans, candidate ID, surface, POS, inflection type/form, morphology score and context score. Borrowed strings are valid only while the result object remains alive.
+- Enforced the Core's hard N-best ceiling of 8; zero selects the default 8 and requests above 8 are rejected.
+- Added KD_C_API_VERSION and kd_c_api_version() for FFI ABI version checks.
+- Added shared kana_decoder library target while retaining the existing kana_decoder_core link target.
+- Added C integration tests and Python ctypes integration tests for Pack loading, N-best paths, token metadata, code-point spans and ABI version.
+- Added tools/fetch_sudachi_source.py: source-lock-driven HTTPS download, exact host/redirect allowlist, 2 GiB archive cap, SHA-256 verification and atomic publication.
+- Added tools/validate_sudachi_pack_inputs.py to reject lexicon context IDs outside the pinned matrix dimensions before conversion/build.
+- Added pipeline regression tests and registered them in CTest. Added docs/SPECIFICATION_v0.12.md; updated C API, Pack import, README and implementation docs.
+- GitHub Actions run 44356502933 for commit 44d6cf1b55e7e95f94231a91f8c86487964979a: completed / success. CTest 9/9 PASS; Python unittest 28 tests PASS; bounded decode microbenchmark PASS; Japanese reference Pack verification PASS.
+- The 30 MiB value remains a provisional optimization target, not a development or runtime hard cap. Pack manifest resource budgets remain explicit and configurable.
+- No production Sudachi source archive was downloaded or imported during this milestone. The new downloader and validation pipeline are implemented and tested with synthetic fixtures, but real archive checksum confirmation, release-specific legal/NOTICE audit, full Pack generation, held-out quality evaluation, target CPU latency and peak RSS remain open release gates.
+- Upstream source research confirms Small lexicon and matrix are separate inputs and that Small/Core/Full have different data composition. Core/Full are not implicitly approved for redistribution; retain the current Small-only licensing review gate.
