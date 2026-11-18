@@ -1,5 +1,6 @@
 #include "kana_decoder/engine.hpp"
 #include "kana_decoder/c_api.h"
+#include "kana_decoder/pack_manifest.hpp"
 #include <cassert>
 #include <filesystem>
 #include <fstream>
@@ -65,6 +66,16 @@ int main(){
  LexiconTrie pack_lexicon;MaskedNgramScorer pack_scorer;std::size_t pack_entries=0;
  assert(load_language_pack(std::string(KANA_DECODER_SOURCE_DIR)+"/packs/ja-lite",pack_lexicon,pack_scorer,&pack_entries));
  assert(pack_entries==7&&pack_lexicon.size()==7);
+ const std::string valid_pack_path=std::string(KANA_DECODER_SOURCE_DIR)+"/packs/ja-lite";
+ assert(verify_pack_manifest(valid_pack_path));
+ const auto manifest_tmp=std::filesystem::temp_directory_path()/"kana_decoder_tampered_pack";
+ std::filesystem::remove_all(manifest_tmp);
+ std::filesystem::copy(valid_pack_path,manifest_tmp,std::filesystem::copy_options::recursive);
+ {std::ofstream tamper(manifest_tmp/"lexicon.tsv",std::ios::app);tamper<<"tampered\\n";}
+ assert(!verify_pack_manifest(manifest_tmp.string()));
+ LexiconTrie rejected_lexicon;MaskedNgramScorer rejected_scorer;
+ assert(!load_language_pack(manifest_tmp.string(),rejected_lexicon,rejected_scorer));
+ std::filesystem::remove_all(manifest_tmp);
  ConnectionModel pack_connections;assert(load_language_pack(std::string(KANA_DECODER_SOURCE_DIR)+"/packs/ja-lite",pack_lexicon,pack_scorer,&pack_entries,&pack_connections));
  assert(pack_connections.cost(1,1)==0&&pack_connections.cost(1,2)==20);
  std::string malformed;malformed.push_back(static_cast<char>(0xf0));malformed.push_back(static_cast<char>(0x28));malformed.push_back(static_cast<char>(0x8c));malformed.push_back(static_cast<char>(0x28));
