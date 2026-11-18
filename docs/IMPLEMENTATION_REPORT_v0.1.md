@@ -40,7 +40,7 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - 初期参照実装時のRelease static library libkana_decoder_core.a: 131,502 bytes。今回の統合後バイナリサイズは未計測であり、この過去値を現行サイズとして扱わない。
 - 現行日本語Lite fixture: payload 1,751 bytes + manifest 1,164 bytes = 2,915 bytes（約0.00278 MiB）。SHA-256全5ファイル検証、30 MiB上限PASS。
 - fixtureはテスト用であり、実用辞書のサイズ・語彙カバレッジ評価には使えない。外部辞書はライセンス確認前のため含めていない。
-- 旧n-gram microbenchmark: 200,000回の4候補resolve、約2,298 ns/resolve（約2.30 µs）。現行CI microbenchmark（Ubuntu 26.04 / GCC 15.2 / Release）: n-gram resolve 約2,697 ns、2-token/5-edge小規模ラティスdecode 約1,116 ns。単一CIランナー（Ubuntu 26.04 / GCC 15.2 / Release）の小規模測定であり、全文変換・p50/p95/p99・実機CPU・RSSを含まず、1文節1ms未満を証明しない。再現時はActions run 44343988998のログを参照。
+- 旧n-gram microbenchmark: 200,000回の4候補resolve、約2,298 ns/resolve（約2.30 µs）。現行CI microbenchmark（Ubuntu 26.04 / GCC 15.2 / Release）: n-gram resolve 約4,429 ns、2-token/5-edge小規模ラティスdecode 約1,672 ns。単一CIランナー（Ubuntu 26.04 / GCC 15.2 / Release）の小規模測定であり、全文変換・p50/p95/p99・実機CPU・RSSを含まず、1文節1ms未満を証明しない。再現時はActions run 44344624019のログを参照。
 
 ## 5. 既知の制約
 1. 実用日本語形態素辞書・大規模接続行列は未実装。N-best参照デコーダと小規模接続モデルfixtureは実装済み。
@@ -113,10 +113,10 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 
 
 ## 11. 今回のCI実行結果
-- Commit: `f002f3b292b53b67b3803aeec1cd76bb0a94a129`（この段階の実装。後続の報告更新コミットは除く）
-- GitHub Actions run `44343988998`: Configure / Build / CTest / benchmark / Pack verificationすべてPASS。
+- Commit: `375de3049dedb696db72a4221d2f077f1e5d1097`（Pack builderのconnection matrix取り込みテストを含む）
+- GitHub Actions run `44344624019`: Configure / Build / CTest / benchmark / Pack verificationすべてPASS。
 - CTest: 5/5。C API integration、C++ engine、Pack validation、Japanese smoke quality、Pack builder。
 - Python Pack verifier tests: 7件。Pack builder tests: 2件。
 - Smoke gold corpus: 4件中4件完全一致。これはfixtureの配線確認であり、製品精度指標ではない。
-- CI microbenchmark: n-gram resolve 2,697.2 ns/resolve、2-token/5-edge decoder 1,116.08 ns/decode。1回の小規模測定であり、実機・実用辞書・全文処理・tail latency・RSSの保証ではない。
+- CI microbenchmark: n-gram resolve 4,429.48 ns/resolve、2-token/5-edge decoder 1,672.04 ns/decode。1回の小規模測定であり、実機・実用辞書・全文処理・tail latency・RSSの保証ではない。
 - 追加したstrict numeric parserはint32/uint32の範囲と文字列全体の一致を検査し、`100junk` や `10x` のような末尾不正文字を拒否する。
