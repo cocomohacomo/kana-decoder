@@ -1,6 +1,7 @@
 #include "kana_decoder/engine.hpp"
 #include <algorithm>
 #include <cstdint>
+#include <cmath>
 namespace kana_decoder {
 std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  const std::vector<LatticeEdge>& lattice,const MaskedNgramScorer& scorer,
@@ -9,6 +10,11 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  if(trace) trace->clear();
  if(resource_limit_exceeded)*resource_limit_exceeded=false;
  if(length==0)return {};
+ if(!std::isfinite(opt.context_weight)||opt.context_weight<0.0||
+    !std::isfinite(opt.surge_context_margin)||opt.surge_context_margin<0.0){
+  if(resource_limit_exceeded)*resource_limit_exceeded=true;
+  return {};
+ }
  if(length>256||opt.beam_width==0||opt.max_edges_per_position==0||
     opt.max_candidates_per_edge==0||opt.max_paths==0){
   if(resource_limit_exceeded)*resource_limit_exceeded=true;
