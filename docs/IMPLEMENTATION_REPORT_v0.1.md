@@ -265,3 +265,7 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Increased the native payload-file ceiling from 64 to 256 while retaining the 1 MiB manifest cap.
 - Added C++ conformance tests: declared 64 MiB budget is accepted, and a deliberately undersized 1-byte budget is rejected with the expected resource-limit error.
 - CI validation is pending for commits \`770ba78\` and \`f730f66\`. No production Sudachi archive or Pack was downloaded or built as part of this change.
+
+- Follow-up hardening: native resource accounting now includes both Manifest and payload bytes, matching the Python verifier's installed-size accounting.
+- Added a deterministic 70,000-byte payload fixture with a pinned SHA-256 digest to exercise hashing across multiple 64 KiB reads and SHA-256 compression blocks.
+- CI validation for the latest changes is pending.
