@@ -24,13 +24,13 @@ class UdGsdAdapterTests(unittest.TestCase):
                 encoding="utf-8")
             line = (
                 "1\t今日\t今日\tNOUN\t_\t_\t0\troot\t_\t"
-                "UnidicInfo=キョウ,今日,今日,キョウ,今日,キョウ,*,*\n"
+                "UnidicInfo=キョウ,今日,今日,今日,キョウ,*,*,キョウ,キョウ,今日\n"
                 "2\t未知\t未知\tNOUN\t_\t_\t1\tdep\t_\t"
-                "UnidicInfo=ミチ,未知,未知,ミチ,未知,ミチ,*,*\n"
+                "UnidicInfo=ミチ,未知,未知,未知,ミチ,*,*,ミチ,ミチ,未知\n"
                 "3\t雨\t雨\tNOUN\t_\t_\t1\tdep\t_\t"
-                "UnidicInfo=アメ,雨,雨,アメ,雨,アメ,*,*\n"
+                "UnidicInfo=アメ,雨,雨,雨,アメ,*,*,アメ,アメ,雨\n"
                 "4\t降る\t降る\tVERB\t_\t_\t1\tdep\t_\t"
-                "UnidicInfo=フル,降る,降る,フル,降る,フル,*,*\n\n"
+                "UnidicInfo=フル,降る,降る,降る,フル,*,*,フル,フル,降る\n\n"
             )
             for split in ("train", "dev", "test"):
                 (source / f"ja_gsd-ud-{split}.conllu").write_text(
