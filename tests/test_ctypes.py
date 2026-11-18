@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Exercise the public C ABI through ctypes against the shared library."""
 import ctypes, pathlib, sys, unittest
-LIB=pathlib.Path(sys.argv[1]).resolve()
-PACK=pathlib.Path(sys.argv[2]).resolve()
-sys.argv=sys.argv[:1]  # hide CTest-provided library and Pack paths from unittest discovery
+LIB=pathlib.Path(sys.argv[1]).resolve() if len(sys.argv)>2 and pathlib.Path(sys.argv[1]).is_file() else None
+PACK=pathlib.Path(sys.argv[2]).resolve() if len(sys.argv)>2 and pathlib.Path(sys.argv[2]).is_dir() else None
+sys.argv=sys.argv[:1]  # hide CTest-provided paths from unittest discovery
 class TokenView(ctypes.Structure):
     _fields_=[("start_codepoint",ctypes.c_size_t),("end_codepoint",ctypes.c_size_t),
       ("candidate_id",ctypes.c_char_p),("surface",ctypes.c_char_p),("pos",ctypes.c_char_p),
       ("inflection_type",ctypes.c_char_p),("inflection_form",ctypes.c_char_p),
       ("morphology_score",ctypes.c_double),("context_score",ctypes.c_double)]
+@unittest.skipUnless(LIB is not None and PACK is not None, "requires CTest-provided shared-library and Pack paths")
 class ApiTests(unittest.TestCase):
  @classmethod
  def setUpClass(cls):
