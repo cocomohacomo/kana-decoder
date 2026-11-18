@@ -377,3 +377,12 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Pack loaderは引き続き一時オブジェクトに読み込み、Manifest・辞書・ngram・任意のconnection/correctionファイル検証後に一括反映するtransactional semanticsを維持。
 - CI初回で分割ファイルに移した標準ライブラリ依存の不足を検出し、`<charconv>` / `<fstream>` を追加。StreamingのUTF-8検証は共通 `is_valid_utf8` APIへ統一。
 - GitHub Actions run `44379310687`（最終コードcommit `f8ccb004b5f4fc9e8554dfc2eaa3a206f2867030`）: completed / success。Static coreとshared runtimeの双方をBuild成功。CTest 14/14 PASS、bounded decode benchmark PASS、Japanese reference Pack verification PASS、Python Pack/license tests 45件発見・41 PASS・4 SKIP。分割後に不要となったUTF-8補助・数値パーサ・重複したCorrection loaderも除去。
+
+
+## 36. 警告ゼロ化と診断ゲート強化（v0.24）
+- 前回の成功CI（run 44379477637）のBuildログを調査し、static/sharedの二重ビルドで繰り返し出ていた警告を分類。ソース上の警告箇所は `-Wmisleading-indentation` と `-Wmissing-field-initializers` の2種類。
+- `engine.cpp`、`scoring.cpp`、`lexicon_trie.cpp`、`correction.cpp`、`streaming_session.cpp`、`pack_loader.cpp`、`pack_manifest.cpp`、`c_api.cpp` を修正。条件分岐・ループ後の処理を明示的に分離し、fallback/C API convenience candidateの未指定メタデータを空文字で明示初期化。
+- これらは警告の原因となる記述を整理したもので、スコア式・候補順位・fallback発火条件・補正閾値・探索上限・Pack形式・公開APIは変更していない。
+- CMakeのstatic/shared両ターゲットに `-Werror` を追加し、今後の警告再発をCIビルド段階で失敗として検出する。
+- 既存の `decoder_trace_tests` と `evaluator_cli_contract_tests` を回帰ゲートとして維持。`--trace` 有無で全体/domain集計が一致すること、traceのscore decompositionが一致することを引き続き検証する。
+- v0.24のCI結果はGitHub Actions run完了後に追記する。警告ゼロおよび全テスト成功は、実際のrun結果で確認するまで未確定とする。
