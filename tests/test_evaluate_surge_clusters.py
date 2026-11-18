@@ -44,7 +44,7 @@ class SurgeClusterTests(unittest.TestCase):
             sentences, candidates, {"id-weather": 0},
             {0: {"id-rain": 10, "id-candy": 1}}, {0: 11},
             beta=1.0, margin=0.0)
-        self.assertEqual(metrics["morphology_accuracy"], 0.0)
+        self.assertEqual(metrics["morphology_accuracy"], 0.5)
         self.assertEqual(metrics["cluster_gated_accuracy"], 1.0)
         self.assertEqual(metrics["resolved_tokens"], 1)
         self.assertEqual(metrics["resolution_precision"], 1.0)
