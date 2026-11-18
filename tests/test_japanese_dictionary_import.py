@@ -44,7 +44,7 @@ class JapaneseDictionaryImportTests(unittest.TestCase):
         self.assertEqual(fields[0], "はし")
         self.assertEqual(fields[1], "橋")
         self.assertEqual(fields[2], "橋")
-        self.assertEqual(fields[10:12], ["*", "*"])
+        self.assertEqual(fields[10:12], ["", ""])
 
     def test_header_csv_and_unreadable_skip(self):
         header = ["surface", "reading", "lemma", "pos", "word_cost", "left_id", "right_id"]
