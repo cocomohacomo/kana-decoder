@@ -2,7 +2,7 @@
 
 - 対象仕様: SPECIFICATION_v0.7.md
 - 実装: C++17 Core / C API / Pack validation tools
-- 検証環境: Linux x86_64 container, GCC 14.2.0, Python 3.13.5, Release build
+- 初期ローカル検証環境: Linux x86_64 container, GCC 14.2.0, Python 3.13.5, Release build。最新CI環境はUbuntu 26.04 / GCC 15.2 / Python 3.14.4。
 - 判定: コア機能の参照実装とテストは成功。製品相当の全文かな漢字変換器・実用日本語辞書は未完成。
 
 ## 1. 実装範囲
@@ -30,12 +30,12 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 
 - C++ Core / C API build: PASS
 - C++機能テスト: PASS（曖昧性解消・保持・かなフォールバック、masked trigram、重複削除、音韻置換、促音挿入削除、低確信時非採用、数字保護、無効化、依存再評価、C API）
-- Python Pack validation: PASS（3 tests）
-- CTest: 2/2 passed
-- C API header C compiler syntax check: PASS
+- Python Pack validation: PASS（5 tests）
+- CTest: 3/3 passed（C API integration / C++ engine / Pack validation）
+- C言語ソースからC ABIをリンクし、Packロード・かな変換・出力バッファ不足・未ロード/不正Packを実行確認: PASS
 
 ## 4. サイズ・速度
-- Release static library libkana_decoder_core.a: 131,502 bytes。この環境での静的ライブラリサイズであり、全OSのruntime保証ではない。
+- 初期参照実装時のRelease static library libkana_decoder_core.a: 131,502 bytes。今回の統合後バイナリサイズは未計測であり、この過去値を現行サイズとして扱わない。
 - 現行日本語Lite fixture: payload 1,751 bytes + manifest 1,164 bytes = 2,915 bytes（約0.00278 MiB）。SHA-256全5ファイル検証、30 MiB上限PASS。
 - fixtureはテスト用であり、実用辞書のサイズ・語彙カバレッジ評価には使えない。外部辞書はライセンス確認前のため含めていない。
 - 旧n-gram microbenchmark: 200,000回の4候補resolve、約2,298 ns/resolve（約2.30 µs）。現行CI microbenchmark（Ubuntu 26.04 / GCC 15.2 / Release）: n-gram resolve 約3,263 ns、2-token/5-edge小規模ラティスdecode 約1,683 ns。単一CIランナー（Ubuntu 26.04 / GCC 15.2 / Release）の小規模測定であり、全文変換・p50/p95/p99・実機CPU・RSSを含まず、1文節1ms未満を証明しない。再現時はActions run 44335900136のログを参照。
