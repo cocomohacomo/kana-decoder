@@ -42,18 +42,18 @@ def parse_misc(misc):
     for item in misc.split("|"):
         if "=" in item:
             key, value = item.split("=", 1)
-            values[key] = unquote(value)
+            values[key.casefold()] = unquote(value)
     return values
 
 
 def token_reading(form, misc):
     values = parse_misc(misc)
-    info = values.get("UniDicInfo")
+    info = values.get("unidicinfo")
     if info:
         fields = info.split(",")
         if len(fields) >= 4 and fields[3] not in ("", "*", "？"):
             return to_hiragana(fields[3])
-    reading = values.get("Reading") or values.get("Pron")
+    reading = values.get("reading") or values.get("pron")
     if reading and reading not in ("*", "？"):
         return to_hiragana(reading)
     if form and all(unicodedata.category(ch)[0] in ("P", "S", "N") for ch in form):
