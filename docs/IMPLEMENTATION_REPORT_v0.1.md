@@ -269,3 +269,11 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Follow-up hardening: native resource accounting now includes both Manifest and payload bytes, matching the Python verifier's installed-size accounting.
 - Added a deterministic 70,000-byte payload fixture with a pinned SHA-256 digest to exercise hashing across multiple 64 KiB reads and SHA-256 compression blocks.
 - GitHub Actions run `44369302922` for the final v0.15 documentation commit `0934305727b26de5d9a5b3dde15e1b729d110a78`: completed / success. CTest 12/12 PASS, Python unittest: 34 tests discovered, 30 passed and 4 skipped because the standalone discovery invocation does not receive CTest-only native library arguments; those paths are exercised by CTest integration targets, Pack verification PASS, and bounded decode benchmark PASS.
+
+
+## 26. 実Sudachiアーカイブ取得試行と診断改善
+- 2026-11-18の手動Workflow実行（run IDs: \`44370290450\`, \`44370361751\`, \`44370432314\`, \`44370467031\`）で、両アーカイブのダウンロードとSHA-256照合は成功。
+- 実測アーカイブサイズ: \`small_lex.zip\` 13,641,526 bytes、\`matrix.def.zip\` 128,639,959 bytes、合計142,281,485 bytes（約142.28 MB、十進）。これは圧縮された入力アーカイブの合計であり、完成Packサイズではない。
+- Pack生成は全件で \`validate_sudachi_pack_inputs.py\` の段階で失敗し、Artifactはアップロードされていない。従来の \`run_json\` は subprocess の \`CalledProcessError\` をそのまま伝播し、検証器のstderrをログに表示できていなかったため、根本原因はまだ確定していない。
+- \`tools/build_sudachi_pack.py\` の \`run_json\` を修正し、サブコマンド失敗時に終了コード・stdout・stderrを表示するようにした。失敗診断を隠さないための回帰テストを追加。
+- 次回の手動Workflow実行で、検証失敗の具体的な行・列・寸法エラーを取得して修正する。成功Artifactがないため、辞書Packのサイズ、ロード時間、ピークRSS、変換精度は未測定。
