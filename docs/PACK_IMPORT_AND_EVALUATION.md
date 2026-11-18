@@ -273,3 +273,7 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 
 ### 2026-11-18 real-source build status
 The manual workflow successfully downloaded and SHA-256-verified both pinned archives: \`small_lex.zip\` (13,641,526 bytes) and \`matrix.def.zip\` (128,639,959 bytes). These are compressed source archive sizes, not the built Pack size. Pack generation currently stops in the full-input compatibility validator, so no verified production artifact is available yet. The orchestrator now includes the failing subprocess's stderr in its error output; rerun the manual workflow to expose the precise validator error before changing source compatibility rules.
+
+
+### Sudachi V1 source URLの注意
+SudachiDict 20260723のV1 raw lexiconは \`https://sudachi.s3.ap-northeast-1.amazonaws.com/sudachidict-raw/v1/20260723/small_lex.zip\` を使用する。V1とV0は同じファイル名でもCSV内容が異なるため、\`/v1/\` を省略してはならない。V1 importerは名前付きヘッダーを要求し、headerless V0 CSVは拒否する。
