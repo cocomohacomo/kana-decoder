@@ -33,6 +33,17 @@ class SudachiV1Tests(unittest.TestCase):
    lp=root/"lock.json";lp.write_text(json.dumps(lock));out=root/"out"
    r=subprocess.run([sys.executable,str(VERIFY),"--lock",str(lp),"--small-zip",str(small),"--matrix-zip",str(matrix),"--output",str(out)],capture_output=True,text=True)
    self.assertEqual(r.returncode,0,r.stderr);self.assertTrue((out/"small_lex.csv").is_file())
+
+ def test_matrix_conversion_and_invalid_cells(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp);src=root/"matrix.def";out=root/"connections.tsv"
+   src.write_text("3 4\n0 0 0\n1 2 -20\n",encoding="utf-8")
+   r=subprocess.run([sys.executable,str(IMPORTER),"matrix","--input",str(src),"--output",str(out)],capture_output=True,text=True)
+   self.assertEqual(r.returncode,0,r.stderr);self.assertEqual(out.read_text().splitlines()[1],"1\t2\t-20")
+   src.write_text("2 2\n2 0 1\n",encoding="utf-8")
+   r=subprocess.run([sys.executable,str(IMPORTER),"matrix","--input",str(src),"--output",str(out)],capture_output=True,text=True)
+   self.assertNotEqual(r.returncode,0)
+
 class CorpusSplitTests(unittest.TestCase):
  def run_tool(self,root):
   return subprocess.run([sys.executable,str(ROOT/"tools"/"validate_corpus_splits.py"),"--train",str(root/"train.tsv"),"--dev",str(root/"dev.tsv"),"--test",str(root/"test.tsv")],capture_output=True,text=True)
