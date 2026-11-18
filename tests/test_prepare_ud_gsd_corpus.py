@@ -39,8 +39,10 @@ class UdGsdAdapterTests(unittest.TestCase):
             report = adapter.prepare(source, lexicon, output, "fixture")
             with output.open(encoding="utf-8") as stream:
                 rows = list(csv.DictReader(stream, delimiter="\t"))
-            self.assertEqual(len(rows), 6)
-            self.assertEqual([r["reading"] for r in rows[:2]], ["あめ", "ふる"])
+            self.assertEqual(len(rows), 9)
+            self.assertEqual([r["reading"] for r in rows[:3]], ["きょう", "あめ", "ふる"])
+            self.assertEqual(rows[0]["sentence_id"], "sample-1")
+            self.assertNotEqual(rows[0]["sentence_id"], rows[1]["sentence_id"])
             self.assertEqual(rows[0]["split"], "train")
             self.assertEqual(report["splits"]["test"]["out_of_dictionary_tokens"], 1)
             manifest = json.loads((root / "ud_gsd_manifest.json").read_text(encoding="utf-8"))
