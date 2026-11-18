@@ -6,10 +6,14 @@ import unittest
 from pathlib import Path
 
 
+EXECUTABLE = Path(sys.argv[1])
+PACK = Path(sys.argv[2])
+
+
 class SequentialDecoderEvaluatorTests(unittest.TestCase):
     def test_runtime_uses_predicted_left_history_without_gold_boundaries(self):
-        executable = Path(sys.argv[1])
-        pack = Path(sys.argv[2])
+        executable = EXECUTABLE
+        pack = PACK
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             train = root / "train_sequences.tsv"
