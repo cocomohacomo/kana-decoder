@@ -387,3 +387,13 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - 既存の `decoder_trace_tests` と `evaluator_cli_contract_tests` を回帰ゲートとして維持。`--trace` 有無で全体/domain集計が一致すること、traceのscore decompositionが一致することを引き続き検証する。
 - GitHub Actions run `44380200959`（commit `4f9aa8c2076626dad075555e161fcae76d26093d`）: completed / success。Configure / Build（`-Werror`有効）/ CTest / bounded decode benchmark / Japanese reference Pack verification / Python Pack・license testsすべて成功。Buildログのwarning/errorは0件。
 - CTest: 14/14 PASS。Python unittest: 45件実行、41 PASS・4 SKIP。static coreとshared runtimeの双方がwarning-as-error条件でビルド成功。
+
+
+## 37. 候補生成・fallback抑止の可視化（v0.25）
+- `LatticePositionTrace` / `LatticeMatchTrace` を追加し、読みの各Unicode code point開始位置について、辞書一致数、一致span、保持候補ID/表層、fallback有効状態、fallback生成有無、辞書一致によるfallback抑止有無を記録可能にした。
+- `LexiconTrie::build_lattice` と `decode_reading` に省略可能な診断出力引数を追加。既存呼び出しはデフォルト引数により互換性を維持。traceを要求しない通常処理ではtraceレコードを生成しない。
+- 評価CLIへ `--lattice-trace` を追加。`--trace --lattice-trace` で候補ごとのスコア分解と候補生成状況を同じcase JSONへ出力する。診断有無でdecode結果・overall/domain集計は変化しない。
+- C++回帰テストで、辞書一致がある位置ではfallbackが抑止され、辞書一致がない位置ではfallbackが生成されることを検証。CLI回帰テストでJSON構造、読みcode pointごとの記録数、fallback状態の整合性、集計値不変を検証。
+- Sudachi実Pack workflowを更新し、smoke corpusに対してscore traceとlattice traceを同時出力。関連ヘッダー・生成器・decoder変更でもPack workflowが起動するようpaths filterを拡張。
+- この版ではfallback生成方針・候補順位・スコア式を変更していない。実Pack traceから「候補不在」「fallback抑止」「候補順位誤り」を区別した後、別途ゴールドコーパスで候補生成方針の変更を評価する。
+- CI結果はworkflow完了後に追記する。現時点では未検証。
