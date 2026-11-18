@@ -28,10 +28,10 @@ Every decode is subject to deterministic structural ceilings. Defaults:
 
 ## 2. Process-level memory gate
 
-- The Sudachi runtime workflow applies Linux `RLIMIT_DATA` of 1,792 MiB to the native evaluator process.
+- The Sudachi runtime workflow applies Linux `RLIMIT_DATA` of 3,072 MiB to leave room for allocator/data-segment overhead to the native evaluator process.
 - GNU `time` records peak RSS, and `tools/check_memory_budget.py` fails the workflow if measured peak RSS exceeds 1,792 MiB.
 - The RSS gate includes the loaded Pack and runtime allocations, unlike the decoder's structural scratch limits.
-- This is a CI enforcement envelope, not a universal device guarantee. Actual target-device limits must be benchmarked on the target hardware and Pack.
+- The RLIMIT_DATA allocation ceiling and the measured RSS ceiling are intentionally separate: the former is 3,072 MiB, while the latter remains 1,792 MiB. The first 1,792 MiB data-segment attempt failed with std::bad_alloc during Pack load, so it was raised to avoid confusing virtual allocation pressure with resident-memory usage. This is a CI enforcement envelope, not a universal device guarantee. Actual target-device limits must be benchmarked on the target hardware and Pack.
 
 ## 3. Lightweight SURGE probe
 
