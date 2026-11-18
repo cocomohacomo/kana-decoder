@@ -5,8 +5,19 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 using namespace kana_decoder;
 int main(){
+ MaskedNgramScorer smoothing_test;
+ assert(smoothing_test.smoothing_alpha()==0.5);
+ smoothing_test.add_unigram("a",10);smoothing_test.add_unigram("b",10);
+ smoothing_test.add_left_bigram("p","a",9);smoothing_test.add_left_bigram("p","b",1);
+ const double default_smoothing_score=smoothing_test.contextual_score("a",{"p"},{});
+ assert(smoothing_test.set_smoothing_alpha(0.1));
+ assert(smoothing_test.contextual_score("a",{"p"},{})!=default_smoothing_score);
+ assert(!smoothing_test.set_smoothing_alpha(0.0));
+ assert(!smoothing_test.set_smoothing_alpha(std::numeric_limits<double>::infinity()));
+ assert(smoothing_test.set_smoothing_alpha(0.5));
  MaskedNgramScorer s;s.add_unigram("rain",10);s.add_unigram("candy",10);s.add_left_bigram("あした","rain",1);s.add_right_bigram("rain","がふる",50);s.add_left_bigram("あした","candy",1);s.add_right_bigram("candy","がふる",0);s.add_left_bigram("","rain",1);s.add_right_bigram("rain","をかう",1);s.add_left_bigram("","candy",1);s.add_right_bigram("candy","をかう",1);
  std::vector<Candidate>c{{"rain","雨"},{"candy","飴"}};auto resolved=s.resolve(c,{"あした"},{"がふる"},OutputMode::Ambiguous,-20,.5,true);assert(!resolved.ambiguous&&resolved.output=="雨");
  MaskedNgramScorer ngram;ngram.add_unigram("rain",10);ngram.add_unigram("candy",10);ngram.add_right_ngram("rain",{"明日","が","降る"},40);ngram.add_right_ngram("candy",{"明日","が","降る"},0);auto tri=ngram.resolve(c,{},{"明日","が","降る"},OutputMode::Normal,-20,.1,true);assert(tri.output=="雨");
