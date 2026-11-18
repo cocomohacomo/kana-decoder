@@ -28,7 +28,7 @@ class PackBuilderTests(unittest.TestCase):
             self.assertTrue(report["within_limit"])
             self.assertTrue((out / "connections.tsv").exists() is False)
             ngram = (out / "ngram.tsv").read_text(encoding="utf-8")
-            self.assertIn("L\train\tverb_rain\t1", ngram)
+            self.assertIn("L\train\tcandy\t1", ngram)
             manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["pack_id"], "ja-import-test")
 
