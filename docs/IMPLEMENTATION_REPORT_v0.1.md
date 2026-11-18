@@ -429,3 +429,7 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - CTestにcorpus compiler / ablation testsを追加。回帰テストは文書split漏洩防止、明示split衝突拒否、辞書未登録token拒否、context evidenceが形態素順位と異なる候補を解決する合成例、証拠なし棄却、multi-span誤alignment防止を検証する。
 - Sudachi実Pack v0.27 run 44388413830: completed / success。754,602辞書entries、trained n-gram records 0、installed size 661.413 MiB、pack_load_ms 10,302、Peak RSS 1,425,444 KiB（1,792 MiB gate内）。4件smokeは1/4 exact、CER 1.0、decode failure 0。SURGEは13 span clusters / 84 claims / 12 Questions / 0 context-evidence spans / 0 resolved / 12 unresolved / 4 Focus / candidate coverage 4/4。学習コーパスがないため、文脈による実データ改善は未検証。
 - 重要な境界: v0.28は学習コーパスを安全に準備・分割・評価する道具を追加したものであり、トークナイザや外部コーパスを同梱しない。精度改善の確認には、ライセンス確認済みの文書単位で分離された形態素tokenized corpusが必要。
+
+
+- v0.28 CI run 44391162031（main commit 392cadd270977b6c3b7f7a3b8f0959f7f1600bd3）: completed / success。Configure / Build（-Werror）/ CTest / bounded decode benchmark / Japanese reference Pack verification / Python Pack and license tests all passed。CTest 18/18 PASS。Python unittest 56 tests: 52 PASS, 4 SKIP。新規corpus preparation 3 testsとablation 3 testsを含む。
+- 実Sudachi Packへのv0.28 ablation追加検証run 44391164599は、ソース取得・サイズ検査・Pack生成の進行中。実Packの追加ablation出力はrun完了後に確認する。v0.27実Packの基準値は上記のとおりで、v0.28で精度向上したとはまだ判定しない。
