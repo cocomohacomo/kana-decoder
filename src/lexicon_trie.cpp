@@ -36,7 +36,8 @@ bool LexiconTrie::load_tsv(const std::string& path,std::size_t* loaded){
   candidate.pos=cols.size()>3?cols[3]:std::string{};
   if(cols.size()>10)candidate.inflection_type=cols[10];
   if(cols.size()>11)candidate.inflection_form=cols[11];
-  if(!parsed.add(cols[0],candidate))return false;++count;
+  if (!parsed.add(cols[0], candidate)) return false;
+  ++count;
  }
  if(!in.eof())return false;
  *this=std::move(parsed);if(loaded)*loaded=count;return true;
@@ -47,10 +48,12 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(const std::string& reading,s
   for(std::size_t end=start;end<chars.size();++end){auto it=nodes_[node].next.find(chars[end]);if(it==nodes_[node].next.end())break;node=it->second;
    if(!nodes_[node].values.empty()){LatticeEdge edge;edge.start=start;edge.end=end+1;edge.candidates=nodes_[node].values;
     std::stable_sort(edge.candidates.begin(),edge.candidates.end(),[](const LatticeCandidate&a,const LatticeCandidate&b){return static_cast<std::int64_t>(a.word_cost)+a.connection_cost<static_cast<std::int64_t>(b.word_cost)+b.connection_cost;});
-    if(edge.candidates.size()>8)edge.candidates.resize(8);out.push_back(std::move(edge));if(++matches>=max_matches)break;
+    if (edge.candidates.size() > 8) edge.candidates.resize(8);
+    out.push_back(std::move(edge));
+    if (++matches >= max_matches) break;
    }
   }
-  if(fallback&&matches==0)out.push_back(LatticeEdge{start,start+1,{LatticeCandidate{"kana:"+chars[start],chars[start],10000,0}}});
+  if(fallback&&matches==0)out.push_back(LatticeEdge{start,start+1,{LatticeCandidate{"kana:" + chars[start], chars[start], 10000, 0, 0, 0, {}, {}, {}}}});
  }return out;
 }
 
