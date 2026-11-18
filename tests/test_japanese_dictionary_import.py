@@ -33,7 +33,7 @@ class JapaneseDictionaryImportTests(unittest.TestCase):
         fields = output.read_text(encoding="utf-8").splitlines()[1].split("\t")
         self.assertEqual(fields[0], "たべる")
         self.assertEqual(fields[1], "食べる")
-        self.assertEqual(fields[6:], ["-5000", "0", "100", "200"])
+        self.assertEqual(fields[6:], ["-5000", "0", "100", "200", "下一段-バ行", "終止形-一般"])
 
     def test_ipadic_csv(self):
         row = ["橋", "11", "12", "-100", "名詞", "一般", "*", "*",
@@ -43,6 +43,8 @@ class JapaneseDictionaryImportTests(unittest.TestCase):
         fields = output.read_text(encoding="utf-8").splitlines()[1].split("\t")
         self.assertEqual(fields[0], "はし")
         self.assertEqual(fields[1], "橋")
+        self.assertEqual(fields[2], "橋")
+        self.assertEqual(fields[10:12], ["*", "*"])
 
     def test_header_csv_and_unreadable_skip(self):
         header = ["surface", "reading", "lemma", "pos", "word_cost", "left_id", "right_id"]
