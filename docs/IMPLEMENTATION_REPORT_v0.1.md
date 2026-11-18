@@ -36,7 +36,7 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 
 ## 4. サイズ・速度
 - Release static library libkana_decoder_core.a: 131,502 bytes。この環境での静的ライブラリサイズであり、全OSのruntime保証ではない。
-- 日本語Lite fixture: payload 1,574 bytes + manifest 1,257 bytes = 2,831 bytes（約0.00270 MiB）。SHA-256全4ファイル検証、30 MiB上限PASS。
+- 日本語Lite fixture: payload 1,574 bytes + manifest 1,048 bytes = 2,622 bytes（約0.00250 MiB）。SHA-256全4ファイル検証、30 MiB上限PASS。
 - fixtureはテスト用であり、実用辞書のサイズ・語彙カバレッジ評価には使えない。外部辞書はライセンス確認前のため含めていない。
 - n-gram microbenchmark: 200,000回の4候補resolve、約2,418 ns/resolve（約2.42 µs）。コンテナ内の単一測定で、全文変換・p95/p99・実機CPU・RSSを含まない。1文節1ms未満を証明しない。
 
