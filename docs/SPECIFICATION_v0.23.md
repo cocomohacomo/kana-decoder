@@ -31,4 +31,4 @@ The implementation is split by responsibility while preserving the public C++ AP
 
 - CMake registers all modules in both `kana_decoder_core` and `kana_decoder_shared`.
 - Existing engine, C API, Python API/ctypes, streaming snapshot, correction, Pack verification, and evaluator trace tests remain required.
-- CI results for the module extraction are recorded in the implementation report after the complete workflow succeeds.
+- GitHub Actions run `44378925798` for code commit `d1ccb61fd9fffd996ed65d3f6ecc4b0e3ba0ac4f`: completed / success. Both static and shared libraries built; CTest 14/14 PASS; bounded decode benchmark PASS; reference Pack verification PASS; Python Pack/license suite 45 discovered, 41 passed, 4 skipped.
