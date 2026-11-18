@@ -467,3 +467,13 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Pack artifact: 149,644,215 bytes、基礎Sudachi Packのみをアップロード。コーパス・train sequence・派生ngram modelは含めない。
 - Code CI run `44405760611`（commit `b3b32aacc2c0b5d12610334d6d8af1ba52bf0201`）: completed / success。warning-as-error build、CTest 20/20、Python unittest 62件（58 PASS / 4 SKIP）、bounded benchmark、Japanese reference Pack verificationがPASS。
 - 結論: causal sequential条件でもSURGE gate + morphology fallbackはこのGSD token-aligned benchmark上で約0.99ポイントの改善を示した。ただしtoken境界はgoldで与えているため、次段階ではC++ runtimeの実際のstreaming pathへ同じ予測履歴制約を適用し、full reading-to-textのCERと誤り伝播を検証する。
+
+
+## 43. C++ Coreによるgold境界非依存の全文逐次評価（v0.30追加）
+
+- `tools/evaluate_sequential_corpus.cpp` を追加。test文書のreading列を文単位で連結し、gold token境界をデコーダ入力へ渡さずにC++ Coreの `decode_reading` で全文変換する。
+- morphology-onlyは空のscorer、context方式はtrain splitからC++ `MaskedNgramScorer` にunigramとleft bigramを直接集計して比較。decoderが自ら選んだcandidate IDを次候補のleft historyとして使い、right/future contextを与えない。
+- gold token境界はdecode後のalignment計測にだけ利用し、sentence exact / CER / decode failure / over-limit / token alignment precision・recallを出力する。入力上限256 codepoints超の文は部分decodeせずover-limitとして明示。
+- CMakeに `kana_decoder_sequential_eval` とCTest統合テストを追加。合成2-token文「あめはし」で、morphology-onlyの「雨橋」からtrain-derived left contextにより「雨箸」へ選択が変わること、gold境界・未来文脈を使わないことを検証。
+- C++ CI run `44407712171`（commit `28befedc1f4c09d42ef9e0b09acb0af57c025491`）: completed / success。CTest 21/21 PASS、Python unittest 63件（58 PASS / 5 SKIP）、warning-as-error build、bounded benchmark、reference Pack verificationがPASS。
+- 実Sudachi Packでの全文逐次評価を行うworkflow run `44407712247` は、記録時点でPack構築・oracle/causal評価ステップを実行中。実測CER、token alignment、Peak RSSはrun完了後に追記する。これらの値が確定するまではC++実Packの全文精度改善を主張しない。
