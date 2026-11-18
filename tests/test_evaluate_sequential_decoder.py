@@ -23,7 +23,7 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
             corpus = root / "test_tokens.tsv"
             corpus.write_text(
                 "document_id\tsentence_id\treading\tsurface\tdomain\tsplit\n"
-                "d1\tdev1\t あめ\t雨\tnews-blog\tdev\n".replace("\t あめ", "\tあめ")
+                "d1\tdev1\tあめ\t雨\tnews-blog\tdev\n"
                 "d1\tdev1\tはし\t箸\tnews-blog\tdev\n"
                 "d2\ttest1\tあめ\t雨\tnews-blog\ttest\n"
                 "d2\ttest1\tはし\t箸\tnews-blog\ttest\n",
