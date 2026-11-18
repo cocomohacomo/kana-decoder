@@ -290,3 +290,5 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - 追加した境界テスト: 5,000行のvalidator入力、ゼロコスト重複、matrixの順序正規化・重複拒否、語彙の重複排除と決定的出力。
 - 初回CIではテストfixtureのmatrix座標を重複生成していたことと、テストが古い戻り値キーを参照していたことを検出。fixtureと診断を修正し、最新CIで再検証する。
 - 実Sudachiアーカイブは引き続きダウンロード・SHA-256照合に成功。Pack Artifactはまだ生成されていない。raw header診断を含む最新コードで手動Workflowを再実行し、実ヘッダー互換性を確定させる必要がある。
+
+- GitHub Actions run 44371939507 for v0.16 commit 84755b08b01b9df56df0c62edfd6a9096450d6f5: completed / success. CTest 12/12 PASS; Python unittest 39 tests discovered, 35 passed and 4 skipped because standalone discovery lacks CTest-only native arguments; the skipped native paths are exercised by CTest integration. Bounded decode benchmark, reference Pack verification and license policy validation also PASS.
