@@ -119,7 +119,8 @@ public:
  bool load_tsv(const std::string& path,std::size_t* loaded=nullptr);
  std::vector<LatticeEdge> build_lattice(const std::string& reading,
    std::size_t max_matches_per_start=16,bool kana_fallback=true,
-   std::vector<LatticePositionTrace>* trace=nullptr,\n   std::size_t max_total_edges=4096,std::size_t max_total_candidates=32768,\n   bool* resource_limit_exceeded=nullptr) const;
+   std::vector<LatticePositionTrace>* trace=nullptr, 
+   std::size_t max_total_edges=4096,std::size_t max_total_candidates=32768,\n   bool* resource_limit_exceeded=nullptr) const;
  std::size_t size() const { return entry_count_; }
 private:
  struct Node { std::unordered_map<std::string,std::size_t> next; std::vector<LatticeCandidate> values; };
@@ -152,7 +153,8 @@ std::vector<DecodedPath> decode_reading(const std::string& reading,
  const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,
  const DecoderOptions& options={},const ConnectionModel* connections=nullptr,
  std::vector<CandidateScoreTrace>* trace=nullptr,
- std::vector<LatticePositionTrace>* lattice_trace=nullptr,\n bool* resource_limit_exceeded=nullptr);
+ std::vector<LatticePositionTrace>* lattice_trace=nullptr, 
+ bool* resource_limit_exceeded=nullptr);
 CorrectionDecodeResult decode_with_corrections(const std::string& reading,
  const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,
  const CorrectionOptions& correction_options={},const DecoderOptions& decoder_options={},
