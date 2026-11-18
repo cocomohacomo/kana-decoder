@@ -5,8 +5,9 @@ namespace kana_decoder {
 std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  const std::vector<LatticeEdge>& lattice,const MaskedNgramScorer& scorer,
  const std::vector<std::string>& right_context,const DecoderOptions& opt,const ConnectionModel* connections,
- std::vector<CandidateScoreTrace>* trace) const {
+ std::vector<CandidateScoreTrace>* trace,bool* resource_limit_exceeded) const {
  if(trace) trace->clear();
+ if(resource_limit_exceeded)*resource_limit_exceeded=false;
  if(length==0||opt.beam_width==0||opt.max_edges_per_position==0||
     opt.max_candidates_per_edge==0||opt.max_paths==0)return {};
  // Hard ceilings keep caller-supplied options from defeating bounded-work guarantees.
@@ -47,7 +48,10 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
    if(candidates.size()>candidate_limit)candidates.resize(candidate_limit);
    for(const auto& state:beams[pos])for(const auto& candidate:candidates){
     if(candidate.id.empty()||candidate.surface.empty())continue;
-    if(expanded_states>=expansion_limit)return {};
+    if(expanded_states>=expansion_limit){
+     if(resource_limit_exceeded)*resource_limit_exceeded=true;
+     return {};
+    }
     ++expanded_states;
     State next=state;
     const std::int32_t transition=(connections&&state.has_last)?connections->cost(state.last_right_id,candidate.left_id):0;
