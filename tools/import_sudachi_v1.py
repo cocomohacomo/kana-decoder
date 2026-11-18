@@ -21,6 +21,7 @@ def import_lexicon(source, output):
         names = [x.strip().lower() for x in (reader.fieldnames or [])]
         if names != HEADER:
             raise ValueError("expected exact Sudachi V1 18-column header: " + ",".join(HEADER))
+        reader.fieldnames = names
         for line, row in enumerate(reader, 2):
             try:
                 reading = hira((row["reading_form"] or "").strip())
