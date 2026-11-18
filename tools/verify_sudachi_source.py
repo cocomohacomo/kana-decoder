@@ -22,7 +22,7 @@ def load_lock(path):
   if not isinstance(item.get("sha256"),str) or not re.fullmatch("[0-9a-f]{64}",item["sha256"]):raise ValueError(f"{ident}: invalid SHA-256")
   found[ident]=item
  if set(found)!=set(required):raise ValueError("source lock must contain both pinned artifacts")
- return found
+ return lock,found
 def verify(path,expected):
  if not path.is_file() or path.is_symlink():raise ValueError("artifact missing or symlink")
  actual=digest(path)
