@@ -41,6 +41,25 @@ The causal track is a teacher-segmented sequential diagnostic. A full end-to-end
 
 ### 2.3 Native C++ sentence-level sequential evaluation
 
+`tools/evaluate_sequential_corpus.cpp` performs full sentence-level reading-to-text decoding:
+- Concatenates each test sentence's kana token readings into one uninterrupted reading string. Gold token boundaries are not passed to the decoder.
+- Runs production C++ `decode_reading` twice: an empty scorer for morphology-only and a scorer populated from train-split unigram and left-bigram counts.
+- The decoder's own selected candidate IDs become left history for subsequent candidates. No gold neighbor IDs or right/future context are supplied.
+- Gold token boundaries are used only after decoding to measure token alignment precision/recall. Sentence exact match and CER are measured against concatenated gold surface text.
+- Sentences over the Core's 256-codepoint limit are reported as over-limit, not partially decoded.
+- This is sentence-level reading-to-text evaluation with gold sentence segmentation. It is not raw-text tokenization evaluation or streaming chunk latency measurement.
+
+### 2.4 Native C++ full-path result
+
+GitHub Actions run `44407712247` completed successfully:
+- 2,414 test sentences / 10,317 gold tokens; no over-limit sentences and zero decode failures.
+- Morphology-only: sentence exact 24.6479%, CER 48.6578%, token alignment precision 58.0839%, recall 56.2373%.
+- Train-derived unigram + predicted-left context: sentence exact 24.8136% (+0.1657 percentage points), CER 48.4772% (0.1806 percentage points lower), token alignment precision 58.2791%, recall 56.3924%.
+- Peak RSS 1,425,568 KiB (1,392.2 MiB), below the 1,792 MiB gate. Sequential evaluation elapsed 19.18 seconds on the GitHub-hosted runner.
+- This is a modest measured gain on the filtered UD Japanese-GSD domain, not a broad accuracy guarantee. SURGE's explicit evidence gate is not yet integrated into this C++ full-path evaluator; the causal Python SURGE-gated result is a separate token-aligned diagnostic.
+
+### 2.3 Native C++ sentence-level sequential evaluation
+
 `tools/evaluate_sequential_corpus.cpp` adds a second, stronger diagnostic:
 - Concatenates each test sentence's kana token readings into one uninterrupted reading string. Gold token boundaries are not passed to the decoder.
 - Calls the production C++ `decode_reading` path with an empty scorer (morphology-only) and with a scorer built from train-split unigram and left-bigram counts.
