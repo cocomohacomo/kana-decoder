@@ -5,8 +5,13 @@
 #include <string>
 #include <vector>
 struct kd_ngram_scorer{kana_decoder::MaskedNgramScorer impl;};
+struct kd_engine{kana_decoder::LexiconTrie lexicon;kana_decoder::MaskedNgramScorer scorer;kana_decoder::ConnectionModel connections;bool loaded=false;};
 extern "C" {
 kd_ngram_scorer*kd_ngram_scorer_create(void){return new(std::nothrow)kd_ngram_scorer();}
+kd_engine* kd_engine_create(void){return new(std::nothrow)kd_engine();}
+void kd_engine_destroy(kd_engine*p){delete p;}
+int kd_engine_load_pack(kd_engine*p,const char*dir){if(!p||!dir||!*dir)return -1;kana_decoder::LexiconTrie lex;kana_decoder::MaskedNgramScorer scorer;kana_decoder::ConnectionModel connections;if(!kana_decoder::load_language_pack(dir,lex,scorer,nullptr,&connections))return -1;p->lexicon=std::move(lex);p->scorer=std::move(scorer);p->connections=std::move(connections);p->loaded=true;return 0;}
+int kd_engine_decode(kd_engine*p,const char*reading,char*out,size_t cap){if(!p||!p->loaded||!reading||!out||!cap)return -1;auto paths=kana_decoder::decode_reading(reading,p->lexicon,p->scorer,{},&p->connections);if(paths.empty()||paths.front().tokens.empty())return -1;std::string result;for(const auto&t:paths.front().tokens)result+=t.candidate.surface;if(result.size()+1>cap)return -2;std::memcpy(out,result.c_str(),result.size()+1);return 0;}
 void kd_ngram_scorer_destroy(kd_ngram_scorer*p){delete p;}
 int kd_ngram_add_unigram(kd_ngram_scorer*p,const char*i,uint32_t n){if(!p||!i)return-1;p->impl.add_unigram(i,n);return 0;}
 int kd_ngram_add_left_bigram(kd_ngram_scorer*p,const char*l,const char*i,uint32_t n){if(!p||!l||!i)return-1;p->impl.add_left_bigram(l,i,n);return 0;}
