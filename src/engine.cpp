@@ -22,17 +22,18 @@ bool valid_utf8_impl(const std::string& s) {
 std::vector<std::string> utf8_chars(const std::string&s){std::vector<std::string>o;if(!valid_utf8_impl(s))return o;for(std::size_t i=0;i<s.size();){unsigned char c=static_cast<unsigned char>(s[i]);std::size_t n=c<0x80?1:(c&0xe0)==0xc0?2:(c&0xf0)==0xe0?3:4;o.push_back(s.substr(i,n));i+=n;}return o;}
 std::string join_utf8(const std::vector<std::string>&v){std::string o;for(const auto&c:v)o+=c;return o;}
 std::string pair_key(std::int32_t a,std::int32_t b){return std::to_string(a)+":"+std::to_string(b);}
+void sat_add(std::uint64_t& target,std::uint64_t value){target=std::numeric_limits<std::uint64_t>::max()-target<value?std::numeric_limits<std::uint64_t>::max():target+value;}
 std::size_t byte_offset_for_codepoints(const std::string&s,std::size_t count){auto chars=utf8_chars(s);if(count>chars.size())return std::string::npos;std::size_t n=0;for(std::size_t i=0;i<count;++i)n+=chars[i].size();return n;}
 }
 namespace kana_decoder {
 bool is_valid_utf8(const std::string& text){return valid_utf8_impl(text);}
 std::string MaskedNgramScorer::key(const std::string&a,const std::string&b){return a+"\x1f"+b;}
 std::string MaskedNgramScorer::context_key(const std::vector<std::string>&c){std::string o;std::size_t b=c.size()>2?c.size()-2:0;for(std::size_t i=b;i<c.size();++i){if(!o.empty())o+="\x1e";o+=c[i];}return o;}
-void MaskedNgramScorer::add_left_bigram(const std::string&l,const std::string&c,std::uint32_t n){left_counts_[key(l,c)]+=n;}
-void MaskedNgramScorer::add_right_bigram(const std::string&c,const std::string&r,std::uint32_t n){right_counts_[key(c,r)]+=n;}
-void MaskedNgramScorer::add_left_ngram(const std::vector<std::string>&l,const std::string&c,std::uint32_t n){left_counts_[key(context_key(l),c)]+=n;}
-void MaskedNgramScorer::add_right_ngram(const std::string&c,const std::vector<std::string>&r,std::uint32_t n){right_counts_[key(c,context_key(r))]+=n;}
-void MaskedNgramScorer::add_unigram(const std::string&c,std::uint32_t n){unigram_counts_[c]+=n;}
+void MaskedNgramScorer::add_left_bigram(const std::string&l,const std::string&c,std::uint32_t n){sat_add(left_counts_[key(l,c)],n);sat_add(left_context_totals_[l],n);}
+void MaskedNgramScorer::add_right_bigram(const std::string&c,const std::string&r,std::uint32_t n){sat_add(right_counts_[key(c,r)],n);sat_add(right_context_totals_[r],n);}
+void MaskedNgramScorer::add_left_ngram(const std::vector<std::string>&l,const std::string&c,std::uint32_t n){auto ctx=context_key(l);sat_add(left_counts_[key(ctx,c)],n);sat_add(left_context_totals_[ctx],n);}
+void MaskedNgramScorer::add_right_ngram(const std::string&c,const std::vector<std::string>&r,std::uint32_t n){auto ctx=context_key(r);sat_add(right_counts_[key(c,ctx)],n);sat_add(right_context_totals_[ctx],n);}
+void MaskedNgramScorer::add_unigram(const std::string&c,std::uint32_t n){sat_add(unigram_counts_[c],n);sat_add(unigram_total_,n);}
 void ConnectionModel::set_cost(std::int32_t right_id,std::int32_t left_id,std::int32_t value){costs_[pair_key(right_id,left_id)]=value;}
 std::int32_t ConnectionModel::cost(std::int32_t right_id,std::int32_t left_id)const{auto it=costs_.find(pair_key(right_id,left_id));return it==costs_.end()?0:it->second;}
 bool ConnectionModel::load_tsv(const std::string& path){
@@ -62,12 +63,32 @@ bool MaskedNgramScorer::load_tsv(const std::string& path){
  if(!in.eof())return false;*this=std::move(parsed);return true;
 }
 double MaskedNgramScorer::score(const std::string&c,const std::vector<std::string>&l,const std::vector<std::string>&r)const{
- constexpr double a=.5;auto u=unigram_counts_.find(c);double uc=u==unigram_counts_.end()?0:u->second;
- double s=std::log((uc+a)/(static_cast<double>(unigram_counts_.size())+10*a));
- if(!l.empty()){auto i=left_counts_.find(key(context_key(l),c));if(i==left_counts_.end())i=left_counts_.find(key(l.back(),c));s+=std::log(((i==left_counts_.end()?0.0:i->second)+a)/(uc+10*a));}
- if(!r.empty()){std::vector<std::string>b(r.begin(),r.begin()+static_cast<std::ptrdiff_t>(std::min<std::size_t>(2,r.size())));auto i=right_counts_.find(key(c,context_key(b)));if(i==right_counts_.end())i=right_counts_.find(key(c,r.front()));s+=std::log(((i==right_counts_.end()?0.0:i->second)+a)/(uc+10*a));}return s;
+ constexpr double alpha=.5;
+ const double vocab=static_cast<double>(std::max<std::size_t>(1,unigram_counts_.size()));
+ auto u=unigram_counts_.find(c);
+ const double uc=u==unigram_counts_.end()?0.0:static_cast<double>(u->second);
+ double result=std::log((uc+alpha)/(static_cast<double>(unigram_total_)+alpha*vocab));
+ if(!l.empty()){
+  std::string context=context_key(l);
+  auto i=left_counts_.find(key(context,c));
+  if(i==left_counts_.end()&&l.size()>1){context=l.back();i=left_counts_.find(key(context,c));}
+  auto total=left_context_totals_.find(context);
+  const double denominator=total==left_context_totals_.end()?0.0:static_cast<double>(total->second);
+  const double count=i==left_counts_.end()?0.0:static_cast<double>(i->second);
+  result+=std::log((count+alpha)/(denominator+alpha*vocab));
+ }
+ if(!r.empty()){
+  std::vector<std::string> window(r.begin(),r.begin()+static_cast<std::ptrdiff_t>(std::min<std::size_t>(2,r.size())));
+  std::string context=context_key(window);
+  auto i=right_counts_.find(key(c,context));
+  if(i==right_counts_.end()&&window.size()>1){context=window.front();i=right_counts_.find(key(c,context));}
+  auto total=right_context_totals_.find(context);
+  const double denominator=total==right_context_totals_.end()?0.0:static_cast<double>(total->second);
+  const double count=i==right_counts_.end()?0.0:static_cast<double>(i->second);
+  result+=std::log((count+alpha)/(denominator+alpha*vocab));
+ }
+ return result;
 }
-
 
 bool LexiconTrie::add(const std::string& reading,const LatticeCandidate& candidate){
  if(reading.empty()||!valid_utf8_impl(reading)||!valid_utf8_impl(candidate.id)||!valid_utf8_impl(candidate.surface)||candidate.id.empty()||candidate.surface.empty())return false;
