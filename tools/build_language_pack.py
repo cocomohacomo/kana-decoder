@@ -3,7 +3,7 @@
 
 Dictionary TSV columns:
 kana, surface, lemma, pos, reading_group[, candidate_id, word_cost,
-connection_cost, left_id, right_id]
+connection_cost, left_id, right_id, inflection_type, inflection_form]
 Training sequence TSV: one utterance per line, candidate IDs separated by tabs.
 """
 import argparse
@@ -39,9 +39,9 @@ def import_lexicon(source):
             if not line.strip() or line.startswith("#"):
                 continue
             cols = line.rstrip("\r\n").split("\t")
-            if len(cols) < 5 or len(cols) > 10:
-                raise ValueError(f"{source}:{line_no}: expected 5..10 columns")
-            cols += [""] * (10 - len(cols))
+            if len(cols) < 5 or len(cols) > 12:
+                raise ValueError(f"{source}:{line_no}: expected 5..12 columns")
+            cols += [""] * (12 - len(cols))
             kana, surface, lemma, pos, group, candidate_id = cols[:6]
             kana = clean_field(kana, "reading")
             surface = clean_field(surface, "surface")
@@ -55,7 +55,7 @@ def import_lexicon(source):
                 parse_i32(cols[8] or "0", "left_id", 0),
                 parse_i32(cols[9] or "0", "right_id", 0),
             ]
-            row = [kana, surface, lemma, pos, group, candidate_id] + [str(x) for x in costs]
+            row = [kana, surface, lemma, pos, group, candidate_id] + [str(x) for x in costs] + [cols[10].strip(), cols[11].strip()]
             key = tuple(row)
             if key not in seen:
                 seen.add(key)
@@ -97,7 +97,7 @@ def write_pack(args):
     counts = train_ngrams(args.sequences.resolve() if args.sequences else None, known_candidates)
 
     with (out / "lexicon.tsv").open("w", encoding="utf-8", newline="\n") as stream:
-        stream.write("# kana\tsurface\tlemma\tpos\treading_group\tcandidate_id\tword_cost\tconnection_cost\tleft_id\tright_id\n")
+        stream.write("# kana\tsurface\tlemma\tpos\treading_group\tcandidate_id\tword_cost\tconnection_cost\tleft_id\tright_id\tinflection_type\tinflection_form\n")
         for row in rows:
             stream.write("\t".join(row) + "\n")
     with (out / "ngram.tsv").open("w", encoding="utf-8", newline="\n") as stream:
