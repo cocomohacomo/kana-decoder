@@ -22,7 +22,7 @@ Five-column inputs are accepted. Optional fields are padded with defaults. Dupli
 
 `tools/import_japanese_dictionary.py` converts licensed CSV exports into the normalized TSV above:
 - `--format sudachi-csv`: strict 17-column Sudachi source CSV mapping. Uses reading_form, dictionary_form, POS1-4, source word cost, and left/right connection IDs.
-- `--format ipadic-csv`: strict 13-column IPADIC-compatible MeCab CSV mapping. Uses reading, base form, POS1-4, word cost, and connection IDs.
+- `--format ipadic-csv`: strict 13-column IPADIC-compatible MeCab CSV mapping. Uses reading, base form, POS1-4, conjugation type/form, word cost, and connection IDs.
 - `--format header-csv`: named-column CSV requiring surface, reading, pos, word_cost, left_id, and right_id; optional lemma, candidate_id and reading_group.
 
 Example:
@@ -32,7 +32,7 @@ Example:
       --format sudachi-csv \
       --output normalized-lexicon.tsv
 
-The adapter converts Katakana readings to Hiragana, skips rows without a usable reading (e.g. `*`), emits deterministic candidate IDs when none are supplied, and preserves connection class IDs. It does not import the source connection matrix; provide a compatible normalized `connections.tsv` separately. Sudachi/UniDic/IPADIC releases have differing schemas and licensing terms. Confirm the exact source version and export layout before import. UniDic distributions are not assumed to be IPADIC-compatible; use header-csv with an explicit, audited field mapping for a UniDic export. No third-party dictionary data is included in this repository.
+The adapter converts Katakana readings to Hiragana, skips rows without a usable reading (e.g. `*`), emits deterministic candidate IDs when none are supplied, and preserves connection class IDs and inflection metadata into decoded tokens. It does not import the source connection matrix; provide a compatible normalized `connections.tsv` separately. Sudachi/UniDic/IPADIC releases have differing schemas and licensing terms. Confirm the exact source version and export layout before import. UniDic distributions are not assumed to be IPADIC-compatible; use header-csv with an explicit, audited field mapping for a UniDic export. No third-party dictionary data is included in this repository.
 
 Then build and verify the Pack using the existing builder. The builder's SPDX and upstream fields are declarations only, not a license compliance check.
 
