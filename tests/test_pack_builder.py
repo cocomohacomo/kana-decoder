@@ -36,6 +36,49 @@ class PackBuilderTests(unittest.TestCase):
             manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["pack_id"], "ja-import-test")
 
+    def test_component_license_profile_is_copied_and_validated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            out = root / "ja-licensed"
+            (root / "notices").mkdir()
+            (root / "notices" / "apache.txt").write_text("Apache notice\\n", encoding="utf-8")
+            (root / "notices" / "unidic.txt").write_text("UniDic BSD notice\\n", encoding="utf-8")
+            profile = {
+                "schema_version": 1,
+                "components": [
+                    {"id": "sudachidict", "version": "v20261015", "spdx": "Apache-2.0",
+                     "commercial_use": True, "redistribution": True, "modified_redistribution": True,
+                     "upstream_url": "https://github.com/WorksApplications/SudachiDict",
+                     "license_file": "notices/apache.txt"},
+                    {"id": "unidic-small", "version": "2011-2013", "spdx": "BSD-3-Clause",
+                     "commercial_use": True, "redistribution": True, "modified_redistribution": True,
+                     "upstream_url": "https://clrd.ninjal.ac.jp/unidic/",
+                     "license_file": "notices/unidic.txt"}
+                ]
+            }
+            profile_path = root / "profile.json"
+            profile_path.write_text(json.dumps(profile), encoding="utf-8")
+            subprocess.run([
+                sys.executable, str(BUILDER),
+                "--lexicon", str(ROOT / "packs" / "ja-lite" / "lexicon.tsv"),
+                "--license-file", str(ROOT / "packs" / "ja-lite" / "LICENSE"),
+                "--license-profile", str(profile_path),
+                "--license-spdx", "Apache-2.0 AND BSD-3-Clause",
+                "--upstream", "SudachiDict Small plus UniDic component",
+                "--pack-id", "ja-licensed-test", "--language-id", "ja-JP",
+                "--output", str(out)
+            ], check=True, capture_output=True, text=True)
+            subprocess.run([sys.executable, str(VERIFIER), str(out)],
+                           check=True, capture_output=True, text=True)
+            audit = subprocess.run([
+                sys.executable, str(ROOT / "tools" / "validate_license_profile.py"), str(out)
+            ], check=True, capture_output=True, text=True)
+            result = json.loads(audit.stdout)
+            self.assertEqual(result["components"], 2)
+            self.assertTrue((out / "THIRD_PARTY_LICENSES" / "unidic-small.txt").is_file())
+            manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(len(manifest["license"]["components"]), 2)
+
     def test_malformed_dictionary_row_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
