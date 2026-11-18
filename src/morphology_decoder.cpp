@@ -8,8 +8,24 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  std::vector<CandidateScoreTrace>* trace,bool* resource_limit_exceeded) const {
  if(trace) trace->clear();
  if(resource_limit_exceeded)*resource_limit_exceeded=false;
- if(length==0||opt.beam_width==0||opt.max_edges_per_position==0||
-    opt.max_candidates_per_edge==0||opt.max_paths==0)return {};
+ if(length==0)return {};
+ if(length>256||opt.beam_width==0||opt.max_edges_per_position==0||
+    opt.max_candidates_per_edge==0||opt.max_paths==0){
+  if(resource_limit_exceeded)*resource_limit_exceeded=true;
+  return {};
+ }
+ if(lattice.size()>4096){
+  if(resource_limit_exceeded)*resource_limit_exceeded=true;
+  return {};
+ }
+ std::size_t total_candidates=0;
+ for(const auto& edge:lattice){
+  if(edge.candidates.size()>32768-total_candidates){
+   if(resource_limit_exceeded)*resource_limit_exceeded=true;
+   return {};
+  }
+  total_candidates+=edge.candidates.size();
+ }
  // Hard ceilings keep caller-supplied options from defeating bounded-work guarantees.
  const std::size_t beam_limit=std::min<std::size_t>(opt.beam_width,8);
  const std::size_t edge_limit=std::min<std::size_t>(opt.max_edges_per_position,16);
@@ -40,13 +56,24 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
   });
   if(edges.size()>edge_limit)edges.resize(edge_limit);
   for(const auto* edge:edges){
-   auto candidates=edge->candidates;
-   std::stable_sort(candidates.begin(),candidates.end(),[](const LatticeCandidate&a,const LatticeCandidate&b){
-    return static_cast<std::int64_t>(a.word_cost)+a.connection_cost<
-           static_cast<std::int64_t>(b.word_cost)+b.connection_cost;
-   });
-   if(candidates.size()>candidate_limit)candidates.resize(candidate_limit);
-   for(const auto& state:beams[pos])for(const auto& candidate:candidates){
+   std::vector<const LatticeCandidate*> candidates;
+   candidates.reserve(std::min(candidate_limit,edge->candidates.size()));
+   auto less_cost=[](const LatticeCandidate* a,const LatticeCandidate* b){
+    return static_cast<std::int64_t>(a->word_cost)+a->connection_cost<
+           static_cast<std::int64_t>(b->word_cost)+b->connection_cost;
+   };
+   for(const auto& candidate:edge->candidates){
+    const auto* candidate_ptr=&candidate;
+    auto where=std::find_if(candidates.begin(),candidates.end(),
+     [&](const LatticeCandidate* current){return less_cost(candidate_ptr,current);});
+    if(candidates.size()<candidate_limit)candidates.insert(where,candidate_ptr);
+    else if(where!=candidates.end()){
+     candidates.insert(where,candidate_ptr);
+     candidates.pop_back();
+    }
+   }
+   for(const auto& state:beams[pos])for(const auto* candidate_ptr:candidates){
+    const auto& candidate=*candidate_ptr;
     if(candidate.id.empty()||candidate.surface.empty())continue;
     if(expanded_states>=expansion_limit){
      if(resource_limit_exceeded)*resource_limit_exceeded=true;
