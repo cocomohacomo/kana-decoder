@@ -73,24 +73,6 @@ def train_counts(path):
     return unigram, left, right, left_total, right_total, unigram_total
 
 
-def read_connections(path, required_pairs=None):
-    result = {}
-    if path is None or not required_pairs:
-        return result
-    with path.open(encoding="utf-8") as stream:
-        for line_no, line in enumerate(stream, 1):
-            if not line.strip() or line.startswith("#"):
-                continue
-            cols = line.rstrip("\r\n").split("\t")
-            if len(cols) != 3:
-                raise ValueError(f"{path}:{line_no}: connection row must have three columns")
-            right_id, left_id, cost = map(int, cols)
-            key = (right_id, left_id)
-            if key in required_pairs:
-                result[key] = cost
-    return result
-
-
 def context_score(candidate_id, left_id, right_id, counts):
     unigram, left, right, left_total, right_total, unigram_total = counts
     vocab = max(1, len(unigram))
@@ -126,7 +108,7 @@ def _top(best):
     return sorted(best, key=lambda surface: (-best[surface][0], surface))
 
 
-def analyze(lexicon_path, corpus_path, sequences_path, connections_path=None,
+def analyze(lexicon_path, corpus_path, sequences_path,
             context_margin=0.5, max_candidates=8, min_test_tokens=1):
     if context_margin < 0 or max_candidates < 1:
         raise ValueError("context margin must be non-negative and max candidates positive")
@@ -150,21 +132,6 @@ def analyze(lexicon_path, corpus_path, sequences_path, connections_path=None,
                 raise ValueError(f"{corpus_path}:{line_no}: test token absent from normalized lexicon")
             sentences[key].append((row["reading"], row["surface"], gold))
 
-    # The imported matrix can contain millions of sparse transitions. Retain only
-    # transitions needed by the held-out gold-neighbor candidate windows.
-    required_connections = set()
-    for sentence in sentences.values():
-        for index, (reading, _, _) in enumerate(sentence):
-            previous = sentence[index - 1][2] if index else None
-            following = sentence[index + 1][2] if index + 1 < len(sentence) else None
-            previous_right = previous["right_id"] if previous else None
-            following_left = following["left_id"] if following else None
-            for candidate in by_reading.get(reading, [])[:max_candidates]:
-                if previous_right is not None:
-                    required_connections.add((previous_right, candidate["left_id"]))
-                if following_left is not None:
-                    required_connections.add((candidate["right_id"], following_left))
-    connections = read_connections(connections_path, required_connections)
 
     totals = Counter()
     for sentence in sentences.values():
@@ -181,18 +148,13 @@ def analyze(lexicon_path, corpus_path, sequences_path, connections_path=None,
             totals["covered"] += 1
             prev_id = sentence[index - 1][2]["candidate_id"] if index else None
             next_id = sentence[index + 1][2]["candidate_id"] if index + 1 < len(sentence) else None
-            prev_right = sentence[index - 1][2]["right_id"] if index else None
-            next_left = sentence[index + 1][2]["left_id"] if index + 1 < len(sentence) else None
-
             def components(candidate):
                 prior, context, support = context_score(
                     candidate["candidate_id"], prev_id, next_id, counts)
-                morph_cost = (candidate["word_cost"] + candidate["connection_cost"])
-                if prev_right is not None:
-                    morph_cost += connections.get((prev_right, candidate["left_id"]), 0)
-                if next_left is not None:
-                    morph_cost += connections.get((candidate["right_id"], next_left), 0)
-                morphology = -float(morph_cost)
+                # Token-local morphology baseline uses dictionary word and
+                # candidate-local connection costs. Matrix transition costs
+                # belong to full-path decoding and are intentionally excluded.
+                morphology = -float(candidate["word_cost"] + candidate["connection_cost"])
                 return morphology, prior, context, support
 
             per_id = {candidate["candidate_id"]: components(candidate)
@@ -261,7 +223,6 @@ def main():
     parser.add_argument("--lexicon", type=Path, required=True)
     parser.add_argument("--corpus", type=Path, required=True)
     parser.add_argument("--train-sequences", type=Path, required=True)
-    parser.add_argument("--connections", type=Path)
     parser.add_argument("--context-margin", type=float, default=0.5)
     parser.add_argument("--max-candidates", type=int, default=8)
     parser.add_argument("--min-test-tokens", type=int, default=1)
@@ -269,8 +230,8 @@ def main():
     args = parser.parse_args()
     try:
         report = analyze(args.lexicon, args.corpus, args.train_sequences,
-                         args.connections, args.context_margin,
-                         args.max_candidates, args.min_test_tokens)
+                         args.context_margin, args.max_candidates,
+                         args.min_test_tokens)
         payload = json.dumps({"context_ablation": report}, ensure_ascii=False, indent=2)
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
