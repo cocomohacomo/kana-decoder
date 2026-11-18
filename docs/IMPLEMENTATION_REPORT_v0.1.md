@@ -333,3 +333,12 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - This shows that the native loader accepts the production Pack and can produce a path for all four cases. It also shows that the current four-case corpus is not passed at an acceptable quality level. The corpus is too small to estimate general accuracy, and no n-gram training corpus was supplied (ngram.tsv has zero learned records).
 - Added \`--details\` support to \`kana_decoder_eval\` to emit per-case expected/predicted strings and Pack load milliseconds. The next Pack workflow will use this mode so each smoke error can be diagnosed directly. The new detailed run is pending.
 - Latest successful production Pack artifact from run 44374465962: ID 14459349705, ZIP 149,644,215 bytes, SHA-256 \`440169a5dc4854f41a831a24f4fbc7d2093b60fa728a55f7fce87e4f7c1d0583\`.
+
+
+## 32. 評価CLIの責務分離と回帰テスト追加
+- `tools/evaluate_corpus.cpp` をリファクタ。TSV行解析、UTF-8検証、Unicode code point分割、Levenshtein距離、1ケース評価、統計集計、JSON出力を個別関数・構造体へ分離。
+- 既存のTSV互換性（reading / expected / optional domain）を維持。domain省略時は `unspecified`。CRLFの末尾CRはdomainから除去し、不正行は行番号を付けて終了コード2で拒否。
+- JSON制御文字を `\\b` / `\\f` 等の標準escapeまたは `\\u00XX` で保持するよう修正。従来の制御文字を `?` に置換する情報損失を解消。
+- 通常モードと `--details` モードで同じ集計関数を使用。詳細モードは個別 reading / expected / predicted / domain / edit_distance / decode_failure を追加出力。
+- `tests/test_evaluator_cli.py` を追加。両モードのJSON parse、集計値の一致、詳細件数、CRLF処理、不正行・空コーパスのfail-closed動作を検証。CTestに `evaluator_cli_contract_tests` を登録。
+- 仕様書 `docs/SPECIFICATION_v0.21.md` を追加。CI runは実行中のため、PASS確認後に検証結果を追記する。
