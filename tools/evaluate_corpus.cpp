@@ -1,6 +1,8 @@
 #include "kana_decoder/engine.hpp"
+
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -8,110 +10,255 @@
 #include <string>
 #include <vector>
 
-static std::vector<std::string> codepoints(const std::string& s) {
-    std::vector<std::string> out;
-    if (!kana_decoder::is_valid_utf8(s)) return out;
-    for (std::size_t i=0;i<s.size();) {
-        unsigned char c=static_cast<unsigned char>(s[i]);
-        std::size_t n=c<0x80?1:(c&0xe0)==0xc0?2:(c&0xf0)==0xe0?3:4;
-        out.push_back(s.substr(i,n)); i+=n;
+namespace {
+
+using Codepoints = std::vector<std::string>;
+
+struct Stats {
+    std::size_t cases = 0;
+    std::size_t exact_matches = 0;
+    std::size_t edit_distance = 0;
+    std::size_t reference_codepoints = 0;
+    std::size_t decode_failures = 0;
+};
+
+struct EvaluationCase {
+    std::string reading;
+    std::string expected;
+    std::string domain;
+};
+
+struct CaseResult {
+    EvaluationCase input;
+    std::string predicted;
+    std::size_t edit_distance = 0;
+    bool decode_failure = false;
+};
+
+bool split_tsv_row(const std::string& line, EvaluationCase& row) {
+    const auto first = line.find('\t');
+    if (first == std::string::npos) return false;
+
+    const auto second = line.find('\t', first + 1);
+    row.reading = line.substr(0, first);
+    row.expected = second == std::string::npos
+        ? line.substr(first + 1)
+        : line.substr(first + 1, second - first - 1);
+    row.domain = second == std::string::npos
+        ? "unspecified"
+        : line.substr(second + 1);
+
+    // Accept CRLF corpora without leaking the carriage return into domain labels.
+    if (!row.domain.empty() && row.domain.back() == '\r') row.domain.pop_back();
+    return !row.domain.empty() && row.domain.find('\t') == std::string::npos
+        && kana_decoder::is_valid_utf8(row.reading)
+        && kana_decoder::is_valid_utf8(row.expected)
+        && kana_decoder::is_valid_utf8(row.domain);
+}
+
+Codepoints to_codepoints(const std::string& text) {
+    Codepoints result;
+    if (!kana_decoder::is_valid_utf8(text)) return result;
+
+    for (std::size_t offset = 0; offset < text.size();) {
+        const auto lead = static_cast<unsigned char>(text[offset]);
+        const std::size_t width = lead < 0x80 ? 1
+            : (lead & 0xe0) == 0xc0 ? 2
+            : (lead & 0xf0) == 0xe0 ? 3 : 4;
+        result.push_back(text.substr(offset, width));
+        offset += width;
     }
-    return out;
+    return result;
 }
-static std::size_t edit_distance(const std::vector<std::string>& a,const std::vector<std::string>& b) {
-    std::vector<std::size_t> prev(b.size()+1),cur(b.size()+1);
-    for(std::size_t j=0;j<=b.size();++j)prev[j]=j;
-    for(std::size_t i=1;i<=a.size();++i){
-        cur[0]=i;
-        for(std::size_t j=1;j<=b.size();++j)
-            cur[j]=std::min({prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]==b[j-1]?0:1)});
-        prev.swap(cur);
+
+std::size_t levenshtein_distance(const Codepoints& lhs, const Codepoints& rhs) {
+    std::vector<std::size_t> previous(rhs.size() + 1);
+    std::vector<std::size_t> current(rhs.size() + 1);
+    for (std::size_t column = 0; column <= rhs.size(); ++column) {
+        previous[column] = column;
     }
-    return prev[b.size()];
-}
-static std::string json_escape(const std::string& s) {
-    std::string out;
-    for (unsigned char c : s) {
-        if (c=='"' || c=='\\') { out.push_back('\\'); out.push_back(static_cast<char>(c)); }
-        else if (c=='\n') out += "\\n";
-        else if (c=='\r') out += "\\r";
-        else if (c=='\t') out += "\\t";
-        else if (c<0x20) out += "?";
-        else out.push_back(static_cast<char>(c));
+
+    for (std::size_t row = 1; row <= lhs.size(); ++row) {
+        current[0] = row;
+        for (std::size_t column = 1; column <= rhs.size(); ++column) {
+            const auto substitution = previous[column - 1]
+                + (lhs[row - 1] == rhs[column - 1] ? 0U : 1U);
+            current[column] = std::min({
+                previous[column] + 1,
+                current[column - 1] + 1,
+                substitution
+            });
+        }
+        previous.swap(current);
     }
-    return out;
+    return previous.back();
 }
-struct Stats { std::size_t cases=0, exact=0, edits=0, refs=0, failures=0; };
-static void print_stats(const Stats& s) {
-    const double accuracy=s.cases?static_cast<double>(s.exact)/s.cases:0.0;
-    const double cer=s.refs?static_cast<double>(s.edits)/s.refs:(s.edits?1.0:0.0);
-    std::cout << "{\"cases\":"<<s.cases<<",\"exact_matches\":"<<s.exact
-      <<",\"exact_accuracy\":"<<accuracy<<",\"edit_distance\":"<<s.edits
-      <<",\"reference_codepoints\":"<<s.refs<<",\"cer\":"<<cer
-      <<",\"decode_failures\":"<<s.failures<<"}";
+
+std::string json_escape(const std::string& value) {
+    static constexpr char hex[] = "0123456789abcdef";
+    std::string escaped;
+    escaped.reserve(value.size() + 8);
+
+    for (const unsigned char byte : value) {
+        switch (byte) {
+        case '"': escaped += "\\\""; break;
+        case '\\': escaped += "\\\\"; break;
+        case '\b': escaped += "\\b"; break;
+        case '\f': escaped += "\\f"; break;
+        case '\n': escaped += "\\n"; break;
+        case '\r': escaped += "\\r"; break;
+        case '\t': escaped += "\\t"; break;
+        default:
+            if (byte < 0x20) {
+                escaped += "\\u00";
+                escaped.push_back(hex[(byte >> 4) & 0x0f]);
+                escaped.push_back(hex[byte & 0x0f]);
+            } else {
+                escaped.push_back(static_cast<char>(byte));
+            }
+        }
+    }
+    return escaped;
 }
-int main(int argc,char** argv) {
-    const bool details=argc==4&&std::string(argv[3])=="--details";
-    if(argc<3||argc>4||(argc==4&&!details)){std::cerr<<"usage: kana_decoder_eval PACK_DIR CORPUS_TSV [--details]\n";return 2;}
+
+void accumulate(Stats& stats, const CaseResult& result) {
+    ++stats.cases;
+    stats.edit_distance += result.edit_distance;
+    stats.reference_codepoints += to_codepoints(result.input.expected).size();
+    if (result.predicted == result.input.expected) ++stats.exact_matches;
+    if (result.decode_failure) ++stats.decode_failures;
+}
+
+void print_stats(const Stats& stats) {
+    const double exact_accuracy = stats.cases
+        ? static_cast<double>(stats.exact_matches) / stats.cases : 0.0;
+    const double cer = stats.reference_codepoints
+        ? static_cast<double>(stats.edit_distance) / stats.reference_codepoints
+        : (stats.edit_distance ? 1.0 : 0.0);
+
+    std::cout << "{\"cases\":" << stats.cases
+              << ",\"exact_matches\":" << stats.exact_matches
+              << ",\"exact_accuracy\":" << exact_accuracy
+              << ",\"edit_distance\":" << stats.edit_distance
+              << ",\"reference_codepoints\":" << stats.reference_codepoints
+              << ",\"cer\":" << cer
+              << ",\"decode_failures\":" << stats.decode_failures << "}";
+}
+
+void print_case_result(const CaseResult& result) {
+    std::cout << "{\"reading\":\"" << json_escape(result.input.reading)
+              << "\",\"expected\":\"" << json_escape(result.input.expected)
+              << "\",\"predicted\":\"" << json_escape(result.predicted)
+              << "\",\"domain\":\"" << json_escape(result.input.domain)
+              << "\",\"edit_distance\":" << result.edit_distance
+              << ",\"decode_failure\":" << (result.decode_failure ? "true" : "false")
+              << "}";
+}
+
+bool evaluate_case(const EvaluationCase& input,
+                   const kana_decoder::LexiconTrie& lexicon,
+                   const kana_decoder::MaskedNgramScorer& scorer,
+                   const kana_decoder::ConnectionModel& connections,
+                   CaseResult& result) {
+    result.input = input;
+    const auto paths = kana_decoder::decode_reading(
+        input.reading, lexicon, scorer, {}, &connections);
+
+    if (!paths.empty()) {
+        for (const auto& token : paths.front().tokens) {
+            result.predicted += token.candidate.surface;
+        }
+    }
+    result.decode_failure = paths.empty();
+    result.edit_distance = levenshtein_distance(
+        to_codepoints(result.predicted), to_codepoints(input.expected));
+    return true;
+}
+
+int usage() {
+    std::cerr << "usage: kana_decoder_eval PACK_DIR CORPUS_TSV [--details]\n";
+    return 2;
+}
+
+} // namespace
+
+int main(int argc, char** argv) {
+    const bool details = argc == 4 && std::string(argv[3]) == "--details";
+    if (argc < 3 || argc > 4 || (argc == 4 && !details)) return usage();
+
     kana_decoder::LexiconTrie lexicon;
     kana_decoder::MaskedNgramScorer scorer;
     kana_decoder::ConnectionModel connections;
-    const auto load_started=std::chrono::steady_clock::now();
-    const bool pack_loaded=kana_decoder::load_language_pack(argv[1],lexicon,scorer,nullptr,&connections);
-    const auto load_ms=std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now()-load_started).count();
-    if(!pack_loaded){
-        std::cerr<<"failed to load Language Pack\n";return 2;
+
+    const auto load_started = std::chrono::steady_clock::now();
+    if (!kana_decoder::load_language_pack(
+            argv[1], lexicon, scorer, nullptr, &connections)) {
+        std::cerr << "failed to load Language Pack\n";
+        return 2;
     }
-    std::ifstream in(argv[2]);
-    if(!in){std::cerr<<"cannot open evaluation corpus\n";return 2;}
-    Stats total;
-    std::map<std::string,Stats> domains;
-    std::vector<std::string> detail_records;
+    const auto load_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - load_started).count();
+
+    std::ifstream corpus(argv[2]);
+    if (!corpus) {
+        std::cerr << "cannot open evaluation corpus\n";
+        return 2;
+    }
+
+    Stats overall;
+    std::map<std::string, Stats> by_domain;
+    std::vector<CaseResult> case_results;
     std::string line;
-    while(std::getline(in,line)){
-        if(line.empty()||line[0]=='#')continue;
-        auto first=line.find('\t');
-        auto second=first==std::string::npos?std::string::npos:line.find('\t',first+1);
-        if(first==std::string::npos){std::cerr<<"invalid corpus row\n";return 2;}
-        std::string reading=line.substr(0,first);
-        std::string reference=second==std::string::npos?line.substr(first+1):line.substr(first+1,second-first-1);
-        std::string domain=second==std::string::npos?"unspecified":line.substr(second+1);
-        if(domain.empty()||domain.find('\t')!=std::string::npos){std::cerr<<"invalid domain label\n";return 2;}
-        if(!kana_decoder::is_valid_utf8(reading)||!kana_decoder::is_valid_utf8(reference)||!kana_decoder::is_valid_utf8(domain)){std::cerr<<"invalid UTF-8 in corpus\n";return 2;}
-        auto paths=kana_decoder::decode_reading(reading,lexicon,scorer,{},&connections);
-        std::string predicted;
-        if(!paths.empty())for(const auto& token:paths.front().tokens)predicted+=token.candidate.surface;
-        auto ref_cp=codepoints(reference),pred_cp=codepoints(predicted);
-        const auto distance=edit_distance(pred_cp,ref_cp);
-        auto add=[&](Stats& s){++s.cases;s.edits+=distance;s.refs+=ref_cp.size();if(predicted==reference)++s.exact;if(paths.empty())++s.failures;};
-        add(total);add(domains[domain]);
-        if(details){
-            detail_records.push_back(
-                "{\"reading\":\""+json_escape(reading)+
-                "\",\"expected\":\""+json_escape(reference)+
-                "\",\"predicted\":\""+json_escape(predicted)+
-                "\",\"domain\":\""+json_escape(domain)+
-                "\",\"edit_distance\":"+std::to_string(distance)+
-                ",\"decode_failure\":"+(paths.empty()?"true":"false")+"}"
-            );
+    std::size_t line_number = 0;
+
+    while (std::getline(corpus, line)) {
+        ++line_number;
+        if (line.empty() || line[0] == '#') continue;
+
+        EvaluationCase input;
+        if (!split_tsv_row(line, input)) {
+            std::cerr << "invalid corpus row or UTF-8 at line "
+                      << line_number << "\n";
+            return 2;
         }
+
+        CaseResult result;
+        evaluate_case(input, lexicon, scorer, connections, result);
+        accumulate(overall, result);
+        accumulate(by_domain[input.domain], result);
+        if (details) case_results.push_back(std::move(result));
     }
-    if(total.cases==0){std::cerr<<"evaluation corpus is empty\n";return 2;}
-    std::cout<<std::fixed<<std::setprecision(6)<<"{\"pack_load_ms\":"<<load_ms<<",\"overall\":";
-    print_stats(total);
-    std::cout<<",\"domains\":{";
-    bool first=true;
-    for(const auto& item:domains){if(!first)std::cout<<",";first=false;std::cout<<"\""<<json_escape(item.first)<<"\":";print_stats(item.second);}
-    std::cout<<"}";
-    if(details){
-        std::cout<<",\"details\":[";
-        for(std::size_t i=0;i<detail_records.size();++i){
-            if(i)std::cout<<",";
-            std::cout<<detail_records[i];
+
+    if (!corpus.eof()) {
+        std::cerr << "failed while reading evaluation corpus\n";
+        return 2;
+    }
+    if (overall.cases == 0) {
+        std::cerr << "evaluation corpus is empty\n";
+        return 2;
+    }
+
+    std::cout << std::fixed << std::setprecision(6)
+              << "{\"pack_load_ms\":" << load_ms << ",\"overall\":";
+    print_stats(overall);
+    std::cout << ",\"domains\":{";
+    bool first_domain = true;
+    for (const auto& entry : by_domain) {
+        if (!first_domain) std::cout << ',';
+        first_domain = false;
+        std::cout << "\"" << json_escape(entry.first) << "\":";
+        print_stats(entry.second);
+    }
+    std::cout << '}';
+
+    if (details) {
+        std::cout << ",\"details\":[";
+        for (std::size_t index = 0; index < case_results.size(); ++index) {
+            if (index) std::cout << ',';
+            print_case_result(case_results[index]);
         }
-        std::cout<<"]";
+        std::cout << ']';
     }
-    std::cout<<"}\n";
+    std::cout << "}\n";
     return 0;
 }
