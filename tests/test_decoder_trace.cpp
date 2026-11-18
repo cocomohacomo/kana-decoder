@@ -35,8 +35,46 @@ int main() {
  const double rain_context=context_model.contextual_score("rain", {"previous"}, {});
  const double candy_context=context_model.contextual_score("candy", {"previous"}, {});
  assert(rain_context>candy_context);
+ assert(context_model.has_left_context_evidence("rain", {"previous"}));
+ assert(context_model.has_left_context_evidence("candy", {"previous"}));
+ assert(!context_model.has_left_context_evidence("rain", {"unseen"}));
  MaskedNgramScorer empty_context;
  assert(empty_context.contextual_score("rain", {"previous"}, {})==0.0);
+ assert(!empty_context.has_left_context_evidence("rain", {"previous"}));
+
+ // SURGE evidence gating requires two distinct supported surfaces and a
+ // sufficient context-only margin. Without evidence it falls back to morphology.
+ LexiconTrie gated_lexicon;
+ assert(gated_lexicon.add("あ", {"rain", "雨", -2000, 0, 1, 1}));
+ assert(gated_lexicon.add("あ", {"candy", "飴", -1000, 0, 1, 1}));
+ assert(gated_lexicon.add("め", {"bridge", "橋", -100, 0, 1, 1}));
+ assert(gated_lexicon.add("め", {"chopsticks", "箸", -100, 0, 1, 1}));
+ MaskedNgramScorer gated_scorer;
+ gated_scorer.add_left_bigram("rain", "bridge", 10);
+ gated_scorer.add_left_bigram("rain", "chopsticks", 1);
+ DecoderOptions gated_options;
+ gated_options.surge_left_context_gate = true;
+ gated_options.surge_context_margin = 0.5;
+ std::vector<CandidateScoreTrace> gated_trace;
+ auto gated_paths=decode_reading("あめ",gated_lexicon,gated_scorer,gated_options,
+                                  nullptr,&gated_trace);
+ assert(!gated_paths.empty());
+ bool observed_gated_context=false;
+ for(const auto& item:gated_trace){
+  if(item.start==1&&item.candidate_id=="bridge"){
+   observed_gated_context=true;
+   assert(item.context_evidence_score<0.0);
+   assert(item.weighted_context_score!=0.0);
+  }
+ }
+ assert(observed_gated_context);
+ MaskedNgramScorer unsupported_scorer;
+ std::vector<CandidateScoreTrace> unsupported_trace;
+ auto unsupported_paths=decode_reading("あめ",gated_lexicon,unsupported_scorer,
+  gated_options,nullptr,&unsupported_trace);
+ assert(!unsupported_paths.empty());
+ for(const auto& item:unsupported_trace)if(item.start==1)
+  assert(item.weighted_context_score==0.0);
  ConnectionModel connections;
  connections.set_cost(2, 1, 7);
  std::vector<CandidateScoreTrace> trace;
