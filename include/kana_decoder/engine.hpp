@@ -60,6 +60,41 @@ struct DecoderOptions {
  std::size_t max_paths=8;
  double context_weight=1.0;
 };
+
+class LexiconTrie {
+public:
+ bool add(const std::string& reading,const LatticeCandidate& candidate);
+ bool load_tsv(const std::string& path,std::size_t* loaded=nullptr);
+ std::vector<LatticeEdge> build_lattice(const std::string& reading,
+   std::size_t max_matches_per_start=16,bool kana_fallback=true) const;
+ std::size_t size() const { return entry_count_; }
+private:
+ struct Node { std::unordered_map<std::string,std::size_t> next; std::vector<LatticeCandidate> values; };
+ std::vector<Node> nodes_{1};
+ std::size_t entry_count_=0;
+};
+struct StreamingSnapshot {
+ std::uint64_t revision=0;
+ std::string reading;
+ std::vector<DecodedPath> paths;
+ bool provisional=true;
+};
+class StreamingSession {
+public:
+ explicit StreamingSession(std::size_t max_reading_codepoints=256);
+ bool append(const std::string& chunk,const LexiconTrie& lexicon,
+   const MaskedNgramScorer& scorer,StreamingSnapshot& snapshot,
+   const DecoderOptions& options={});
+ void reset();
+ const std::string& reading() const { return reading_; }
+private:
+ std::size_t max_reading_codepoints_;
+ std::uint64_t revision_=0;
+ std::string reading_;
+};
+std::vector<DecodedPath> decode_reading(const std::string& reading,
+ const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,
+ const DecoderOptions& options={});
 class MorphologyDecoder {
 public:
  std::vector<DecodedPath> decode(std::size_t reading_length,
