@@ -57,5 +57,28 @@ int main() {
  bool saw_fallback=false;
  for(const auto& item:trace) if(item.unknown_fallback) saw_fallback=true;
  assert(saw_fallback);
- std::cout << "decoder trace tests passed\n";
+
+ // Input, lattice, and search expansion limits fail closed instead of
+ // returning a silently truncated hypothesis.
+ DecoderOptions limited;
+ bool exceeded=false;
+ limited.max_input_codepoints=1;
+ auto too_long=decode_reading("あめ",lexicon,scorer,limited,nullptr,nullptr,nullptr,&exceeded);
+ assert(too_long.empty()&&exceeded);
+ limited=DecoderOptions{};
+ limited.max_lattice_edges=1;
+ exceeded=false;
+ auto too_many_edges=decode_reading("あめ",lexicon,scorer,limited,nullptr,nullptr,nullptr,&exceeded);
+ assert(too_many_edges.empty()&&exceeded);
+ limited=DecoderOptions{};
+ limited.max_expanded_states=1;
+ exceeded=false;
+ auto too_many_states=decode_reading("あめ",lexicon,scorer,limited,nullptr,nullptr,nullptr,&exceeded);
+ assert(too_many_states.empty()&&exceeded);
+ limited=DecoderOptions{};
+ limited.max_trace_records=1;
+ std::vector<CandidateScoreTrace> bounded_trace;
+ auto bounded=decode_reading("あめ",lexicon,scorer,limited,nullptr,&bounded_trace);
+ assert(!bounded.empty()&&bounded_trace.size()<=1);
+ std::cout << "decoder trace and resource budget tests passed\n";
 }
