@@ -414,6 +414,7 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - `MaskedNgramScorer::contextual_score` を追加し、隣接形態素のleft/right masked n-gram寄与をunigram priorから分離。既存の`score`はunigram + contextual_scoreの和とし、スコア式と候補順位を維持。
 - `CandidateScoreTrace` / evaluator JSONに`context_evidence_score`を追加。従来の`raw_context_score`は互換のため維持し、診断上は総スコアと隣接文脈証拠を混同しない。
 - 簡易SURGE probeは候補surfaceをClaim cluster、競合候補をQuestionとして扱う。Morphology/word costやunigram priorの差だけではQuestionを解決しない。少なくとも2候補に差別化された非ゼロの隣接文脈証拠があり、context score marginが既定0.5以上の場合のみ、probe上で解決扱いにする。gold labelはcoverage計測だけに使う。
+- 各候補表層のcontext evidenceは、同一候補のbest local-path observationに付随する値を保持し、異なるbeam履歴から別々に最大値を寄せ集めて比較しない。
 - 文脈証拠がないQuestionは未解決のままFocusへ送る。Focusは未解決Questionのうちcontext marginが最小のものを優先。decoder出力は変更しない。
 - MorphologyDecoderの直接APIにもexpanded stateの絶対上限262,144を適用。0 budgetもresource-limit flag付きでfail-closed。decode_reading経由でなくても上限を迂回できない。
 - C++テストでunigram/contextの分離、context score差、direct decoder zero-budget fail-closedを検証。Pythonテストで大きなmorphology marginだけでは解決しないこと、文脈証拠のmarginでQuestionが解決可能になることを検証。
