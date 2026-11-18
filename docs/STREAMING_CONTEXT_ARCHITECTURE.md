@@ -174,3 +174,35 @@ Pack Manifestはlanguage_id、pack_id/version、Core ABI version、dictionary/mo
 ### 11.6 言語選択
 
 初期版は明示language_idまたはEngineのdefault packを使用する。自動言語判定は必須とせず、将来追加時も曖昧な読みからの暗黙Pack切替は禁止する。
+
+
+## 11. Language Pack分離配布と軽量化
+
+### 11.1 配布単位
+
+CoreとLanguage Packは独立した成果物とする。Coreは言語非依存のストリーム・Branch・Context・Commit・C ABIのみを含み、辞書や言語固有モデルを同梱しない。利用者は必要なPackだけを導入する。専門語彙・高精度モデルはOptional Extension Packとして分離する。
+
+### 11.2 サイズ予算
+
+展開後サイズを基準とする初期目標:
+
+- Core runtime: 5 MB以下
+- Lightweight Language Pack: 30 MB以下
+- Core + 1 Lightweight Pack: 35 MB以下
+- 専門語彙・高精度Pack: 個別予算。30 MB超を許容
+
+軽量Packの配分目安はLexicon/Reading index 18 MB、形態素属性・接続データ5 MB、表記・正規化2 MB、意味特徴・軽量Scorer 2 MB、数字・記号・句読点1 MB、Manifest・索引等2 MBとする。合計上限30 MBを優先する。
+
+### 11.3 実装上の軽量化
+
+頻出語彙優先、専門語の拡張Pack分離、共通文字列・接頭辞の共有、コンパクトID、接続データ圧縮、ルールベースまたは小規模線形Scorerを優先する。大規模ニューラルモデルを必須にしない。Packはimmutable read-onlyを基本とし、全量コピーを避ける。
+
+### 11.4 ロード・メモリ
+
+Core常駐5 MB以下、Lightweight Pack追加RSS 50 MB以下を初期目標とする。mmapまたはbounded readを評価し、初回アクセス遅延、ページフォールト、追加RSS、ピークRSSを別々に測定する。複数SessionはPackデータを共有し、Session固有状態を分離する。
+
+### 11.5 Manifestと検証
+
+ManifestにPack ID、language ID、Pack/Core ABI version、dictionary/model/format version、ファイルサイズ、SHA-256、ライセンス・upstream、resource limitsを含める。ロード時にABI、形式、必須ファイル、checksum、サイズ上限、ライセンス情報を検証する。失敗時は部分ロードを成功扱いせず、既存Sessionを破壊しない。
+
+Coreはネットワーク通信・自動ダウンロード・テレメトリを行わない。Packの導入・更新は利用者による明示操作とし、ローカルファイルからのオフライン導入をサポートする。
