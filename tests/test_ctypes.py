@@ -14,6 +14,7 @@ class ApiTests(unittest.TestCase):
  def setUpClass(cls):
   cls.lib=ctypes.CDLL(str(LIB))
   L=cls.lib
+  L.kd_c_api_version.restype=ctypes.c_uint32
   L.kd_engine_create.restype=ctypes.c_void_p
   L.kd_engine_destroy.argtypes=[ctypes.c_void_p]
   L.kd_engine_load_pack.argtypes=[ctypes.c_void_p,ctypes.c_char_p];L.kd_engine_load_pack.restype=ctypes.c_int
@@ -26,7 +27,7 @@ class ApiTests(unittest.TestCase):
  @classmethod
  def tearDownClass(cls): pass
  def test_nbest_metadata(self):
-  L=self.lib;engine=L.kd_engine_create();self.assertTrue(engine)
+  L=self.lib;self.assertEqual(L.kd_c_api_version(),1);engine=L.kd_engine_create();self.assertTrue(engine)
   try:
    self.assertEqual(L.kd_engine_load_pack(engine,str(PACK).encode()),0)
    result=L.kd_engine_decode_nbest(engine,"あめ".encode(),8);self.assertTrue(result)
