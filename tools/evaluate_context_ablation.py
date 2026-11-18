@@ -94,8 +94,11 @@ def morphology_score(candidate):
 def best_per_surface(candidates, score_by_id):
     best = {}
     for candidate in candidates:
+        candidate_id = candidate["candidate_id"]
+        if candidate_id not in score_by_id:
+            continue
         surface = candidate["surface"]
-        score = score_by_id[candidate["candidate_id"]]
+        score = score_by_id[candidate_id]
         current = best.get(surface)
         if current is None or score > current[0]:
             best[surface] = (score, candidate)
