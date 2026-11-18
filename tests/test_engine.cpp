@@ -90,8 +90,9 @@ int main(){
  auto context_paths=decode_reading("あしたあめ",contextual_trie,pack_scorer,dop);
  assert(!context_paths.empty()&&context_paths[0].tokens.size()==2);
  assert(context_paths[0].tokens[1].candidate.id=="rain");
- LexiconTrie morphology_trie;
- assert(morphology_trie.add("たべる",LatticeCandidate{"verb_taberu","食べる",20,0,7,8,"動詞/一般","下一段-バ行","終止形-一般"}));
+ const auto morphology_tsv=std::filesystem::temp_directory_path()/"kana_decoder_inflection.tsv";
+ {std::ofstream f(morphology_tsv);f<<"たべる\t食べる\t食べる\t動詞/一般\tverb\tverb_taberu\t20\t0\t7\t8\t下一段-バ行\t終止形-一般\n";}
+ LexiconTrie morphology_trie;assert(morphology_trie.load_tsv(morphology_tsv.string()));std::filesystem::remove(morphology_tsv);
  auto morphology_path=decode_reading("たべる",morphology_trie,pack_scorer,dop);
  assert(!morphology_path.empty());
  assert(morphology_path.front().tokens.front().candidate.pos=="動詞/一般");
