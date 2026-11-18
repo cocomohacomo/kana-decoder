@@ -5,7 +5,9 @@
 ## 実装状況
 - C++17 CoreとC API
 - Context-masked n-gram候補順位付け（未校正スコアは確率として扱わない）
-- 形態素候補ラティス統合N-bestデコーダ（形態素コスト + 左文脈再順位付け、固定Beam/展開上限）
+- Language Pack TSVからの辞書Trie構築と候補ラティス自動生成
+- n-gram TSV読み込みと形態素候補ラティス統合N-bestデコーダ
+- bounded Streaming Session（追加入力ごとの再デコード、revision付き暫定結果、明示的best-path commit）
 - 低確信時のAmbiguity Segmentと [雨/飴/other] 表示
 - Conservativeモードの原文かなフォールバック
 - 原文を保持する軽度誤り補正仮説
@@ -23,6 +25,7 @@
 
 ## Language Pack
 - 日本語Lite参照Pack: packs/ja-lite/manifest.json
+- C++ API `load_language_pack` はlexicon.tsv / ngram.tsvを読み込む。ロード前に `python3 tools/verify_pack.py packs/ja-lite` でManifest・checksum・サイズ・ライセンスを検証する。C++ローダー自体のManifest検証は未実装。
 - 自作の小規模fixtureであり、実用語彙カバレッジを持つ辞書ではありません。
 - 外部辞書はライセンス確認前のため含めていません。
 - 標準軽量Pack目標は展開後30 MiB以下。
