@@ -64,3 +64,16 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - テスト追加: 後続トークンの文脈で先行同音異義語が選択されること、読み末尾まで到達しないラティスの拒否、Beam/出力件数上限。
 - 注意: これはラティス入力を受け取るデコーダAPIであり、辞書からのラティス自動生成、実用日本語形態素辞書、Viterbi互換の言語Pack接続、ストリーミングCommit制御との統合はまだ未完了。
 - 今回、GitHub Actionsワークフロー `.github/workflows/ci.yml` を追加。push / PRでCMakeビルド、CTest、Pack検証を実行する。2026-11-18のGitHub Actions run #4（commit `86583728e1d3de3750641aa7b044f7c0e213a6f0`）でConfigure / Build / CTest / Pack検証がすべて成功。初回CIで検出したfixture Manifestのサイズ・SHA-256不整合を修正し、再実行でPASSを確認した。
+
+
+## 8. Language Pack辞書Trie・ストリーミング接続（追加実装）
+- `LexiconTrie` を追加。UTF-8読みをUnicode code point単位で走査し、辞書一致区間を `LatticeEdge` として自動生成する。
+- TSV列は `kana, surface, lemma, pos, reading_group` を必須とし、6列目のcandidate_id、7列目word_cost、8列目connection_costを任意で受け取る。既存の5列形式も互換。
+- 一致辞書がない位置には1 code point単位のかなfallback edgeを作り、未知語を失わずに末尾まで経路を構成する。未知語は高コストのため既知語を優先する。
+- `MaskedNgramScorer::load_tsv` を追加。PackのL/R/Uレコードを読み込み、Lは左文脈、Rは右文脈、Uはunigramとして取り込む。
+- `load_language_pack` はlexicon.tsvとngram.tsvを一時オブジェクトへ読み込み、両方成功した場合のみEngine側へ反映する。Manifest、SHA-256、ライセンス、サイズの検証はC++ローダーではなく既存のオフラインPython検証器で事前実行する必要がある。
+- `decode_reading` により読み文字列→Trieラティス→N-bestデコードを接続。
+- `StreamingSession` は入力チャンクごとに現在の読み全体を再デコードし、単調増加revision付きのprovisional snapshotを返す。最大読み長をcode point数で制限。
+- `commit_best` は呼び出し側が明示した時点で上位経路を文字列化してsegment commitする。自動commit、部分commit、右文脈待ち時間による確定は未実装。commit後は読みバッファを空にして次segmentを受け付ける。
+- テスト追加: Pack一括ロード、辞書Trie一致、Unicode code point span、未知かなfallback、文脈データ取込み、stream append/revision、上限拒否、明示commit。
+- 日本語fixtureは7語エントリのみ。実用辞書ではなく、辞書カバレッジ・実運用精度の評価には使用できない。
