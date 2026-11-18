@@ -484,3 +484,15 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - 実Sudachi Packの全文reading-to-text pathでも、train-derived unigram + predicted-left contextはmorphology-onlyよりsentence exactを+0.1657ポイント、CERを0.1806ポイント改善した。Python token-aligned causal評価で見えた約+0.99ポイントより改善幅は小さく、token segmentation・path searchで候補/誤りが伝播する影響が表れている。
 - このC++ full-path評価にはSURGE evidence gateを組み込んでいない。SURGE gateの85.43% precision / 1.32% correct-resolution recallはPythonのgold-token-boundary causal diagnosticの値であり、全文デコード結果と混同しない。
 - 次の推奨課題はdev splitのみでcontext weight / smoothing / evidence thresholdを校正し、固定した設定をtest splitで再評価すること。test結果を見て閾値を調整するデータリークは避ける。
+
+
+## 44. v0.31 Native SURGE evidence-gated decoding
+
+- Added an opt-in native C++ decoder policy through DecoderOptions: observed left-context evidence must exist for at least two distinct candidate surfaces, and the best-vs-second context-only score margin must be at least 0.5 by default.
+- Morphological variants sharing the same surface are collapsed for the gate decision. Only candidates with observed evidence receive context scores after the gate opens. If evidence is insufficient or the margin is too small, context contribution is zero and morphology plus connection costs remain the fallback.
+- Added a native three-way full-path corpus evaluation: morphology-only, train-derived unigram + predicted-left context, and SURGE evidence-gated left-context. All three decode concatenated sentence readings without gold token boundaries; gold tokenization is used only for post-decode alignment.
+- Fixed the sequential evaluator JSON contract to emit named nested metric objects and extended the test to parse and assert all three modes.
+- Added unit tests for observed/missing context evidence, distinct-surface gate activation, and abstention when evidence is unavailable.
+- Historical v0.30 full-path baseline: 2,414 sentences / 10,317 tokens; morphology-only exact 24.6479%, CER 48.6578%; unigram + predicted-left exact 24.8136%, CER 48.4772%; Peak RSS 1,425,568 KiB and elapsed 19.18 seconds on GitHub-hosted runner.
+- v0.31 CI and full Sudachi Pack evaluation are pending. No v0.31 accuracy or memory improvement is claimed until those measurements complete.
+- Specification: docs/SPECIFICATION_v0.31.md.
