@@ -10,7 +10,7 @@
 - pip install可能なPython ctypesパッケージ、N-best構造化結果、ストリーミングAPI
 - 出力バッファ不足時に入力・revision・commit状態を変更しないトランザクション動作
 - 軽度誤り補正、UTF-8検証、Pack Manifest / SHA-256 / license検証（C++側は容量上限を共有しSHA-256をストリーミング検証）
-- Sudachi V0/V1 import adapter、Pack builder、コーパス分割漏洩検証
+- Sudachi V0/V1 import adapter、Pack builder、文書単位のtrain/dev/test分割
 - GitHub ActionsによるC++ / Pythonテストとベンチマーク
 
 ## ビルドとテスト
@@ -30,6 +30,9 @@
 - source lock: licenses/sudachidict-small-20260723-source-lock.json
 - source acquisition: python3 tools/fetch_sudachi_source.py --output-dir work/archives
 - Pack build: python3 tools/build_sudachi_pack.py --small-zip work/archives/small_lex.zip --matrix-zip work/archives/matrix.def.zip --work-dir work/build --output dist/ja-jp-sudachi-small
+- 文脈学習用データの準備: python3 tools/prepare_context_corpus.py --lexicon normalized-lexicon.tsv --corpus tokenized-corpus.tsv --output-dir work/context-data
+- train_sequences.tsv をPack builderの --sequences に渡し、dev_gold.tsv / test_gold.tsv は学習に混ぜずに評価へ使用します。
+- 入力コーパスは文書ID・文単位の形態素トークン列。文書単位で分割し、同一文書がtrain/dev/testをまたがないようにします。辞書にない reading/surface は黙って捨てずにエラーにします。
 - GitHub Actionsからの手動Pack生成: Actions → Build Sudachi Small Pack → Run workflow（生成Packは30日間Artifactとして保存）
 - V1 header matching is case-insensitive and ignores underscores.
 - train/dev/test leakage guard: tools/validate_corpus_splits.py
@@ -39,10 +42,12 @@
 - v0.26で入力長・ラティス・候補・展開状態・trace量の決定的上限を導入。上限超過は不完全な候補を返さずfail-closed。
 - Sudachi実PackのCIは1,792 MiBのプロセスメモリ上限とPeak RSS検査を実施。
 - v0.27でunigram priorと隣接形態素のmasked n-gram証拠を分離。簡易SURGE probeは差別化された文脈証拠がある場合のみQuestionを解決し、証拠不足時はFocusへ残します。
-- `tools/evaluate_surge.py` は候補cluster・矛盾Question・Focus・gold候補coverageを測定する非変更型の簡易SURGE probeです。
+- tools/evaluate_surge.py は候補cluster・矛盾Question・Focus・gold候補coverageを測定する非変更型の簡易SURGE probeです。
+- tools/evaluate_ablation.py は全読みを覆う単一span候補に限定し、形態素スコア・combined local score・SURGEの根拠付き解決を比較します。複数形態素文の正解token alignmentを推測しません。
 
 ## 仕様
 - Python API: docs/PYTHON_API.md
+- v0.28: docs/SPECIFICATION_v0.28.md
 - v0.27: docs/SPECIFICATION_v0.27.md
 - v0.26: docs/SPECIFICATION_v0.26.md
 - v0.15: docs/SPECIFICATION_v0.15.md
