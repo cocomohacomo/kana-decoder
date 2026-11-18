@@ -1,8 +1,8 @@
-# kana	surface	lemma	pos	reading_group
-あめ	雨	雨	名詞	weather
-あめ	飴	飴	名詞	food
-はし	橋	橋	名詞	structure
-はし	箸	箸	名詞	utensil
-はし	端	端	名詞	position
-きしゃ	汽車	汽車	名詞	transport
-きしゃ	記者	記者	名詞	person
+# kana	surface	lemma	pos	reading_group	candidate_id	word_cost	connection_cost
+あめ	雨	雨	名詞	weather	rain	100	0
+あめ	飴	飴	名詞	food	candy	100	0
+はし	橋	橋	名詞	structure	bridge	100	0
+はし	箸	箸	名詞	utensil	chopsticks	100	0
+はし	端	端	名詞	position	edge	100	0
+きしゃ	汽車	汽車	名詞	transport	steam_train	100	0
+きしゃ	記者	記者	名詞	person	journalist	100	0
