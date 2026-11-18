@@ -32,7 +32,8 @@ python tools/evaluate_surge.py evaluation.json --context-margin 0.5
 
 ## 3. Decoder hard ceilings
 
-- Direct calls to `MorphologyDecoder::decode` also clamp expansion states to 262,144; callers cannot bypass the ceiling by setting a larger option.
+- Direct calls to `MorphologyDecoder::decode` enforce input length 256, lattice edge count 4,096, total lattice candidates 32,768, and expanded states 262,144; callers cannot bypass these ceilings by setting larger options.
+- Direct decoder candidate selection uses bounded top-8 pointer retention rather than copying and sorting an entire externally supplied edge candidate vector.
 - A zero expansion budget fails closed and sets `resource_limit_exceeded`.
 - Existing `score` values and candidate ranking remain unchanged by the decomposition.
 
