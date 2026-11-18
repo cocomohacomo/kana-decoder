@@ -37,7 +37,8 @@
 
 ## 5. Remaining quality gates
 
-- Inspect per-case predictions from the production Pack workflow and diagnose mismatch causes before changing model scoring.
+- Production run 44375182255 detailed the four smoke predictions: あめ→アメ (expected 雨), はし→橋 (correct), きしゃ→記者 (expected 汽車), ぴ→日 (expected ぴ). The tiny corpus remains diagnostic only.
+- Do not infer an importer or matrix defect from these four examples. Add candidate-level traces for word cost, connection cost, transition cost and context score; inspect unknown fallback activation; then evaluate with disjoint, representative data.
 - Build representative train/dev/test corpora split by document, speaker or source to prevent leakage.
 - Add language-appropriate n-gram training data and report exact accuracy/CER by domain.
 - Measure p50/p95/p99 latency and peak RSS on the intended target CPU/RAM environment.
