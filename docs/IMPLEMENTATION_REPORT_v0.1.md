@@ -29,7 +29,7 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
     python3 tools/verify_pack.py packs/ja-lite
 
 - C++ Core / C API build: PASS
-- C++機能テスト: PASS（曖昧性解消・保持・かなフォールバック、重複削除、音韻置換、促音挿入削除、低確信時非採用、数字保護、無効化、依存再評価、C API）
+- C++機能テスト: PASS（曖昧性解消・保持・かなフォールバック、masked trigram、重複削除、音韻置換、促音挿入削除、低確信時非採用、数字保護、無効化、依存再評価、C API）
 - Python Pack validation: PASS（3 tests）
 - CTest: 2/2 passed
 - C API header C compiler syntax check: PASS
@@ -38,7 +38,7 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Release static library libkana_decoder_core.a: 131,502 bytes。この環境での静的ライブラリサイズであり、全OSのruntime保証ではない。
 - 日本語Lite fixture: payload 1,574 bytes + manifest 1,048 bytes = 2,622 bytes（約0.00250 MiB）。SHA-256全4ファイル検証、30 MiB上限PASS。
 - fixtureはテスト用であり、実用辞書のサイズ・語彙カバレッジ評価には使えない。外部辞書はライセンス確認前のため含めていない。
-- n-gram microbenchmark: 200,000回の4候補resolve、約2,418 ns/resolve（約2.42 µs）。コンテナ内の単一測定で、全文変換・p95/p99・実機CPU・RSSを含まない。1文節1ms未満を証明しない。
+- n-gram microbenchmark: 200,000回の4候補resolve、約2,298 ns/resolve（約2.30 µs）。コンテナ内の単一測定で、全文変換・p95/p99・実機CPU・RSSを含まない。1文節1ms未満を証明しない。
 
 ## 5. 既知の制約
 1. 実用日本語形態素辞書・接続行列・Viterbi/N-bestは未実装。
