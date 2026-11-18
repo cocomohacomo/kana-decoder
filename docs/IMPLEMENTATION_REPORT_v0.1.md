@@ -38,7 +38,7 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Release static library libkana_decoder_core.a: 131,502 bytes。この環境での静的ライブラリサイズであり、全OSのruntime保証ではない。
 - 現行日本語Lite fixture: payload 1,751 bytes + manifest 1,164 bytes = 2,915 bytes（約0.00278 MiB）。SHA-256全5ファイル検証、30 MiB上限PASS。
 - fixtureはテスト用であり、実用辞書のサイズ・語彙カバレッジ評価には使えない。外部辞書はライセンス確認前のため含めていない。
-- 旧n-gram microbenchmark: 200,000回の4候補resolve、約2,298 ns/resolve（約2.30 µs）。現行CI microbenchmark（Ubuntu 26.04 / GCC 15.2 / Release）: n-gram resolve 約4,306 ns、2-token/5-edge小規模ラティスdecode 約2,242 ns。単一CIランナーの小規模測定であり、全文変換・p50/p95/p99・実機CPU・RSSを含まず、1文節1ms未満を証明しない。
+- 旧n-gram microbenchmark: 200,000回の4候補resolve、約2,298 ns/resolve（約2.30 µs）。現行CI microbenchmark（Ubuntu 26.04 / GCC 15.2 / Release）: n-gram resolve 約2,815 ns、2-token/5-edge小規模ラティスdecode 約1,503 ns。単一CIランナー（Ubuntu 26.04 / GCC 15.2 / Release）の小規模測定であり、全文変換・p50/p95/p99・実機CPU・RSSを含まず、1文節1ms未満を証明しない。再現時はActions run 44335625948のログを参照。
 
 ## 5. 既知の制約
 1. 実用日本語形態素辞書・大規模接続行列は未実装。N-best参照デコーダと小規模接続モデルfixtureは実装済み。
