@@ -37,20 +37,19 @@ The resulting TSV is passed through the existing document-disjoint `prepare_cont
 
 `tools/evaluate_context_ablation.py` compares three scoring policies on the held-out test split:
 
-1. Morphology-only: negative dictionary word cost, candidate connection cost, and the incoming/outgoing connection costs against gold neighboring token IDs.
+1. Morphology-only: negative dictionary word cost and candidate-local connection cost. Full matrix transition costs are intentionally excluded from this token-local ablation; they are evaluated in full-path decoder tests.
 2. Combined: morphology score plus unigram prior and left/right masked bigram scores. The smoothed probability equations and alpha=0.5 mirror `MaskedNgramScorer` in `src/scoring.cpp`.
 3. SURGE evidence-gated: rank candidates by contextual evidence only, and resolve only when at least two candidate surfaces have observed (non-zero count) contextual support and the best-vs-second supported context margin is at least 0.5. Otherwise abstain.
 
 - Candidate generation is approximated by all dictionary entries for the reading, sorted by word cost and candidate ID, capped at the runtime limit of eight.
 - Multiple morphological candidate IDs with the same surface are collapsed by best score.
 - Candidate coverage, morphology top-1 accuracy, combined top-1 accuracy, SURGE resolution count, resolution precision, correct-resolution recall over covered tokens, and abstention are reported.
-- The sparse connection matrix is streamed and only transition pairs required by held-out candidates are retained in memory; the full matrix is not materialized as a Python dictionary.
 - The test gold token is used only for accuracy. Left/right neighboring token IDs are teacher-forced gold context. This isolates the scoring contribution and is an oracle-context upper bound, not end-to-end conversion accuracy.
 - The evaluation is token-local; it does not claim that the current decoder automatically supplies gold context or that SURGE improves full-sentence CER.
 
 CLI:
 
-    python tools/evaluate_context_ablation.py --lexicon work/lexicon.tsv --corpus work/tokenized.tsv --train-sequences work/context/train_sequences.tsv --connections work/connections.tsv --context-margin 0.5 --min-test-tokens 1000
+    python tools/evaluate_context_ablation.py --lexicon work/lexicon.tsv --corpus work/tokenized.tsv --train-sequences work/context/train_sequences.tsv --context-margin 0.5 --min-test-tokens 1000
 
 ## 4. CI and resource policy
 
