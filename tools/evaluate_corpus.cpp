@@ -1,5 +1,6 @@
 #include "kana_decoder/engine.hpp"
 #include <algorithm>
+#include <chrono>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -50,17 +51,23 @@ static void print_stats(const Stats& s) {
       <<",\"decode_failures\":"<<s.failures<<"}";
 }
 int main(int argc,char** argv) {
-    if(argc!=3){std::cerr<<"usage: kana_decoder_eval PACK_DIR CORPUS_TSV\n";return 2;}
+    const bool details=argc==4&&std::string(argv[3])=="--details";
+    if(argc<3||argc>4||(argc==4&&!details)){std::cerr<<"usage: kana_decoder_eval PACK_DIR CORPUS_TSV [--details]\n";return 2;}
     kana_decoder::LexiconTrie lexicon;
     kana_decoder::MaskedNgramScorer scorer;
     kana_decoder::ConnectionModel connections;
-    if(!kana_decoder::load_language_pack(argv[1],lexicon,scorer,nullptr,&connections)){
+    const auto load_started=std::chrono::steady_clock::now();
+    const bool pack_loaded=kana_decoder::load_language_pack(argv[1],lexicon,scorer,nullptr,&connections);
+    const auto load_ms=std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now()-load_started).count();
+    if(!pack_loaded){
         std::cerr<<"failed to load Language Pack\n";return 2;
     }
     std::ifstream in(argv[2]);
     if(!in){std::cerr<<"cannot open evaluation corpus\n";return 2;}
     Stats total;
     std::map<std::string,Stats> domains;
+    std::vector<std::string> detail_records;
     std::string line;
     while(std::getline(in,line)){
         if(line.empty()||line[0]=='#')continue;
@@ -79,13 +86,32 @@ int main(int argc,char** argv) {
         const auto distance=edit_distance(pred_cp,ref_cp);
         auto add=[&](Stats& s){++s.cases;s.edits+=distance;s.refs+=ref_cp.size();if(predicted==reference)++s.exact;if(paths.empty())++s.failures;};
         add(total);add(domains[domain]);
+        if(details){
+            detail_records.push_back(
+                "{\"reading\":\""+json_escape(reading)+
+                "\",\"expected\":\""+json_escape(reference)+
+                "\",\"predicted\":\""+json_escape(predicted)+
+                "\",\"domain\":\""+json_escape(domain)+
+                "\",\"edit_distance\":"+std::to_string(distance)+
+                ",\"decode_failure\":"+(paths.empty()?"true":"false")+"}"
+            );
+        }
     }
     if(total.cases==0){std::cerr<<"evaluation corpus is empty\n";return 2;}
-    std::cout<<std::fixed<<std::setprecision(6)<<"{\"overall\":";
+    std::cout<<std::fixed<<std::setprecision(6)<<"{\"pack_load_ms\":"<<load_ms<<",\"overall\":";
     print_stats(total);
     std::cout<<",\"domains\":{";
     bool first=true;
     for(const auto& item:domains){if(!first)std::cout<<",";first=false;std::cout<<"\""<<json_escape(item.first)<<"\":";print_stats(item.second);}
-    std::cout<<"}}\n";
+    std::cout<<"}";
+    if(details){
+        std::cout<<",\"details\":[";
+        for(std::size_t i=0;i<detail_records.size();++i){
+            if(i)std::cout<<",";
+            std::cout<<detail_records[i];
+        }
+        std::cout<<"]";
+    }
+    std::cout<<"}\n";
     return 0;
 }
