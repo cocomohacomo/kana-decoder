@@ -66,11 +66,14 @@ def import_matrix(source, output):
                 raise ValueError(f"{source}:{line_no}: matrix index or cost out of range")
             key=(right,left)
             if key in seen: raise ValueError(f"{source}:{line_no}: duplicate matrix cell")
-            seen.add(key); rows.append((right,left,cost))
+            seen.add(key)
+            # ConnectionModel defaults absent cells to zero, so omit explicit
+            # zero-cost cells to keep the normalized representation sparse.
+            if cost != 0: rows.append((right,left,cost))
     with output.open("w",encoding="utf-8",newline="\n") as stream:
         stream.write("# right_id\tleft_id\tcost\n")
         for right,left,cost in rows: stream.write(f"{right}\t{left}\t{cost}\n")
-    return {"left_size":left_size,"right_size":right_size,"cells":len(rows)}
+    return {"left_size":left_size,"right_size":right_size,"nonzero_cells":len(rows), "representation":"sparse-tsv; absent cells resolve to zero"}
 
 def main():
     p=argparse.ArgumentParser()
