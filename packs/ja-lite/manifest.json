@@ -1,0 +1,14 @@
+{
+ "pack_id":"ja-lite-reference","language_id":"ja-JP","pack_version":"0.1.0","core_abi_version":"0.1",
+ "dictionary_version":"sample-2026.11","model_version":"masked-ngram-counts-0.1","format_version":1,
+ "reading_encoding_id":"hiragana-utf8","normalization_profile":"ja-kana-nfc-v1","orthography_profile":"ja-general-v1",
+ "license":{"spdx":"MIT","file":"LICENSE","upstream":"original minimal fixture, no third-party dictionary"},
+ "resource_limits":{"max_expanded_bytes":31457280,"max_candidates":8,"max_edit_distance":1},
+ "files":[
+  {"path":"lexicon.tsv","size":300,"sha256":"70098fd63029bfbe0cb6b1cd021f429802107718a92ffa3ab1364dc0fc142411"},
+  {"path":"ngram.tsv","size":301,"sha256":"02191c27973288ece8611a6b0743ef94b969e06dfae2cb77ad1bd511cad1b638"},
+  {"path":"correction_rules.tsv","size":149,"sha256":"86cefe017cb40e6890d71bdfd8f5929533540ca54b4cdf76aca6f52335af39cc"},
+  {"path":"LICENSE","size":824,"sha256":"e51e8b1fef27afc5f147aa600a5225c1a14a77387f829de603d24c54af986fc7"}
+ ],
+ "status":"test-fixture-not-production-dictionary"
+}

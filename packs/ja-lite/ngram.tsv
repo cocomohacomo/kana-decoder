@@ -1,0 +1,11 @@
+# direction	context_token	candidate_id	count
+R	がふる	rain	50
+R	がふる	candy	0
+L	あした	rain	12
+L	あした	candy	1
+R	をかう	rain	1
+R	をかう	candy	1
+R	をたべる	candy	30
+R	をたべる	rain	0
+R	がはしる	steam_train	20
+R	がはしる	journalist	0
