@@ -38,3 +38,4 @@
 - Runtime operation without trace collection does not allocate trace records.
 - Pack format, scoring formulas, candidate ordering, fallback policy, decoder bounds, and correction behavior remain unchanged.
 - The v0.24 warning-as-error build policy remains mandatory.
+- GitHub Actions run `44381437986` completed successfully: warning-free build, CTest 14/14, bounded decode benchmark, reference Pack verification, and Python suite 45 tests (41 passed, 4 skipped). The production Sudachi Pack trace workflow is tracked separately and must complete before claiming real-Pack diagnostic results.
