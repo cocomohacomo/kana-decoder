@@ -8,7 +8,7 @@ int main(void) {
     assert(kd_engine_load_pack(engine, KANA_DECODER_PACK_DIR) == 0);
     assert(kd_engine_decode(engine, "あめ", output, sizeof(output)) == 0);
     assert(strcmp(output, "雨") == 0);
-    assert(kd_engine_decode(engine, "あめ", output, 1) == -2);
+    assert(kd_engine_decode(engine, "あめ", output, 1) == KD_ERR_BUFFER_TOO_SMALL);
     kd_engine_destroy(engine);
     return 0;
 }
