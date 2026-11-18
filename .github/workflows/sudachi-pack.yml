@@ -1,0 +1,67 @@
+name: Build Sudachi Small Pack
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_expanded_gib:
+        description: Declared maximum expanded Pack size in GiB
+        required: true
+        default: "8"
+
+permissions:
+  contents: read
+
+jobs:
+  build-sudachi-small:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate size input
+        env:
+          MAX_EXPANDED_GIB: ${{ inputs.max_expanded_gib }}
+        run: |
+          python - <<'PY'
+          import os
+          value = float(os.environ["MAX_EXPANDED_GIB"])
+          if not 0.25 <= value <= 64:
+              raise SystemExit("max_expanded_gib must be between 0.25 and 64")
+          PY
+
+      - name: Download and verify pinned source archives
+        run: |
+          python tools/fetch_sudachi_source.py \
+            --output-dir "$RUNNER_TEMP/sudachi-archives"
+
+      - name: Build and verify Language Pack
+        env:
+          MAX_EXPANDED_GIB: ${{ inputs.max_expanded_gib }}
+        run: |
+          python - <<'PY'
+          import os, subprocess, sys
+          limit = int(float(os.environ["MAX_EXPANDED_GIB"]) * 1024**3)
+          command = [
+              sys.executable, "tools/build_sudachi_pack.py",
+              "--small-zip", os.path.join(os.environ["RUNNER_TEMP"], "sudachi-archives", "small_lex.zip"),
+              "--matrix-zip", os.path.join(os.environ["RUNNER_TEMP"], "sudachi-archives", "matrix.def.zip"),
+              "--work-dir", os.path.join(os.environ["RUNNER_TEMP"], "sudachi-build"),
+              "--output", os.path.join(os.environ["RUNNER_TEMP"], "ja-jp-sudachi-small"),
+              "--max-expanded-bytes", str(limit),
+          ]
+          subprocess.run(command, check=True)
+          PY
+
+      - name: Upload verified Pack artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kana-decoder-ja-jp-sudachi-small-20260723
+          path: ${{ runner.temp }}/ja-jp-sudachi-small/
+          if-no-files-found: error
+          retention-days: 30
