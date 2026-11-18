@@ -171,7 +171,7 @@ def rank_by_surface(candidates, scores):
 
 
 def evaluate(sentences, by_reading, token_cluster, cluster_candidates,
-             cluster_totals, beta, margin, alpha=0.5):
+             cluster_totals, gap_threshold, alpha=0.5):
     totals = Counter()
     vocab_size = max(1, len(token_cluster) * 4)
     for sentence in sentences:
@@ -222,7 +222,7 @@ def evaluate(sentences, by_reading, token_cluster, cluster_candidates,
             resolved = False
             if is_question and len(supported_order) >= 2:
                 gap = supported[supported_order[0]][0] - supported[supported_order[1]][0]
-                if beta * gap >= margin:
+                if gap >= gap_threshold:
                     chosen_surface = supported_order[0]
                     resolved = True
             if resolved:
@@ -261,21 +261,20 @@ def analyze(lexicon_path, corpus_path, sequences_path):
     if not dev or not test:
         raise ValueError("both dev and test splits must contain covered sentences")
     grid = []
-    for beta in (0.25, 0.5, 1.0, 2.0):
-        for margin in (0.0, 0.05, 0.1, 0.25, 0.5):
-            # beta scales evidence gap equivalently by scaling the acceptance margin.
-            metrics = evaluate(dev, by_reading, token_cluster, cluster_candidates,
-                               cluster_totals, beta, margin)
-            grid.append((metrics["cluster_gated_accuracy"] or 0.0, beta, margin, metrics))
-    _, beta, margin, dev_metrics = max(grid, key=lambda x: (
-        x[0], x[3]["resolution_precision"] or 0.0, -x[1], -x[2]))
+    for gap_threshold in (0.0, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0):
+        metrics = evaluate(dev, by_reading, token_cluster, cluster_candidates,
+                           cluster_totals, gap_threshold)
+        grid.append((metrics["cluster_gated_accuracy"] or 0.0,
+                     gap_threshold, metrics))
+    _, gap_threshold, dev_metrics = max(grid, key=lambda x: (
+        x[0], x[2]["resolution_precision"] or 0.0, -x[1]))
     test_metrics = evaluate(test, by_reading, token_cluster, cluster_candidates,
-                            cluster_totals, beta, margin)
+                            cluster_totals, gap_threshold)
     return {
         "model": "train-only lexical context-profile clusters",
         "cluster_model": cluster_meta,
         "calibration": {"split": "dev", "grid_size": len(grid),
-                        "selected_beta": beta, "selected_margin": margin,
+                        "selected_gap_threshold": gap_threshold,
                         "dev_metrics": dev_metrics},
         "test_metrics": test_metrics,
         "evaluation_limits": {
