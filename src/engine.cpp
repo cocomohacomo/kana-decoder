@@ -1,4 +1,5 @@
 #include "kana_decoder/engine.hpp"
+#include "kana_decoder/pack_manifest.hpp"
 #include <algorithm>
 #include <charconv>
 #include <cmath>
@@ -145,6 +146,7 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(const std::string& reading,s
 
 bool load_language_pack(const std::string& directory,LexiconTrie& lexicon,MaskedNgramScorer& scorer,std::size_t* loaded,ConnectionModel* connections){
  std::string base=directory.empty()?std::string("."):directory;
+ if(!verify_pack_manifest(base))return false;
  if(base.back()!='/')base+='/';
  LexiconTrie parsed_lexicon;MaskedNgramScorer parsed_scorer;std::size_t count=0;
  if(!parsed_lexicon.load_tsv(base+"lexicon.tsv",&count)||!parsed_scorer.load_tsv(base+"ngram.tsv"))return false;
