@@ -48,7 +48,9 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 5. Pack Manifest/SHA-256検証はPythonツール。C++ runtime側のManifest/SHA-256検証、mmap、複数Sessionでの辞書共有ポリシーは未実装。
 6. 30 MiB実用Packにはライセンス確認済み語彙の選定・インポート・圧縮・カバレッジ測定が必要。
 7. UTF-8不正シーケンス拒否とコードポイント範囲処理は実装済み。Unicode NFC等の正規化、全APIにわたる原入力byte span対応は未実装。
-8. 補正閾値はfixture上の値。実データで誤修正率・見逃し率を評価して決める。\n9. 部分Commitは保持中のN-best上位集合の共通接頭辞に限定。Beamで破棄された候補まで含む保証ではない。\n10. C++ Pack loaderはManifestのhashを検証しない。必ずPython verifierを事前実行する。
+8. 補正閾値はfixture上の値。実データで誤修正率・見逃し率を評価して決める。
+9. 部分Commitは保持中のN-best上位集合の共通接頭辞に限定。Beamで破棄された候補まで含む保証ではない。
+10. C++ Pack loaderはManifestのhashを検証しない。必ずPython verifierを事前実行する。
 
 ## 6. 総合判定
 **実装基盤と単体テストは成功。製品機能としては部分実装。**
