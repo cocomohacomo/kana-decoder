@@ -4,8 +4,10 @@
 namespace kana_decoder {
 std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  const std::vector<LatticeEdge>& lattice,const MaskedNgramScorer& scorer,
- const std::vector<std::string>& right_context,const DecoderOptions& opt,const ConnectionModel* connections,\n std::vector<CandidateScoreTrace>* trace) const {
- if(trace) trace->clear();\n if(length==0||opt.beam_width==0||opt.max_edges_per_position==0||
+ const std::vector<std::string>& right_context,const DecoderOptions& opt,const ConnectionModel* connections,
+ std::vector<CandidateScoreTrace>* trace) const {
+ if(trace) trace->clear();
+ if(length==0||opt.beam_width==0||opt.max_edges_per_position==0||
     opt.max_candidates_per_edge==0||opt.max_paths==0)return {};
  // Hard ceilings keep caller-supplied options from defeating bounded-work guarantees.
  const std::size_t beam_limit=std::min<std::size_t>(opt.beam_width,8);
