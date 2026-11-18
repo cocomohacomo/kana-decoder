@@ -5,8 +5,9 @@
  "license":{"spdx":"MIT","file":"LICENSE","upstream":"original minimal fixture, no third-party dictionary"},
  "resource_limits":{"max_expanded_bytes":31457280,"max_candidates":8,"max_edit_distance":1},
  "files":[
-  {"path":"lexicon.tsv","size":406,"sha256":"9a7825ac87b45c728df211d9932c9085d74e33f6365178b50d31b282f83aad6b"},
+  {"path":"lexicon.tsv","size":451,"sha256":"832ef54292e5567bb0421b3967f552c8149d2bc03113267c25ecbaa41075b78b"},
   {"path":"ngram.tsv","size":268,"sha256":"191de4ea38e1fcb93b5588c5de2c4bd6f8ea8c2b04e971bc6a0770ce02a9853b"},
+  {"path":"connections.tsv","size":75,"sha256":"83aab60cb150e49307ffcc5ab9217a46a5f195ec8c67749a4625210b065417a0"},
   {"path":"correction_rules.tsv","size":133,"sha256":"bdb5f66f60a84adcaf79756a0a37bd70bf34bd9e7b8d10d0027f530b01981bdf"},
   {"path":"LICENSE","size":824,"sha256":"e51e8b1fef27afc5f147aa600a5225c1a14a77387f829de603d24c54af986fc7"}
  ],
