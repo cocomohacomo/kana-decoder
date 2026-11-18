@@ -154,7 +154,7 @@ static bool load_correction_rules_file(const std::string& path,std::vector<Corre
   if(line.empty()||line[0]=='#')continue;
   std::vector<std::string> cols;std::stringstream ss(line);std::string field;
   while(std::getline(ss,field,'\t'))cols.push_back(field);
-  if(cols.size()!=5||cols[2].empty()||!ids.insert(cols[2]).second)return false;
+  if(cols.size()!=5||cols[2].empty()||cols[0].size()>256||cols[1].size()>256||cols[2].size()>128||parsed.size()>=256||!ids.insert(cols[2]).second)return false;
   if(!is_valid_utf8(cols[0])||!is_valid_utf8(cols[1])||!is_valid_utf8(cols[2]))return false;
   CorrectionKind kind;
   if(cols[3]=="insert")kind=CorrectionKind::Insert;
