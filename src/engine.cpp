@@ -18,6 +18,23 @@ void MaskedNgramScorer::add_right_bigram(const std::string&c,const std::string&r
 void MaskedNgramScorer::add_left_ngram(const std::vector<std::string>&l,const std::string&c,std::uint32_t n){left_counts_[key(context_key(l),c)]+=n;}
 void MaskedNgramScorer::add_right_ngram(const std::string&c,const std::vector<std::string>&r,std::uint32_t n){right_counts_[key(c,context_key(r))]+=n;}
 void MaskedNgramScorer::add_unigram(const std::string&c,std::uint32_t n){unigram_counts_[c]+=n;}
+
+bool MaskedNgramScorer::load_tsv(const std::string& path){
+ std::ifstream in(path);if(!in)return false;
+ MaskedNgramScorer parsed;std::string line;
+ while(std::getline(in,line)){
+  if(line.empty()||line[0]=='#')continue;
+  std::vector<std::string> cols;std::stringstream ss(line);std::string field;
+  while(std::getline(ss,field,'\t'))cols.push_back(field);
+  if(cols.size()!=4)return false;
+  std::uint32_t count=0;try{auto n=std::stoul(cols[3]);if(n>std::numeric_limits<std::uint32_t>::max())return false;count=static_cast<std::uint32_t>(n);}catch(...){return false;}
+  if(cols[0]=="L")parsed.add_left_bigram(cols[1],cols[2],count);
+  else if(cols[0]=="R")parsed.add_right_bigram(cols[2],cols[1],count);
+  else if(cols[0]=="U")parsed.add_unigram(cols[2],count);
+  else return false;
+ }
+ if(!in.eof())return false;*this=std::move(parsed);return true;
+}
 double MaskedNgramScorer::score(const std::string&c,const std::vector<std::string>&l,const std::vector<std::string>&r)const{
  constexpr double a=.5;auto u=unigram_counts_.find(c);double uc=u==unigram_counts_.end()?0:u->second;
  double s=std::log((uc+a)/(static_cast<double>(unigram_counts_.size())+10*a));
@@ -64,6 +81,14 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(const std::string& reading,s
   if(fallback&&matches==0)out.push_back(LatticeEdge{start,start+1,{LatticeCandidate{"kana:"+chars[start],chars[start],10000,0}}});
  }return out;
 }
+
+bool load_language_pack(const std::string& directory,LexiconTrie& lexicon,MaskedNgramScorer& scorer,std::size_t* loaded){
+ std::string base=directory.empty()?std::string("."):directory;
+ if(base.back()!='/')base+='/';
+ LexiconTrie parsed_lexicon;MaskedNgramScorer parsed_scorer;std::size_t count=0;
+ if(!parsed_lexicon.load_tsv(base+"lexicon.tsv",&count)||!parsed_scorer.load_tsv(base+"ngram.tsv"))return false;
+ lexicon=std::move(parsed_lexicon);scorer=std::move(parsed_scorer);if(loaded)*loaded=count;return true;
+}
 std::vector<DecodedPath> decode_reading(const std::string& reading,const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,const DecoderOptions& options){
  auto chars=utf8_chars(reading);if(chars.empty())return {};auto lattice=lexicon.build_lattice(reading,16,true);MorphologyDecoder decoder;return decoder.decode(chars.size(),lattice,scorer,{},options);
 }
@@ -72,6 +97,14 @@ bool StreamingSession::append(const std::string& chunk,const LexiconTrie& lexico
  if(chunk.empty())return false;auto current=utf8_chars(reading_),incoming=utf8_chars(chunk);if(current.size()+incoming.size()>max_reading_codepoints_)return false;
  std::string candidate=reading_+chunk;auto paths=decode_reading(candidate,lexicon,scorer,options);if(paths.empty())return false;
  reading_=std::move(candidate);++revision_;snapshot.revision=revision_;snapshot.reading=reading_;snapshot.paths=std::move(paths);snapshot.provisional=true;return true;
+}
+
+bool StreamingSession::commit_best(StreamingSnapshot& snapshot,std::string& output){
+ if(reading_.empty()||snapshot.paths.empty()||snapshot.reading!=reading_)return false;
+ std::string committed;for(const auto&token:snapshot.paths.front().tokens)committed+=token.candidate.surface;
+ if(committed.empty())return false;
+ output=std::move(committed);snapshot.provisional=false;++revision_;snapshot.revision=revision_;
+ reading_.clear();return true;
 }
 void StreamingSession::reset(){reading_.clear();revision_=0;}
 std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
