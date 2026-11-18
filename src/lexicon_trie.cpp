@@ -1,5 +1,6 @@
 #include "kana_decoder/engine.hpp"
 #include <algorithm>
+#include <charconv>
 #include <fstream>
 #include <sstream>
 namespace {
