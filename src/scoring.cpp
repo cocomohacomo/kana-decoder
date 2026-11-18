@@ -86,12 +86,10 @@ bool MaskedNgramScorer::load_tsv(const std::string& path){
  *this = std::move(parsed);
  return true;
 }
-double MaskedNgramScorer::score(const std::string&c,const std::vector<std::string>&l,const std::vector<std::string>&r)const{
+double MaskedNgramScorer::contextual_score(const std::string&c,const std::vector<std::string>&l,const std::vector<std::string>&r)const{
  constexpr double alpha=.5;
  const double vocab=static_cast<double>(std::max<std::size_t>(1,unigram_counts_.size()));
- auto u=unigram_counts_.find(c);
- const double uc=u==unigram_counts_.end()?0.0:static_cast<double>(u->second);
- double result=std::log((uc+alpha)/(static_cast<double>(unigram_total_)+alpha*vocab));
+ double result=0.0;
  if(!l.empty()){
   std::string context=context_key(l);
   auto i=left_counts_.find(key(context,c));
@@ -112,6 +110,14 @@ double MaskedNgramScorer::score(const std::string&c,const std::vector<std::strin
   result+=std::log((count+alpha)/(denominator+alpha*vocab));
  }
  return result;
+}
+double MaskedNgramScorer::score(const std::string&c,const std::vector<std::string>&l,const std::vector<std::string>&r)const{
+ constexpr double alpha=.5;
+ const double vocab=static_cast<double>(std::max<std::size_t>(1,unigram_counts_.size()));
+ auto u=unigram_counts_.find(c);
+ const double uc=u==unigram_counts_.end()?0.0:static_cast<double>(u->second);
+ const double unigram=std::log((uc+alpha)/(static_cast<double>(unigram_total_)+alpha*vocab));
+ return unigram+contextual_score(c,l,r);
 }
 
 AmbiguityResult MaskedNgramScorer::resolve(const std::vector<Candidate>&c,const std::vector<std::string>&l,const std::vector<std::string>&r,OutputMode m,double ms,double mm,bool other,const std::string&original)const{
