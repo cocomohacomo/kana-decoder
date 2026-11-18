@@ -101,7 +101,6 @@ jobs:
           subprocess.run(command, check=True)
           PY
           LEXICON="$RUNNER_TEMP/sudachi-build/normalized/lexicon.tsv"
-          CONNECTIONS="$RUNNER_TEMP/sudachi-build/normalized/connections.tsv"
           mkdir -p "$RUNNER_TEMP/context-corpus"
           python tools/prepare_ud_gsd_corpus.py \
             --input-dir "$RUNNER_TEMP/ud-gsd" \
@@ -116,7 +115,6 @@ jobs:
             --lexicon "$LEXICON" \
             --corpus "$RUNNER_TEMP/context-corpus/tokenized.tsv" \
             --train-sequences "$RUNNER_TEMP/context-corpus/compiled/train_sequences.tsv" \
-            --connections "$CONNECTIONS" \
             --context-margin 0.5 --min-test-tokens 1000 \
             --output "$RUNNER_TEMP/context-ablation.json"
           cat "$RUNNER_TEMP/context-corpus/ud_gsd_manifest.json"
