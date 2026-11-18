@@ -68,6 +68,15 @@ jobs:
           subprocess.run(command, check=True)
           PY
 
+      - name: Build native runtime and evaluate real Pack
+        run: |
+          set -o pipefail
+          cmake -S . -B "$RUNNER_TEMP/kana-runtime-build" -DCMAKE_BUILD_TYPE=Release
+          cmake --build "$RUNNER_TEMP/kana-runtime-build" --target kana_decoder_eval --parallel 2
+          /usr/bin/time -v "$RUNNER_TEMP/kana-runtime-build/kana_decoder_eval" \
+            "$RUNNER_TEMP/ja-jp-sudachi-small" tests/data/ja-smoke-gold.tsv \
+            2>&1 | tee "$RUNNER_TEMP/sudachi-runtime-evaluation.log"
+
       - name: Upload verified Pack artifact
         uses: actions/upload-artifact@v4
         with:
