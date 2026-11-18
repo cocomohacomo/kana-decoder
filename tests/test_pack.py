@@ -35,4 +35,21 @@ class PackTests(unittest.TestCase):
    m=json.loads((d/"manifest.json").read_text(encoding="utf-8"));m["resource_limits"]["max_expanded_bytes"]=1
    (d/"manifest.json").write_text(json.dumps(m),encoding="utf-8")
    with self.assertRaisesRegex(ValueError,"resource limit"):module.verify_pack(d)
-if __name__=="__main__":unittest.main()
+
+ def test_unlisted_payload_file_rejected(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   d=pathlib.Path(tmp);src=ROOT/"packs"/"ja-lite"
+   for p in src.iterdir():
+    if p.is_file():(d/p.name).write_bytes(p.read_bytes())
+   (d/"unexpected.bin").write_bytes(b"unlisted")
+   with self.assertRaisesRegex(ValueError,"unlisted or missing"):module.verify_pack(d)
+ def test_license_must_be_hashed(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   d=pathlib.Path(tmp);src=ROOT/"packs"/"ja-lite"
+   for p in src.iterdir():
+    if p.is_file():(d/p.name).write_bytes(p.read_bytes())
+   m=json.loads((d/"manifest.json").read_text(encoding="utf-8"))
+   m["files"]=[item for item in m["files"] if item["path"]!="LICENSE"]
+   (d/"manifest.json").write_text(json.dumps(m),encoding="utf-8")
+   with self.assertRaisesRegex(ValueError,"license file"):module.verify_pack(d)
+\nif __name__=="__main__":unittest.main()
