@@ -154,6 +154,67 @@ bool load_language_pack(const std::string& directory,LexiconTrie& lexicon,Masked
 std::vector<DecodedPath> decode_reading(const std::string& reading,const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,const DecoderOptions& options,const ConnectionModel* connections){
  if(!valid_utf8_impl(reading))return {};auto chars=utf8_chars(reading);if(chars.empty())return {};auto lattice=lexicon.build_lattice(reading,16,true);MorphologyDecoder decoder;return decoder.decode(chars.size(),lattice,scorer,{},options,connections);
 }
+CorrectionDecodeResult decode_with_corrections(const std::string& reading,const LexiconTrie& lexicon,
+ const MaskedNgramScorer& scorer,const CorrectionOptions& correction_options,
+ const DecoderOptions& decoder_options,const ConnectionModel* connections){
+ CorrectionDecodeResult result;result.input_reading=reading;result.decoded_reading=reading;
+ result.paths=decode_reading(reading,lexicon,scorer,decoder_options,connections);
+ if(result.paths.empty()||!correction_options.enabled||correction_options.protected_span||
+    correction_options.max_candidates==0)return result;
+ const bool protected_ascii=std::any_of(reading.begin(),reading.end(),[](unsigned char c){return c>='0'&&c<='9';});
+ const bool protected_url=reading.find("://")!=std::string::npos||reading.find("www.")==0||reading.find('@')!=std::string::npos;
+ if(protected_ascii||protected_url)return result;
+ std::unordered_map<std::string,double> scores;
+ std::unordered_map<std::string,std::vector<DecodedPath>> decoded;
+ scores[reading]=result.paths.front().score;
+ const auto chars=utf8_chars(reading);
+ std::vector<std::string> proposals;
+ auto add_proposal=[&](const std::string& candidate){
+  if(candidate.empty()||candidate==reading||proposals.size()>=std::min<std::size_t>(correction_options.max_candidates,8))return;
+  if(!is_valid_utf8(candidate)||std::find(proposals.begin(),proposals.end(),candidate)!=proposals.end())return;
+  proposals.push_back(candidate);
+ };
+ for(std::size_t i=1;i<chars.size()&&proposals.size()<8;++i){
+  if(chars[i]==chars[i-1]){auto copy=chars;copy.erase(copy.begin()+static_cast<std::ptrdiff_t>(i));add_proposal(join_utf8(copy));}
+ }
+ for(const auto& rule:correction_options.rules){
+  if(proposals.size()>=std::min<std::size_t>(correction_options.max_candidates,8))break;
+  if(rule.from.empty()){
+   if(rule.to.empty()||!is_valid_utf8(rule.to))continue;
+   std::size_t byte=0;
+   for(std::size_t i=0;i<=chars.size()&&proposals.size()<std::min<std::size_t>(correction_options.max_candidates,8);++i){
+    std::string candidate=reading;candidate.insert(byte,rule.to);add_proposal(candidate);
+    if(i<chars.size())byte+=chars[i].size();
+   }
+  }else{
+   if(!is_valid_utf8(rule.from)||!is_valid_utf8(rule.to))continue;
+   std::size_t pos=reading.find(rule.from);
+   while(pos!=std::string::npos&&proposals.size()<std::min<std::size_t>(correction_options.max_candidates,8)){
+    std::string candidate=reading;candidate.replace(pos,rule.from.size(),rule.to);add_proposal(candidate);
+    pos=reading.find(rule.from,pos+rule.from.size());
+   }
+  }
+ }
+ for(const auto& proposal:proposals){
+  auto paths=decode_reading(proposal,lexicon,scorer,decoder_options,connections);
+  if(!paths.empty()){scores[proposal]=paths.front().score;decoded.emplace(proposal,std::move(paths));}
+ }
+ CorrectionEngine engine;
+ auto candidates=engine.generate(reading,scores,correction_options);
+ const CorrectionCandidate* best=nullptr;
+ for(const auto& candidate:candidates){
+  if(candidate.auto_accepted&&(!best||candidate.score>best->score))best=&candidate;
+ }
+ if(best){
+  auto found=decoded.find(best->proposed);
+  if(found!=decoded.end()){
+   result.decoded_reading=best->proposed;result.correction=*best;
+   result.correction_applied=true;result.paths=std::move(found->second);
+  }
+ }
+ return result;
+}
+
 StreamingSession::StreamingSession(std::size_t limit):max_reading_codepoints_(limit?limit:1){}
 bool StreamingSession::append(const std::string& chunk,const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,StreamingSnapshot& snapshot,const DecoderOptions& options,const ConnectionModel* connections){
  if(chunk.empty()||!valid_utf8_impl(chunk))return false;auto current=utf8_chars(reading_),incoming=utf8_chars(chunk);if(current.size()+incoming.size()>max_reading_codepoints_)return false;
