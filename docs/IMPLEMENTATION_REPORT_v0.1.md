@@ -494,7 +494,7 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Fixed the sequential evaluator JSON contract to emit named nested metric objects and extended the test to parse and assert all three modes.
 - Added unit tests for observed/missing context evidence, distinct-surface gate activation, and abstention when evidence is unavailable.
 - Historical v0.30 full-path baseline: 2,414 sentences / 10,317 tokens; morphology-only exact 24.6479%, CER 48.6578%; unigram + predicted-left exact 24.8136%, CER 48.4772%; Peak RSS 1,425,568 KiB and elapsed 19.18 seconds on GitHub-hosted runner.
-- v0.31 CI and full Sudachi Pack evaluation are pending. No v0.31 accuracy or memory improvement is claimed until those measurements complete.
+- v0.31 C++ CI run `44414980579`（commit `3d4a80d31d7782b6bd0e672efbfa57c0ded4dc36`）: completed / success。CTest 21/21 PASS、Python 63件（58 PASS / 5 SKIP）、warning-as-error build、bounded benchmark、reference Pack verificationがPASS。\n- v0.31実Sudachi Pack run `44414667242`（commit `569adbc9c48bfae9691d5b3297a7cb9f024a9d0a`）: completed / success。2,414文 / 10,317 token。morphology-only exact 24.6479%、CER 48.6578%。train-derived unigram + predicted-left exact 24.8136%、CER 48.4772%。default SURGE gateはmorphology-onlyと同一のexact/CERとなり、full-path test上で改善を確認できなかった。Peak RSS 1,425,512 KiB（約1,392.1 MiB）、1,792 MiB gate内。\n- この実測はSURGE gateが常に無効という意味ではなく、候補shortlist・予測履歴・証拠marginの組合せで、当該GSD testでは出力変更に至らなかったことを示す。閾値をtestで調整せず、v0.32でdev split限定の校正へ進む。
 - Specification: docs/SPECIFICATION_v0.31.md.
 
 
