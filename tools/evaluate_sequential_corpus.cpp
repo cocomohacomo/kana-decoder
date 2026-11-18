@@ -220,8 +220,9 @@ int main(int argc, char** argv) {
         std::cerr << "failed to load test token corpus\n";
         return 2;
     }
+    kana_decoder::MaskedNgramScorer morphology_scorer;
     Metrics morphology, causal;
-    evaluate(sentences, lexicon, pack_scorer, connections, morphology);
+    evaluate(sentences, lexicon, morphology_scorer, connections, morphology);
     evaluate(sentences, lexicon, trained_scorer, connections, causal);
     std::cout << "{\"mode\":\"end_to_end_sentence_reading_with_predicted_left_history\""
               << ",\"gold_token_boundaries_used_for_decoding\":false"
