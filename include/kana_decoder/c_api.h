@@ -7,6 +7,7 @@ extern "C" {
 #endif
 typedef struct kd_ngram_scorer kd_ngram_scorer;
 typedef struct kd_engine kd_engine;
+typedef struct kd_streaming_session kd_streaming_session;
 typedef struct kd_candidate_view { const char* id; const char* surface; } kd_candidate_view;
 enum { KD_OUTPUT_NORMAL=0,KD_OUTPUT_AMBIGUOUS=1,KD_OUTPUT_CONSERVATIVE=2,KD_OUTPUT_DIAGNOSTIC=3 };
 enum { KD_ERR_INVALID_ARGUMENT=-1,KD_ERR_BUFFER_TOO_SMALL=-2,KD_ERR_INTERNAL=-3 };
@@ -17,6 +18,15 @@ void kd_engine_destroy(kd_engine*);
 int kd_engine_load_pack(kd_engine*,const char* pack_directory);
 // Returns best-path surface text. 0 success; negative values are KD_ERR_* codes.
 int kd_engine_decode(kd_engine*,const char* reading,char* output,size_t output_capacity);
+// A streaming session owns a snapshot of the loaded engine. It remains valid if the
+// original engine is later destroyed or reloaded.
+kd_streaming_session* kd_streaming_session_create(const kd_engine*,size_t max_reading_codepoints);
+void kd_streaming_session_destroy(kd_streaming_session*);
+int kd_streaming_append(kd_streaming_session*,const char* chunk,char* provisional,size_t capacity,uint64_t* revision);
+int kd_streaming_commit_common_prefix(kd_streaming_session*,char* committed,size_t capacity,uint64_t* revision);
+int kd_streaming_commit_best(kd_streaming_session*,char* committed,size_t capacity,uint64_t* revision);
+int kd_streaming_reset(kd_streaming_session*);
+
 void kd_ngram_scorer_destroy(kd_ngram_scorer*);
 int kd_ngram_add_unigram(kd_ngram_scorer*,const char*,uint32_t);
 int kd_ngram_add_left_bigram(kd_ngram_scorer*,const char*,const char*,uint32_t);
