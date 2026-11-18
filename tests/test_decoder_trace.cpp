@@ -7,6 +7,8 @@ int main() {
  LexiconTrie lexicon;
  assert(lexicon.add("あめ", {"rain", "雨", -1200, 25, 1, 2}));
  assert(lexicon.add("あめ", {"candy", "飴", -900, 15, 3, 4}));
+ assert(lexicon.add("あ", {"first", "あ", -100, 0, 0, 2}));
+ assert(lexicon.add("め", {"second", "め", -100, 0, 1, 0}));
  MaskedNgramScorer scorer;
  scorer.add_unigram("rain", 10);
  scorer.add_unigram("candy", 1);
@@ -17,7 +19,7 @@ int main() {
  auto paths=decode_reading("あめ",lexicon,scorer,options,&connections,&trace);
  assert(!paths.empty());
  assert(trace.size()>=2);
- bool saw_rain=false,saw_candy=false;
+ bool saw_rain=false,saw_candy=false,saw_transition=false;
  for(const auto& item:trace) {
    assert(item.end>item.start);
    assert(item.local_score==item.morphology_score+item.weighted_context_score);
@@ -30,8 +32,9 @@ int main() {
      assert(item.transition_cost==0);
    }
    if(item.candidate_id=="candy") saw_candy=true;
+   if(item.candidate_id=="second" && item.transition_cost==7) saw_transition=true;
  }
- assert(saw_rain&&saw_candy);
+ assert(saw_rain&&saw_candy&&saw_transition);
  auto fallback=decode_reading("ぴ",lexicon,scorer,options,nullptr,&trace);
  assert(!fallback.empty());
  bool saw_fallback=false;
