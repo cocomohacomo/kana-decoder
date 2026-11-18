@@ -52,8 +52,8 @@ The production Sudachi source archives have not yet been downloaded and verified
 ## 6. Native Pack verification resource consistency
 
 - C++ runtime reads \`resource_limits.max_expanded_bytes\` from the same nested Manifest object used by the Python verifier. If the object exists but the field is missing, loading fails closed rather than silently falling back to the default.
-- The runtime rejects a Pack whose total declared payload size exceeds the Pack-declared limit. The default remains 8 GiB when the optional resource_limits object is absent for legacy compatibility.
+- The runtime rejects a Pack whose declared payload plus manifest size exceeds the Pack-declared limit. The default remains 8 GiB when the optional resource_limits object is absent for legacy compatibility.
 - SHA-256 verification processes files in bounded 64 KiB input chunks and a 64-byte compression block. It no longer materializes an entire dictionary file in RAM solely to hash it.
 - The native verifier accepts payloads above the provisional 30 MiB optimization target, subject to the Pack's declared byte budget and available machine resources.
 - Native payload entry ceiling raised from 64 to 256 files. Manifest size remains capped at 1 MiB.
-- Conformance tests cover both acceptance of a declared budget above 30 MiB and rejection when the declared budget is smaller than the actual payload.
+- Conformance tests cover acceptance of a declared budget above 30 MiB, rejection when the declared budget is smaller than the manifest and payload, and SHA-256 verification of a 70,000-byte payload spanning multiple input chunks.
