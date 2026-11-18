@@ -1,61 +1,97 @@
 #!/usr/bin/env python3
-"""Offline, non-mutating SURGE-style ambiguity/attention probe for decoder traces."""
+"""Offline SURGE-inspired claim/question/focus analysis over decoder traces.
+
+Only scorer context evidence may resolve a question. Morphology/word costs are
+reported separately and never treated as semantic/context evidence.
+"""
 import argparse
 import json
 from pathlib import Path
 
 
-def analyze(payload):
+def analyze(payload, context_margin_threshold=0.5):
     cases = payload.get("details", [])
-    span_clusters = 0
-    claims = 0
-    questions = 0
-    gold_covered = 0
+    span_clusters = claims = questions = gold_covered = 0
+    resolved_questions = 0
     focus_questions = []
+    context_evidence_spans = 0
     for case in cases:
         spans = {}
         for position in case.get("candidate_generation", []):
             for match in position.get("matches", []):
                 key = (match["start"], match["end"])
-                surfaces = spans.setdefault(key, set())
-                surfaces.update(c["surface"] for c in match.get("candidates", []))
+                spans.setdefault(key, set()).update(
+                    c["surface"] for c in match.get("candidates", []))
         span_clusters += len(spans)
-        case_claims = sum(len(values) for values in spans.values())
-        claims += case_claims
+        claims += sum(len(values) for values in spans.values())
         expected = case.get("expected", "")
         if any(expected in values for values in spans.values()):
             gold_covered += 1
-        case_questions = []
-        score_by_span = {}
+
+        # Preserve best observation per surface, but keep scorer context and
+        # morphology/local scores in separate channels.
+        observed = {}
         for trace in case.get("candidate_trace", []):
             key = (trace["start"], trace["end"])
-            score_by_span.setdefault(key, {})[trace["surface"]] = max(
-                trace["local_score"],
-                score_by_span.setdefault(key, {}).get(trace["surface"], float("-inf")))
+            item = observed.setdefault(key, {})
+            surface = trace["surface"]
+            current = item.setdefault(surface, {
+                "context": float("-inf"), "local": float("-inf"),
+                "morphology": float("-inf"), "observations": 0})
+            current["context"] = max(current["context"],
+                                     float(trace.get("raw_context_score", 0.0)))
+            current["local"] = max(current["local"],
+                                   float(trace.get("local_score", 0.0)))
+            current["morphology"] = max(current["morphology"],
+                                        float(trace.get("morphology_score", 0.0)))
+            current["observations"] += 1
+
+        case_questions = []
         for (start, end), values in spans.items():
             if len(values) < 2:
                 continue
             questions += 1
-            ranked = sorted(score_by_span.get((start, end), {}).items(),
-                            key=lambda item: item[1], reverse=True)
-            margin = ranked[0][1] - ranked[1][1] if len(ranked) > 1 else None
+            scores = observed.get((start, end), {})
+            ranked_context = sorted(
+                ((surface, score["context"]) for surface, score in scores.items()
+                 if surface in values),
+                key=lambda item: item[1], reverse=True)
+            # Zero is the empty-model score. Require actual non-zero scorer
+            # evidence for at least two competing claims before resolution.
+            evidence = [(surface, score) for surface, score in ranked_context
+                        if score != 0.0]
+            has_context_evidence = len(evidence) >= 2
+            margin = (ranked_context[0][1] - ranked_context[1][1]
+                      if len(ranked_context) >= 2 else None)
+            resolved = bool(has_context_evidence and margin is not None
+                            and margin >= context_margin_threshold)
+            if has_context_evidence:
+                context_evidence_spans += 1
+            if resolved:
+                resolved_questions += 1
             case_questions.append({
                 "span": [start, end],
                 "claim_count": len(values),
-                "score_margin": margin,
-                "resolved": False,
+                "context_evidence_claims": len(evidence),
+                "context_score_margin": margin,
+                "morphology_only_margin": _local_margin(scores, values),
+                "resolved": resolved,
+                "resolution_basis": "scorer_context" if resolved else "insufficient_context",
+                "selected_surface": ranked_context[0][0] if resolved else None,
             })
-        if case_questions:
-            # The least-separated alternative set receives attention first.
-            focus = min(case_questions,
-                        key=lambda q: (q["score_margin"] if q["score_margin"] is not None else 0,
-                                       -q["claim_count"]))
+
+        unresolved = [q for q in case_questions if not q["resolved"]]
+        if unresolved:
+            focus = min(unresolved, key=lambda q: (
+                q["context_score_margin"] if q["context_score_margin"] is not None else float("-inf"),
+                -q["claim_count"]))
             focus_questions.append({
                 "reading": case.get("reading", ""),
                 "focus_span": focus["span"],
                 "question_count": len(case_questions),
+                "unresolved_question_count": len(unresolved),
                 "claim_count": focus["claim_count"],
-                "score_margin": focus["score_margin"],
+                "context_score_margin": focus["context_score_margin"],
                 "resolved": False,
             })
     count = len(cases)
@@ -64,21 +100,35 @@ def analyze(payload):
         "span_clusters": span_clusters,
         "claims": claims,
         "contradiction_questions": questions,
+        "context_evidence_spans": context_evidence_spans,
+        "resolved_questions": resolved_questions,
+        "unresolved_questions": questions - resolved_questions,
         "cases_with_focus": len(focus_questions),
         "gold_candidate_coverage": gold_covered / count if count else 0.0,
         "gold_candidate_coverage_count": gold_covered,
         "baseline_top1_exact_accuracy": payload.get("overall", {}).get("exact_accuracy", 0.0),
         "auto_resolved_questions": 0,
+        "context_margin_threshold": context_margin_threshold,
         "focus_questions": focus_questions,
     }
+
+
+def _local_margin(scores, values):
+    ranked = sorted((score["local"] for surface, score in scores.items()
+                     if surface in values), reverse=True)
+    return ranked[0] - ranked[1] if len(ranked) >= 2 else None
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("evaluation_json", type=Path)
+    parser.add_argument("--context-margin", type=float, default=0.5)
     args = parser.parse_args()
+    if args.context_margin < 0:
+        parser.error("--context-margin must be non-negative")
     payload = json.loads(args.evaluation_json.read_text(encoding="utf-8"))
-    print(json.dumps({"surge_probe": analyze(payload)}, ensure_ascii=False))
+    print(json.dumps({"surge_probe": analyze(payload, args.context_margin)},
+                     ensure_ascii=False))
 
 
 if __name__ == "__main__":
