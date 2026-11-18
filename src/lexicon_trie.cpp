@@ -91,8 +91,10 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
      LatticeEdge edge;
      edge.start = start;
      edge.end = end + 1;
+     const std::size_t per_edge_take=std::min<std::size_t>(8,nodes_[node].values.size());
      const std::size_t take=std::min<std::size_t>(
-      8,std::min(nodes_[node].values.size(),max_total_candidates-retained_candidates));
+      per_edge_take,max_total_candidates-retained_candidates);
+     if(take<per_edge_take && resource_limit_exceeded)*resource_limit_exceeded=true;
      auto less_cost=[](const LatticeCandidate& a,const LatticeCandidate& b){
       return static_cast<std::int64_t>(a.word_cost)+a.connection_cost
            < static_cast<std::int64_t>(b.word_cost)+b.connection_cost;
