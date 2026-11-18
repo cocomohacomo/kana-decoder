@@ -86,6 +86,11 @@ def write_pack(args):
    source=arg.resolve()
    if not source.is_file():raise ValueError(f"{name} source does not exist")
    shutil.copyfile(source,out/name);payload.append(name)
+ for arg,name in ((args.provenance_file,"provenance.json"),(args.upstream_legal_notice,"UPSTREAM_LEGAL.txt")):
+  if arg:
+   source=arg.resolve()
+   if not source.is_file():raise ValueError(f"{name} source does not exist")
+   shutil.copyfile(source,out/name);payload.append(name)
  license_source=args.license_file.resolve()
  if not license_source.is_file():raise ValueError("license file does not exist")
  shutil.copyfile(license_source,out/"LICENSE");payload.append("LICENSE");components=[]
@@ -99,7 +104,7 @@ def write_pack(args):
  (out/"manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
  return {"pack_id":args.pack_id,"entries":len(rows),"trained_ngram_records":len(counts),"files":payload,"max_expanded_bytes":args.max_expanded_bytes}
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument("--lexicon",type=Path,required=True);p.add_argument("--output",type=Path,required=True);p.add_argument("--license-file",type=Path,required=True);p.add_argument("--license-profile",type=Path);p.add_argument("--license-spdx",required=True);p.add_argument("--upstream",required=True);p.add_argument("--pack-id",required=True);p.add_argument("--language-id",required=True);p.add_argument("--pack-version",default="0.1.0");p.add_argument("--dictionary-version",default="imported");p.add_argument("--sequences",type=Path);p.add_argument("--connections",type=Path);p.add_argument("--correction-rules",type=Path);p.add_argument("--reading-encoding",default="utf8");p.add_argument("--normalization-profile",default="none-declared");p.add_argument("--orthography-profile",default="language-default");p.add_argument("--max-expanded-bytes",type=int,default=8*1024*1024*1024,help="Pack-declared expanded byte budget; default 8 GiB, independent of the provisional 30 MiB optimization target")
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument("--lexicon",type=Path,required=True);p.add_argument("--output",type=Path,required=True);p.add_argument("--license-file",type=Path,required=True);p.add_argument("--license-profile",type=Path);p.add_argument("--license-spdx",required=True);p.add_argument("--upstream",required=True);p.add_argument("--pack-id",required=True);p.add_argument("--language-id",required=True);p.add_argument("--pack-version",default="0.1.0");p.add_argument("--dictionary-version",default="imported");p.add_argument("--sequences",type=Path);p.add_argument("--connections",type=Path);p.add_argument("--correction-rules",type=Path);p.add_argument("--provenance-file",type=Path);p.add_argument("--upstream-legal-notice",type=Path);p.add_argument("--reading-encoding",default="utf8");p.add_argument("--normalization-profile",default="none-declared");p.add_argument("--orthography-profile",default="language-default");p.add_argument("--max-expanded-bytes",type=int,default=8*1024*1024*1024,help="Pack-declared expanded byte budget; default 8 GiB, independent of the provisional 30 MiB optimization target")
  a=p.parse_args()
  if a.max_expanded_bytes<=0:p.error("--max-expanded-bytes must be positive")
  if not a.license_spdx.strip() or not a.upstream.strip():p.error("license SPDX and upstream metadata are required")
