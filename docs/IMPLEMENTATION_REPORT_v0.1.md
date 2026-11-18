@@ -158,3 +158,17 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - READMEとv0.7仕様書の説明整合後、GitHub Actions run `44348679722`（commit `0187a5da9d206a9ea52b2179c98596234f7c9599`）もcompleted / success。
 - CTest 6/6 PASS、Pack検証PASS。
 - このCI runの小規模ベンチマーク: n-gram resolve 3,776.49 ns/resolve、2-token/5-edge decoder 1,851.51 ns/decode。単一CI測定であり、性能保証や実用辞書評価ではない。
+
+
+## 17. License inheritance policy and component-level Pack profiles
+- Added root `LICENSE` for original kana-decoder code and original fixtures under MIT.
+- Added `docs/LICENSING_POLICY.md` and `docs/SPECIFICATION_v0.8.md`. Third-party dictionaries, corpora, matrices and models are not relicensed under the repository's MIT license; each Language Pack records the conjunction of its upstream component licenses.
+- Added the third-party component register. SudachiDict Small is the preferred candidate, with an expected combined expression of Apache-2.0 AND BSD-3-Clause based on the upstream LEGAL notice. SudachiDict Core/Full are excluded from the first import because their additional NEologd-derived entries reference multiple external data sources and require component-level clearance.
+- Preserved the complete upstream SudachiDict LEGAL notice at `licenses/UPSTREAM_SUDACHIDICT_LEGAL.txt`.
+- Added `tools/validate_license_profile.py`. It requires a pinned release identifier, exact source-artifact SHA-256, reviewed permissive SPDX ID, HTTPS upstream URL, explicit commercial-use / redistribution / modified-redistribution permissions, and bundled notice files. This validates declarations and package structure, not the legal correctness of upstream rights.
+- Extended `tools/build_language_pack.py` with `--license-profile`. It copies each component license into `THIRD_PARTY_LICENSES/`, writes `license-profile.json`, records component metadata in Manifest, hashes the profile and notices, and rejects a combined SPDX expression that does not match the component licenses.
+- Added tests for multi-component Apache-2.0 + BSD-3-Clause Packs, missing source checksums, floating versions, non-commercial permissions, missing redistribution permission, and Pack checksum verification.
+- CI run `44351118276` for commit `717b55e44492d9348a7c0af0a17b284ec2283760`: completed / success. CTest 6/6 PASS; Python unittest 19/19 PASS; Pack manifest verification PASS.
+- The 20261015 SudachiDict-small PyPI wheel is listed at 42.5 MB. This is not the eventual kana-decoder Pack size, but it exceeds the current 30 MiB lightweight target and must be measured after import/compaction.
+- No third-party dictionary payload was added. The exact raw CSV source archive and its SHA-256 still need to be independently pinned and verified before the first production import. The 20261015 release candidate's source archive was not available for verified retrieval during this implementation run.
+- The repository therefore now has a license-safe import/release path, but does not yet claim production dictionary coverage or production accuracy.
