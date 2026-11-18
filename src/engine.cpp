@@ -22,6 +22,7 @@ bool valid_utf8_impl(const std::string& s) {
 std::vector<std::string> utf8_chars(const std::string&s){std::vector<std::string>o;if(!valid_utf8_impl(s))return o;for(std::size_t i=0;i<s.size();){unsigned char c=static_cast<unsigned char>(s[i]);std::size_t n=c<0x80?1:(c&0xe0)==0xc0?2:(c&0xf0)==0xe0?3:4;o.push_back(s.substr(i,n));i+=n;}return o;}
 std::string join_utf8(const std::vector<std::string>&v){std::string o;for(const auto&c:v)o+=c;return o;}
 std::string pair_key(std::int32_t a,std::int32_t b){return std::to_string(a)+":"+std::to_string(b);}
+std::size_t byte_offset_for_codepoints(const std::string&s,std::size_t count){auto chars=utf8_chars(s);if(count>chars.size())return std::string::npos;std::size_t n=0;for(std::size_t i=0;i<count;++i)n+=chars[i].size();return n;}
 }
 namespace kana_decoder {
 bool is_valid_utf8(const std::string& text){return valid_utf8_impl(text);}
@@ -88,7 +89,7 @@ bool LexiconTrie::load_tsv(const std::string& path,std::size_t* loaded){
   while(std::getline(ss,field,'\t'))cols.push_back(field);
   if(cols.size()<5||cols.size()>10)return false;
   LatticeCandidate candidate;candidate.id=cols.size()>5&&!cols[5].empty()?cols[5]:cols[4];candidate.surface=cols[1];
-  try{if(cols.size()>6&&!cols[6].empty())candidate.word_cost=static_cast<std::int32_t>(std::stol(cols[6]));if(cols.size()>7&&!cols[7].empty())candidate.connection_cost=static_cast<std::int32_t>(std::stol(cols[7]));if(cols.size()>8&&!cols[8].empty())candidate.left_id=static_cast<std::int32_t>(std::stol(cols[8]));if(cols.size()>9&&!cols[9].empty())candidate.right_id=static_cast<std::int32_t>(std::stol(cols[9]));}catch(...){return false;}
+  try{auto parse_i32=[](const std::string&v){long n=std::stol(v);if(n<(-2147483647L-1)||n>2147483647L)throw std::out_of_range("int32");return static_cast<std::int32_t>(n);};if(cols.size()>6&&!cols[6].empty())candidate.word_cost=parse_i32(cols[6]);if(cols.size()>7&&!cols[7].empty())candidate.connection_cost=parse_i32(cols[7]);if(cols.size()>8&&!cols[8].empty())candidate.left_id=parse_i32(cols[8]);if(cols.size()>9&&!cols[9].empty())candidate.right_id=parse_i32(cols[9]);}catch(...){return false;}
   if(!parsed.add(cols[0],candidate))return false;++count;
  }
  if(!in.eof())return false;
