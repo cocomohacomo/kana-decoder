@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Evaluate morphology, unigram+context and evidence-gated SURGE on held-out tokens.
+"""Compare token-local oracle context with causal, predicted-history evaluation.
 
-This is a teacher-forced oracle-context ablation: neighboring gold token IDs are
-provided to isolate candidate scoring. It is not an end-to-end conversion score.
-The n-gram equations mirror MaskedNgramScorer in src/scoring.cpp.
+The causal evaluator uses gold token boundaries/readings but never gold neighboring
+candidate IDs. Each policy maintains its own predicted left history. This is not
+full end-to-end decoding because segmentation remains gold-aligned.
 """
 import argparse
 import csv
@@ -14,8 +14,7 @@ from pathlib import Path
 
 
 def read_lexicon(path):
-    by_reading = defaultdict(list)
-    by_pair = {}
+    by_reading, by_pair = defaultdict(list), {}
     with path.open(encoding="utf-8") as stream:
         for line_no, line in enumerate(stream, 1):
             if not line.strip() or line.startswith("#"):
@@ -24,22 +23,20 @@ def read_lexicon(path):
             if len(cols) < 6:
                 raise ValueError(f"{path}:{line_no}: expected at least six columns")
             try:
-                word_cost = int(cols[6]) if len(cols) > 6 and cols[6] else 0
-                connection_cost = int(cols[7]) if len(cols) > 7 and cols[7] else 0
-                left_id = int(cols[8]) if len(cols) > 8 and cols[8] else 0
-                right_id = int(cols[9]) if len(cols) > 9 and cols[9] else 0
+                item = {
+                    "reading": cols[0], "surface": cols[1], "candidate_id": cols[5],
+                    "word_cost": int(cols[6]) if len(cols) > 6 and cols[6] else 0,
+                    "connection_cost": int(cols[7]) if len(cols) > 7 and cols[7] else 0,
+                }
             except ValueError as exc:
-                raise ValueError(f"{path}:{line_no}: invalid lexicon cost or connection ID") from exc
-            item = {
-                "reading": cols[0], "surface": cols[1], "candidate_id": cols[5],
-                "word_cost": word_cost, "connection_cost": connection_cost,
-                "left_id": left_id, "right_id": right_id,
-            }
+                raise ValueError(f"{path}:{line_no}: invalid lexicon cost") from exc
+            if not item["reading"] or not item["surface"] or not item["candidate_id"]:
+                raise ValueError(f"{path}:{line_no}: empty reading, surface, or candidate ID")
             by_reading[item["reading"]].append(item)
             key = (item["reading"], item["surface"])
-            current = by_pair.get(key)
-            if current is None or (word_cost, item["candidate_id"]) < (
-                    current["word_cost"], current["candidate_id"]):
+            old = by_pair.get(key)
+            if old is None or (item["word_cost"], item["candidate_id"]) < (
+                    old["word_cost"], old["candidate_id"]):
                 by_pair[key] = item
     for reading in by_reading:
         by_reading[reading].sort(key=lambda x: (
@@ -48,174 +45,250 @@ def read_lexicon(path):
 
 
 def train_counts(path):
-    unigram = Counter()
-    left = Counter()
-    right = Counter()
-    left_total = Counter()
-    right_total = Counter()
-    unigram_total = 0
+    unigram, left, right = Counter(), Counter(), Counter()
+    left_total, right_total = Counter(), Counter()
+    total = 0
     with path.open(encoding="utf-8") as stream:
         for line_no, line in enumerate(stream, 1):
             if not line.strip() or line.startswith("#"):
                 continue
             tokens = [x for x in line.rstrip("\r\n").split("\t") if x]
-            if not tokens:
-                continue
             for i, token in enumerate(tokens):
                 unigram[token] += 1
-                unigram_total += 1
+                total += 1
                 if i:
                     left[(tokens[i - 1], token)] += 1
                     left_total[tokens[i - 1]] += 1
                 if i + 1 < len(tokens):
                     right[(token, tokens[i + 1])] += 1
                     right_total[tokens[i + 1]] += 1
-    return unigram, left, right, left_total, right_total, unigram_total
+    return {"unigram": unigram, "left": left, "right": right,
+            "left_total": left_total, "right_total": right_total,
+            "unigram_total": total}
 
 
-def context_score(candidate_id, left_id, right_id, counts):
-    unigram, left, right, left_total, right_total, unigram_total = counts
-    vocab = max(1, len(unigram))
-    alpha = 0.5
-    score = 0.0
-    support = 0
-    if left_id is not None:
-        count = left[(left_id, candidate_id)]
-        support += count
-        score += math.log((count + alpha) /
-                          (left_total[left_id] + alpha * vocab))
-    if right_id is not None:
-        count = right[(candidate_id, right_id)]
-        support += count
-        score += math.log((count + alpha) /
-                          (right_total[right_id] + alpha * vocab))
-    uc = unigram[candidate_id]
-    prior = math.log((uc + alpha) / (unigram_total + alpha * vocab))
-    return prior, score, support
+def _log_probability(count, total, vocab, alpha=0.5):
+    return math.log((count + alpha) / (total + alpha * vocab))
 
 
-def _best_by_surface(candidates, score_fn):
+def score_parts(candidate_id, left_id, right_id, counts):
+    vocab = max(1, len(counts["unigram"]))
+    uc = counts["unigram"][candidate_id]
+    prior = _log_probability(uc, counts["unigram_total"], vocab)
+    left_count = counts["left"][(left_id, candidate_id)] if left_id else 0
+    right_count = counts["right"][(candidate_id, right_id)] if right_id else 0
+    context = 0.0
+    if left_id:
+        context += _log_probability(
+            left_count, counts["left_total"][left_id], vocab)
+    if right_id:
+        context += _log_probability(
+            right_count, counts["right_total"][right_id], vocab)
+    return prior, context, left_count + right_count
+
+
+def morphology_score(candidate):
+    return -float(candidate["word_cost"] + candidate["connection_cost"])
+
+
+def best_per_surface(candidates, score_by_id):
     best = {}
     for candidate in candidates:
-        score = score_fn(candidate)
         surface = candidate["surface"]
-        if surface not in best or score > best[surface][0]:
+        score = score_by_id[candidate["candidate_id"]]
+        current = best.get(surface)
+        if current is None or score > current[0]:
             best[surface] = (score, candidate)
     return best
 
 
-def _top(best):
+def ranked_surfaces(best):
     return sorted(best, key=lambda surface: (-best[surface][0], surface))
 
 
-def analyze(lexicon_path, corpus_path, sequences_path,
-            context_margin=0.5, max_candidates=8, min_test_tokens=1):
-    if context_margin < 0 or max_candidates < 1:
-        raise ValueError("context margin must be non-negative and max candidates positive")
-    by_reading, by_pair = read_lexicon(lexicon_path)
-    counts = train_counts(sequences_path)
-    sentences = defaultdict(list)
-    source_tokens = 0
+def read_test_sentences(corpus_path, by_pair):
+    sentences, source_tokens = defaultdict(list), 0
     with corpus_path.open(encoding="utf-8", newline="") as stream:
         reader = csv.DictReader(stream, delimiter="\t")
         required = {"document_id", "sentence_id", "reading", "surface", "domain", "split"}
         if not reader.fieldnames or not required.issubset(reader.fieldnames):
-            raise ValueError("corpus header must contain document_id, sentence_id, reading, surface, domain, split")
+            raise ValueError("corpus header is missing required columns")
         for line_no, row in enumerate(reader, 2):
             if row["split"] != "test":
                 continue
             source_tokens += 1
-            key = (row["document_id"], row["sentence_id"])
-            pair = (row["reading"], row["surface"])
-            gold = by_pair.get(pair)
+            gold = by_pair.get((row["reading"], row["surface"]))
             if gold is None:
-                raise ValueError(f"{corpus_path}:{line_no}: test token absent from normalized lexicon")
-            sentences[key].append((row["reading"], row["surface"], gold))
+                raise ValueError(f"{corpus_path}:{line_no}: test token absent from lexicon")
+            sentences[(row["document_id"], row["sentence_id"])].append(
+                (row["reading"], row["surface"], gold))
+    return list(sentences.values()), source_tokens
 
 
+def evaluate_oracle(sentences, by_reading, counts, max_candidates, margin):
     totals = Counter()
-    for sentence in sentences.values():
-        for index, (reading, expected, gold) in enumerate(sentence):
+    for sentence in sentences:
+        for index, (reading, expected, _) in enumerate(sentence):
             candidates = by_reading.get(reading, [])[:max_candidates]
             if not candidates:
                 totals["uncovered"] += 1
                 continue
-            gold_surfaces = {candidate["surface"] for candidate in candidates}
             totals["eligible"] += 1
-            if expected not in gold_surfaces:
+            if expected not in {c["surface"] for c in candidates}:
                 totals["candidate_misses"] += 1
                 continue
             totals["covered"] += 1
-            prev_id = sentence[index - 1][2]["candidate_id"] if index else None
-            next_id = sentence[index + 1][2]["candidate_id"] if index + 1 < len(sentence) else None
-            def components(candidate):
-                prior, context, support = context_score(
-                    candidate["candidate_id"], prev_id, next_id, counts)
-                # Token-local morphology baseline uses dictionary word and
-                # candidate-local connection costs. Matrix transition costs
-                # belong to full-path decoding and are intentionally excluded.
-                morphology = -float(candidate["word_cost"] + candidate["connection_cost"])
-                return morphology, prior, context, support
-
-            per_id = {candidate["candidate_id"]: components(candidate)
-                      for candidate in candidates}
-            morphology = _best_by_surface(candidates, lambda c: per_id[c["candidate_id"]][0])
-            combined = _best_by_surface(
-                candidates, lambda c: sum(per_id[c["candidate_id"]][:3]))
-            context = _best_by_surface(candidates, lambda c: per_id[c["candidate_id"]][2])
-            if _top(morphology)[0] == expected:
-                totals["morphology_correct"] += 1
-            if _top(combined)[0] == expected:
+            left_id = sentence[index - 1][2]["candidate_id"] if index else None
+            right_id = sentence[index + 1][2]["candidate_id"] if index + 1 < len(sentence) else None
+            parts = {c["candidate_id"]: score_parts(
+                c["candidate_id"], left_id, right_id, counts) for c in candidates}
+            morph = best_per_surface(candidates, {
+                c["candidate_id"]: morphology_score(c) for c in candidates})
+            combined = best_per_surface(candidates, {
+                c["candidate_id"]: morphology_score(c) + sum(parts[c["candidate_id"]][:2])
+                for c in candidates})
+            supported = best_per_surface(candidates, {
+                c["candidate_id"]: parts[c["candidate_id"]][1] for c in candidates
+                if parts[c["candidate_id"]][2] > 0})
+            if ranked_surfaces(morph)[0] == expected:
+                totals["morph_correct"] += 1
+            if ranked_surfaces(combined)[0] == expected:
                 totals["combined_correct"] += 1
-
-            supported = {}
-            for candidate in candidates:
-                item = per_id[candidate["candidate_id"]]
-                if item[3] > 0:
-                    surface = candidate["surface"]
-                    if surface not in supported or item[2] > supported[surface][0]:
-                        supported[surface] = (item[2], candidate)
-            ranked_support = sorted(supported, key=lambda s: (-supported[s][0], s))
-            if len(ranked_support) >= 2:
-                margin = supported[ranked_support[0]][0] - supported[ranked_support[1]][0]
-                if margin >= context_margin:
-                    totals["surge_resolved"] += 1
-                    if ranked_support[0] == expected:
-                        totals["surge_correct"] += 1
-                else:
-                    totals["surge_abstained"] += 1
+            order = ranked_surfaces(supported)
+            if len(order) >= 2 and supported[order[0]][0] - supported[order[1]][0] >= margin:
+                totals["surge_resolved"] += 1
+                if order[0] == expected:
+                    totals["surge_correct"] += 1
             else:
                 totals["surge_abstained"] += 1
-
-    if totals["covered"] < min_test_tokens:
-        raise ValueError(
-            f"only {totals['covered']} candidate-covered test tokens; required {min_test_tokens}")
     covered = totals["covered"]
+    if not covered:
+        raise ValueError("no candidate-covered tokens in oracle evaluation")
     resolved = totals["surge_resolved"]
-    result = {
-        "evaluation_mode": "teacher-forced gold neighboring tokens; candidate-scoring ablation, not end-to-end decoding",
-        "context_margin_threshold": context_margin,
-        "candidate_limit": max_candidates,
-        "test_source_tokens": source_tokens,
-        "eligible_tokens": totals["eligible"],
+    return {
+        "mode": "oracle_bidirectional_gold_neighbors",
         "candidate_covered_tokens": covered,
         "candidate_coverage": covered / totals["eligible"] if totals["eligible"] else None,
-        "morphology_top1_accuracy": totals["morphology_correct"] / covered,
+        "morphology_top1_accuracy": totals["morph_correct"] / covered,
         "combined_unigram_context_top1_accuracy": totals["combined_correct"] / covered,
         "surge_resolved_tokens": resolved,
         "surge_abstained_tokens": totals["surge_abstained"],
         "surge_resolution_precision": totals["surge_correct"] / resolved if resolved else None,
-        "surge_correct_resolution_recall_over_covered": totals["surge_correct"] / covered,
-        "surge_resolved_accuracy_over_covered": resolved / covered,
+        "surge_correct_resolution_recall": totals["surge_correct"] / covered,
         "candidate_misses": totals["candidate_misses"],
         "uncovered_tokens": totals["uncovered"],
-        "train_unigram_types": len(counts[0]),
-        "train_unigram_tokens": counts[5],
-        "train_left_bigram_types": len(counts[1]),
-        "train_right_bigram_types": len(counts[2]),
-        "corpus_splits": "train/dev/test supplied by UD Japanese-GSD; test labels used only for scoring",
     }
-    return result
+
+
+def evaluate_causal(sentences, by_reading, counts, max_candidates, margin):
+    totals = {name: Counter() for name in ("morphology", "combined", "surge_gated")}
+    for sentence in sentences:
+        histories = {name: [] for name in totals}
+        for reading, expected, _gold in sentence:
+            candidates = by_reading.get(reading, [])[:max_candidates]
+            for policy in totals:
+                stats = totals[policy]
+                if not candidates:
+                    stats["uncovered"] += 1
+                    continue
+                stats["eligible"] += 1
+                if expected not in {c["surface"] for c in candidates}:
+                    stats["candidate_misses"] += 1
+                else:
+                    stats["covered"] += 1
+                left_id = histories[policy][-1] if histories[policy] else None
+                parts = {c["candidate_id"]: score_parts(
+                    c["candidate_id"], left_id, None, counts) for c in candidates}
+                morph_scores = {c["candidate_id"]: morphology_score(c) for c in candidates}
+                morph = best_per_surface(candidates, morph_scores)
+                if policy == "morphology":
+                    chosen_surface = ranked_surfaces(morph)[0]
+                    chosen = morph[chosen_surface][1]
+                elif policy == "combined":
+                    combined = best_per_surface(candidates, {
+                        c["candidate_id"]: morph_scores[c["candidate_id"]] +
+                        parts[c["candidate_id"]][0] + parts[c["candidate_id"]][1]
+                        for c in candidates})
+                    chosen_surface = ranked_surfaces(combined)[0]
+                    chosen = combined[chosen_surface][1]
+                else:
+                    supported = best_per_surface(candidates, {
+                        c["candidate_id"]: parts[c["candidate_id"]][1]
+                        for c in candidates if parts[c["candidate_id"]][2] > 0})
+                    order = ranked_surfaces(supported)
+                    if len(order) >= 2 and supported[order[0]][0] - supported[order[1]][0] >= margin:
+                        chosen_surface = order[0]
+                        chosen = supported[chosen_surface][1]
+                        stats["resolved"] += 1
+                        if chosen_surface == expected:
+                            stats["correct_resolutions"] += 1
+                    else:
+                        chosen_surface = ranked_surfaces(morph)[0]
+                        chosen = morph[chosen_surface][1]
+                        stats["abstained"] += 1
+                if chosen_surface == expected:
+                    stats["correct"] += 1
+                histories[policy].append(chosen["candidate_id"])
+                if len(histories[policy]) > 2:
+                    histories[policy].pop(0)
+    output = {}
+    for policy, stats in totals.items():
+        covered, resolved = stats["covered"], stats["resolved"]
+        output[policy] = {
+            "eligible_tokens": stats["eligible"],
+            "candidate_covered_tokens": covered,
+            "candidate_coverage": covered / stats["eligible"] if stats["eligible"] else None,
+            "top1_accuracy": stats["correct"] / covered if covered else None,
+            "correct_tokens": stats["correct"],
+            "candidate_misses": stats["candidate_misses"],
+            "uncovered_tokens": stats["uncovered"],
+        }
+        if policy == "surge_gated":
+            output[policy].update({
+                "resolved_tokens": resolved,
+                "abstained_tokens": stats["abstained"],
+                "resolution_precision": stats["correct_resolutions"] / resolved if resolved else None,
+                "correct_resolution_recall_over_covered":
+                    stats["correct_resolutions"] / covered if covered else None,
+                "fallback_to_morphology": True,
+            })
+    return {
+        "mode": "causal_left_context_with_policy_specific_predicted_history",
+        "gold_token_boundaries_and_readings": True,
+        "gold_neighbor_candidate_ids_used": False,
+        "future_context_used": False,
+        "policies": output,
+    }
+
+
+def analyze(lexicon_path, corpus_path, sequences_path,
+            context_margin=0.5, max_candidates=8, min_test_tokens=1):
+    if not math.isfinite(context_margin) or context_margin < 0 or max_candidates < 1:
+        raise ValueError("context margin must be finite/non-negative and candidate limit positive")
+    by_reading, by_pair = read_lexicon(lexicon_path)
+    counts = train_counts(sequences_path)
+    sentences, source_tokens = read_test_sentences(corpus_path, by_pair)
+    oracle = evaluate_oracle(sentences, by_reading, counts, max_candidates, context_margin)
+    if oracle["candidate_covered_tokens"] < min_test_tokens:
+        raise ValueError(
+            f"only {oracle['candidate_covered_tokens']} candidate-covered test tokens; "
+            f"required {min_test_tokens}")
+    causal = evaluate_causal(sentences, by_reading, counts, max_candidates, context_margin)
+    return {
+        "test_source_tokens": source_tokens,
+        "candidate_limit": max_candidates,
+        "context_margin_threshold": context_margin,
+        "train_unigram_types": len(counts["unigram"]),
+        "train_unigram_tokens": counts["unigram_total"],
+        "train_left_bigram_types": len(counts["left"]),
+        "train_right_bigram_types": len(counts["right"]),
+        "oracle_ablation": oracle,
+        "causal_sequential": causal,
+        "evaluation_boundary": (
+            "causal mode uses gold token segmentation/readings but only each policy's "
+            "own predicted left candidate history; it is not full end-to-end segmentation/decoding"
+        ),
+    }
 
 
 def main():
@@ -230,9 +303,8 @@ def main():
     args = parser.parse_args()
     try:
         report = analyze(args.lexicon, args.corpus, args.train_sequences,
-                         args.context_margin, args.max_candidates,
-                         args.min_test_tokens)
-        payload = json.dumps({"context_ablation": report}, ensure_ascii=False, indent=2)
+                         args.context_margin, args.max_candidates, args.min_test_tokens)
+        payload = json.dumps({"context_evaluation": report}, ensure_ascii=False, indent=2)
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_text(payload + "\n", encoding="utf-8")
