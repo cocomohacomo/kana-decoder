@@ -46,15 +46,49 @@ void MaskedNgramScorer::add_right_bigram(const std::string&c,const std::string&r
 void MaskedNgramScorer::add_left_ngram(const std::vector<std::string>&l,const std::string&c,std::uint32_t n){auto ctx=context_key(l);sat_add(left_counts_[key(ctx,c)],n);sat_add(left_context_totals_[ctx],n);}
 void MaskedNgramScorer::add_right_ngram(const std::string&c,const std::vector<std::string>&r,std::uint32_t n){auto ctx=context_key(r);sat_add(right_counts_[key(c,ctx)],n);sat_add(right_context_totals_[ctx],n);}
 void MaskedNgramScorer::add_unigram(const std::string&c,std::uint32_t n){sat_add(unigram_counts_[c],n);sat_add(unigram_total_,n);}
-void ConnectionModel::set_cost(std::int32_t right_id,std::int32_t left_id,std::int32_t value){costs_[pair_key(right_id,left_id)]=value;}
-std::int32_t ConnectionModel::cost(std::int32_t right_id,std::int32_t left_id)const{auto it=costs_.find(pair_key(right_id,left_id));return it==costs_.end()?0:it->second;}
+std::uint64_t ConnectionModel::packed_key(std::int32_t right_id,std::int32_t left_id){
+ return (static_cast<std::uint64_t>(static_cast<std::uint32_t>(right_id))<<32)|
+        static_cast<std::uint32_t>(left_id);
+}
+void ConnectionModel::set_cost(std::int32_t right_id,std::int32_t left_id,std::int32_t value){
+ if(right_id<0||left_id<0||value==0)return;
+ const auto key=packed_key(right_id,left_id);
+ auto it=std::lower_bound(costs_.begin(),costs_.end(),key,
+  [](const Entry& entry,std::uint64_t target){return entry.key<target;});
+ if(it!=costs_.end()&&it->key==key){it->value=value;return;}
+ costs_.insert(it,Entry{key,value});
+}
+std::int32_t ConnectionModel::cost(std::int32_t right_id,std::int32_t left_id)const{
+ if(right_id<0||left_id<0)return 0;
+ const auto key=packed_key(right_id,left_id);
+ auto it=std::lower_bound(costs_.begin(),costs_.end(),key,
+  [](const Entry& entry,std::uint64_t target){return entry.key<target;});
+ return it!=costs_.end()&&it->key==key?it->value:0;
+}
 bool ConnectionModel::load_tsv(const std::string& path){
  std::ifstream in(path);if(!in)return false;ConnectionModel parsed;std::string line;
- while(std::getline(in,line)){if(line.empty()||line[0]=='#')continue;std::stringstream ss(line);std::string a,b,v,extra;
-  if(!std::getline(ss,a,'\t')||!std::getline(ss,b,'\t')||!std::getline(ss,v,'\t')||std::getline(ss,extra,'\t'))return false;
-  std::int32_t x=0,y=0,z=0;if(!parse_i32_strict(a,x,true)||!parse_i32_strict(b,y,true)||!parse_i32_strict(v,z))return false;parsed.set_cost(x,y,z);
+ while(std::getline(in,line)){
+  if(line.empty())continue;
+  if(line[0]=='#'){
+   std::stringstream meta(line);std::string marker,kind,extra;std::int32_t left=0,right=0;
+   if(meta>>marker>>kind&&marker=="#"&&kind=="matrix"){
+    if(!(meta>>left>>right)||meta>>extra||left<=0||right<=0)return false;
+    if(parsed.left_size_||parsed.right_size_)return false;
+    parsed.left_size_=left;parsed.right_size_=right;
+   }
+   continue;
+  }
+  std::stringstream ss(line);std::string a,b,v,extra;
+  if(!std::getline(ss,a,'\\t')||!std::getline(ss,b,'\\t')||!std::getline(ss,v,'\\t')||std::getline(ss,extra,'\\t'))return false;
+  std::int32_t right=0,left=0,value=0;
+  if(!parse_i32_strict(a,right,true)||!parse_i32_strict(b,left,true)||!parse_i32_strict(v,value))return false;
+  if(parsed.left_size_&&(left>=parsed.left_size_||right>=parsed.right_size_))return false;
+  if(value!=0)parsed.costs_.push_back(Entry{packed_key(right,left),value});
  }
- if(!in.eof())return false;*this=std::move(parsed);return true;
+ if(!in.eof())return false;
+ std::sort(parsed.costs_.begin(),parsed.costs_.end(),[](const Entry&a,const Entry&b){return a.key<b.key;});
+ for(std::size_t i=1;i<parsed.costs_.size();++i)if(parsed.costs_[i-1].key==parsed.costs_[i].key)return false;
+ *this=std::move(parsed);return true;
 }
 
 
