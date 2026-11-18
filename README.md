@@ -6,9 +6,10 @@
 - C++17 Core / C API、Trie辞書、形態素候補ラティス、N-bestデコード
 - Context-masked n-gram候補順位付け、曖昧性保持、かなフォールバック
 - 接続行列、品詞・活用情報を含む候補デコード
-- bounded Streaming Session、revision付き暫定結果、共通接頭辞partial commit
+- C++ / C APIストリーミングセッション、暫定出力、共通接頭辞commit、best-path commit
+- 出力バッファ不足時に入力・revision・commit状態を変更しないトランザクション動作
 - 軽度誤り補正、UTF-8検証、Pack Manifest / SHA-256 / license検証
-- Sudachi V0/V1 import adapter、Pack builder、コーパス評価ツール
+- Sudachi V0/V1 import adapter、Pack builder、コーパス分割漏洩検証
 - GitHub ActionsによるC++ / Pythonテストとベンチマーク
 
 ## ビルドとテスト
@@ -31,6 +32,7 @@
 - 詳細: docs/PACK_IMPORT_AND_EVALUATION.md
 
 ## 仕様
+- v0.11: docs/SPECIFICATION_v0.11.md
 - v0.10: docs/SPECIFICATION_v0.10.md
 - v0.9以前: docs/
 - Licensing: docs/LICENSING_POLICY.md、docs/THIRD_PARTY_COMPONENTS.md
