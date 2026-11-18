@@ -38,12 +38,13 @@ def analyze(payload, context_margin_threshold=0.5):
             current = item.setdefault(surface, {
                 "context": float("-inf"), "local": float("-inf"),
                 "morphology": float("-inf"), "observations": 0})
-            current["context"] = max(current["context"],
-                                     float(trace.get("context_evidence_score", 0.0)))
-            current["local"] = max(current["local"],
-                                   float(trace.get("local_score", 0.0)))
-            current["morphology"] = max(current["morphology"],
-                                        float(trace.get("morphology_score", 0.0)))
+            local_score = float(trace.get("local_score", 0.0))
+            if local_score > current["local"]:
+                # Keep context evidence from the same best local-path
+                # observation; never compare maxima from incompatible beams.
+                current["local"] = local_score
+                current["context"] = float(trace.get("context_evidence_score", 0.0))
+                current["morphology"] = float(trace.get("morphology_score", 0.0))
             current["observations"] += 1
 
         case_questions = []
