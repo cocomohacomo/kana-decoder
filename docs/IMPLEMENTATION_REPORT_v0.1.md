@@ -323,3 +323,13 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Independent artifact ZIP download was materialized and inspected. Its SHA-256 matches the GitHub artifact digest. Manifest identifies pack \`ja-jp-sudachi-small\`, version \`20260723.1\`, license expression \`Apache-2.0 AND BSD-3-Clause\`.
 - CI run 44373791625 for commit b84de582766d1c184466404cc6394760001e4037: completed / success; CTest 12/12 PASS; Python unittest 45 discovered, 41 passed, 4 skipped (CTest-only native argument cases).
 - This proves Pack generation and static Pack verification, not yet runtime usability or quality. Native C++ runtime load, peak RSS, load time, decode smoke metrics and held-out corpus accuracy remain to be measured. The Sudachi Pack workflow now includes a native runtime build/evaluation step before artifact upload.
+
+
+## 31. Native runtime loading of the production Pack
+- Workflow run 44374465962 (commit 0f72987fa8b1565d1e369223dcc203cf4767d416): completed / success. After rebuilding and statically verifying the Pack, the workflow built the native C++ evaluator and loaded the complete 661.4 MiB Pack including the 35,759,450-cell sparse connection matrix.
+- Combined native Pack load + four-case smoke evaluation elapsed time: 8.00 seconds on the GitHub Actions runner.
+- Peak resident set size: 1,425,240 KiB (approximately 1.36 GiB). This is a single CI runner measurement, not a target-device guarantee.
+- Smoke evaluation: 4 cases, exact matches 1/4 (25%), edit distance 5 over 5 reference codepoints (CER 1.0), decode failures 0. Domain general: 1/3 exact; unknown: 0/1 exact.
+- This shows that the native loader accepts the production Pack and can produce a path for all four cases. It also shows that the current four-case corpus is not passed at an acceptable quality level. The corpus is too small to estimate general accuracy, and no n-gram training corpus was supplied (ngram.tsv has zero learned records).
+- Added \`--details\` support to \`kana_decoder_eval\` to emit per-case expected/predicted strings and Pack load milliseconds. The next Pack workflow will use this mode so each smoke error can be diagnosed directly. The new detailed run is pending.
+- Latest successful production Pack artifact from run 44374465962: ID 14459349705, ZIP 149,644,215 bytes, SHA-256 \`440169a5dc4854f41a831a24f4fbc7d2093b60fa728a55f7fce87e4f7c1d0583\`.
