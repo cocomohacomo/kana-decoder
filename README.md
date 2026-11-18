@@ -15,9 +15,9 @@
 - UTF-8不正シーケンスの拒否とコードポイント単位の入力範囲管理
 - C ABIからのLanguage Packロード・かなデコード
 - Morphological / Semantic / Orthographic依存グラフ
-- オフラインPack Manifest・SHA-256・ライセンス・展開サイズ検証
+- 正規化TSVからのLanguage Pack生成、候補ID整合性検査、コーパス由来n-gram学習\n- 完全一致率・Unicode code point CER・decode failureを測る評価CLI\n- オフラインPack Manifest・SHA-256・ライセンス・展開サイズ・symlink・未登録ファイル検証
 - CTest + Python unittest
-- GitHub Actionsによるpush / PR時のC/C++ビルド・統合テスト・ベンチマーク・Pack検証
+- GitHub Actionsによるpush / PR時のC/C++ビルド・統合テスト・品質スモーク評価・Pack生成テスト・ベンチマーク・Pack検証
 
 ## ビルドとテスト
     cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -33,7 +33,7 @@
 - 外部辞書はライセンス確認前のため含めていません。
 - 標準軽量Pack目標は展開後30 MiB以下。
 
-## 設計仕様
+## Language Pack import / quality evaluation\n- 仕様と入力形式: docs/PACK_IMPORT_AND_EVALUATION.md\n- 正規化辞書TSVとライセンスファイルからPack生成: `python3 tools/build_language_pack.py --help`\n- 学習用のtoken candidate ID列からU/L/R n-gram countを生成。学習IDは辞書候補IDに存在する必要があります。\n- 評価: `./build/kana_decoder_eval packs/ja-lite tests/data/ja-smoke-gold.tsv`\n- smoke corpusは配線確認用で、実用精度の代表値ではありません。\n\n## 設計仕様
 - 仕様書 v0.7: docs/SPECIFICATION_v0.7.md
 - 仕様書 v0.6: docs/SPECIFICATION_v0.6.md
 - 仕様書 v0.5: docs/SPECIFICATION_v0.5.md
