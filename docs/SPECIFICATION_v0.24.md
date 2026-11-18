@@ -33,4 +33,4 @@
 
 - GitHub Actions must compile both static and shared libraries with warnings treated as errors.
 - CTest, bounded decode microbenchmark, Japanese reference Pack verification, and Python Pack/license tests remain required.
-- The v0.24 CI run is recorded in `docs/IMPLEMENTATION_REPORT_v0.1.md` after completion; until then, no CI pass is claimed.
+- GitHub Actions run `44380200959` for code commit `4f9aa8c2076626dad075555e161fcae76d26093d`: completed / success. Both static and shared targets built with `-Werror`; Build log contained zero warnings/errors. CTest 14/14 PASS; bounded decode benchmark PASS; Japanese reference Pack verification PASS; Python suite 45 tests, 41 passed and 4 skipped.
