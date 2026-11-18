@@ -83,6 +83,7 @@ Input profile example (paths are relative to the profile JSON file):
       "id": "sudachidict",
       "version": "v20261015",
       "spdx": "Apache-2.0",
+      "source_sha256": "<64-hex SHA-256 of exact source archive>",
       "commercial_use": true,
       "redistribution": true,
       "modified_redistribution": true,
@@ -105,7 +106,7 @@ Input profile example (paths are relative to the profile JSON file):
 
 Build with `--license-profile license-input.json` and a combined SPDX expression such as `--license-spdx "Apache-2.0 AND BSD-3-Clause"`. The builder copies each component's license file into `THIRD_PARTY_LICENSES/`, writes `license-profile.json`, and hashes both in `manifest.json`. It rejects profile files and notice paths outside the profile directory.
 
-Run `python3 tools/validate_license_profile.py PACK_DIR` after building. The validator requires exact pinned versions, a reviewed permissive SPDX identifier, HTTPS upstream URLs, explicit commercial-use / redistribution / modified-redistribution permissions, and present notice files. The validator checks declarations and packaging only; a human must verify those declarations against the exact upstream artifact.
+Run `python3 tools/validate_license_profile.py PACK_DIR` after building. The validator requires exact pinned versions, a SHA-256 hash of each exact upstream artifact, a reviewed permissive SPDX identifier, HTTPS upstream URLs, explicit commercial-use / redistribution / modified-redistribution permissions, and present notice files. The validator checks declarations and packaging only; a human must verify those declarations against the exact upstream artifact.
 
 See `docs/LICENSING_POLICY.md` and `docs/THIRD_PARTY_COMPONENTS.md` for source-selection decisions. The profile is not a legal opinion.
 
