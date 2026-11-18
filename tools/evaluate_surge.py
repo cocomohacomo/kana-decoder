@@ -39,7 +39,7 @@ def analyze(payload, context_margin_threshold=0.5):
                 "context": float("-inf"), "local": float("-inf"),
                 "morphology": float("-inf"), "observations": 0})
             current["context"] = max(current["context"],
-                                     float(trace.get("raw_context_score", 0.0)))
+                                     float(trace.get("context_evidence_score", 0.0)))
             current["local"] = max(current["local"],
                                    float(trace.get("local_score", 0.0)))
             current["morphology"] = max(current["morphology"],
