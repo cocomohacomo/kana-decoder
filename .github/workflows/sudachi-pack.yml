@@ -82,43 +82,9 @@ jobs:
             --output "$RUNNER_TEMP/ud-gsd/LICENSE.txt"
           sha256sum "$RUNNER_TEMP"/ud-gsd/*
 
-      - name: Prepare licensed corpus and run held-out contextual ablation
-        run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/sudachi-normalized" "$RUNNER_TEMP/context-corpus"
-          python tools/verify_sudachi_source.py \
-            --small-zip "$RUNNER_TEMP/sudachi-archives/small_lex.zip" \
-            --matrix-zip "$RUNNER_TEMP/sudachi-archives/matrix.def.zip" \
-            --output "$RUNNER_TEMP/sudachi-source"
-          python tools/import_sudachi_v1.py lexicon \
-            --input "$RUNNER_TEMP/sudachi-source/small_lex.csv" \
-            --output "$RUNNER_TEMP/sudachi-normalized/lexicon.tsv"
-          python tools/import_sudachi_v1.py matrix \
-            --input "$RUNNER_TEMP/sudachi-source/matrix.def" \
-            --output "$RUNNER_TEMP/sudachi-normalized/connections.tsv"
-          python tools/prepare_ud_gsd_corpus.py \
-            --input-dir "$RUNNER_TEMP/ud-gsd" \
-            --lexicon "$RUNNER_TEMP/sudachi-normalized/lexicon.tsv" \
-            --output "$RUNNER_TEMP/context-corpus/tokenized.tsv" \
-            --source-commit "c662dc96ed5ee5ac0fc8b5e44261557e431f50e6"
-          python tools/prepare_context_corpus.py \
-            --lexicon "$RUNNER_TEMP/sudachi-normalized/lexicon.tsv" \
-            --corpus "$RUNNER_TEMP/context-corpus/tokenized.tsv" \
-            --output-dir "$RUNNER_TEMP/context-corpus/compiled"
-          python tools/evaluate_context_ablation.py \
-            --lexicon "$RUNNER_TEMP/sudachi-normalized/lexicon.tsv" \
-            --corpus "$RUNNER_TEMP/context-corpus/tokenized.tsv" \
-            --train-sequences "$RUNNER_TEMP/context-corpus/compiled/train_sequences.tsv" \
-            --connections "$RUNNER_TEMP/sudachi-normalized/connections.tsv" \
-            --context-margin 0.5 --min-test-tokens 1000 \
-            --output "$RUNNER_TEMP/context-ablation.json"
-          cat "$RUNNER_TEMP/context-corpus/ud_gsd_manifest.json"
-          cat "$RUNNER_TEMP/context-corpus/compiled/corpus_manifest.json"
-          cat "$RUNNER_TEMP/context-ablation.json"
-
-      - name: Build and verify Language Pack
+      - name: Build base Pack and run held-out contextual ablation
         env:
-          MAX_EXPANDED_GIB: ${{ inputs.max_expanded_gib || '8' }}
+          MAX_EXPANDED_GIB: \${{ inputs.max_expanded_gib || '8' }}
         run: |
           set -euo pipefail
           python - <<'PY'
@@ -134,6 +100,28 @@ jobs:
           ]
           subprocess.run(command, check=True)
           PY
+          LEXICON="$RUNNER_TEMP/sudachi-build/normalized/lexicon.tsv"
+          CONNECTIONS="$RUNNER_TEMP/sudachi-build/normalized/connections.tsv"
+          mkdir -p "$RUNNER_TEMP/context-corpus"
+          python tools/prepare_ud_gsd_corpus.py \
+            --input-dir "$RUNNER_TEMP/ud-gsd" \
+            --lexicon "$LEXICON" \
+            --output "$RUNNER_TEMP/context-corpus/tokenized.tsv" \
+            --source-commit "c662dc96ed5ee5ac0fc8b5e44261557e431f50e6"
+          python tools/prepare_context_corpus.py \
+            --lexicon "$LEXICON" \
+            --corpus "$RUNNER_TEMP/context-corpus/tokenized.tsv" \
+            --output-dir "$RUNNER_TEMP/context-corpus/compiled"
+          python tools/evaluate_context_ablation.py \
+            --lexicon "$LEXICON" \
+            --corpus "$RUNNER_TEMP/context-corpus/tokenized.tsv" \
+            --train-sequences "$RUNNER_TEMP/context-corpus/compiled/train_sequences.tsv" \
+            --connections "$CONNECTIONS" \
+            --context-margin 0.5 --min-test-tokens 1000 \
+            --output "$RUNNER_TEMP/context-ablation.json"
+          cat "$RUNNER_TEMP/context-corpus/ud_gsd_manifest.json"
+          cat "$RUNNER_TEMP/context-corpus/compiled/corpus_manifest.json"
+          cat "$RUNNER_TEMP/context-ablation.json"
 
       - name: Build native runtime and evaluate real Pack under memory ceiling
         run: |
