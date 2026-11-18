@@ -11,7 +11,7 @@ MIT is the project's permissive default for original code. This does not relicen
 Every Language Pack is an independently licensed distribution unit. Its license is the conjunction of the terms that apply to all included components and derived data. A permissive repository license never overrides an upstream license.
 
 A redistributed Pack must:
-- identify every upstream component and exact immutable version;
+- identify every upstream component, exact immutable version, and SHA-256 of the exact source artifact;
 - preserve all copyright, license, attribution, and NOTICE texts required by each component;
 - identify which Pack files derive from each component;
 - state whether commercial use, redistribution, and modification/redistribution are permitted;
