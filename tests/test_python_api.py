@@ -22,6 +22,14 @@ class PythonApiTests(unittest.TestCase):
     session.append("め")
     committed=session.commit_best()
     self.assertIn(committed,("雨","飴","あめ"))
+ def test_streaming_snapshot_survives_engine_close(self):
+  decoder=KanaDecoder(PACK,library_path=LIB)
+  session=decoder.streaming(32)
+  decoder.close()
+  try:
+   session.append("あめ")
+   self.assertIn(session.commit_best(),("雨","飴","あめ"))
+  finally:session.close()
  def test_nbest_limit(self):
   with KanaDecoder(PACK,library_path=LIB) as decoder:
    with self.assertRaises(ValueError):decoder.decode_nbest("あめ",9)
