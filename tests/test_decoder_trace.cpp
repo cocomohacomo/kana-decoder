@@ -90,6 +90,11 @@ int main() {
  exceeded=false;
  auto too_many_states=decode_reading("あめ",lexicon,scorer,limited,nullptr,nullptr,nullptr,&exceeded);
  assert(too_many_states.empty()&&exceeded);
+ MorphologyDecoder direct_decoder;
+ exceeded=false;
+ limited.max_expanded_states=0;
+ auto direct_zero_budget=direct_decoder.decode(2,generated_lattice,scorer,{},limited,nullptr,nullptr,&exceeded);
+ assert(direct_zero_budget.empty()&&exceeded);
  limited=DecoderOptions{};
  limited.max_trace_records=1;
  std::vector<CandidateScoreTrace> bounded_trace;
