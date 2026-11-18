@@ -59,5 +59,15 @@ class LicenseProfileTests(unittest.TestCase):
             self.make_profile(root, redistribution=False)
             self.assertNotEqual(self.run_validator(root).returncode, 0)
 
+    def test_source_checksum_required(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            self.make_profile(root)
+            path = root / "license-profile.json"
+            profile = json.loads(path.read_text(encoding="utf-8"))
+            del profile["components"][0]["source_sha256"]
+            path.write_text(json.dumps(profile), encoding="utf-8")
+            self.assertNotEqual(self.run_validator(root).returncode, 0)
+
 if __name__ == "__main__":
     unittest.main()
