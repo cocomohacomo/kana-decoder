@@ -16,7 +16,7 @@ class PackBuilderTests(unittest.TestCase):
             subprocess.run([
                 sys.executable, str(BUILDER),
                 "--lexicon", str(ROOT / "packs" / "ja-lite" / "lexicon.tsv"),
-                "--sequences", str(ROOT / "tests" / "data" / "ja-training-sequences.tsv"),
+                "--sequences", str(ROOT / "tests" / "data" / "ja-training-sequences.tsv"),\n                "--connections", str(ROOT / "packs" / "ja-lite" / "connections.tsv"),
                 "--license-file", str(ROOT / "packs" / "ja-lite" / "LICENSE"),
                 "--license-spdx", "MIT", "--upstream", "original test fixture",
                 "--pack-id", "ja-import-test", "--language-id", "ja-JP",
@@ -26,7 +26,7 @@ class PackBuilderTests(unittest.TestCase):
                                      check=True, capture_output=True, text=True)
             report = json.loads(checked.stdout)
             self.assertTrue(report["within_limit"])
-            self.assertTrue((out / "connections.tsv").exists() is False)
+            self.assertTrue((out / "connections.tsv").is_file())\n            self.assertIn("connections.tsv", report["files_verified"])
             ngram = (out / "ngram.tsv").read_text(encoding="utf-8")
             self.assertIn("L\train\tcandy\t1", ngram)
             manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
