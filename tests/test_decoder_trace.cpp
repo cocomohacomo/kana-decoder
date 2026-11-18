@@ -29,6 +29,14 @@ int main() {
  MaskedNgramScorer scorer;
  scorer.add_unigram("rain", 10);
  scorer.add_unigram("candy", 1);
+ MaskedNgramScorer context_model;
+ context_model.add_left_bigram("previous", "rain", 10);
+ context_model.add_left_bigram("previous", "candy", 1);
+ const double rain_context=context_model.contextual_score("rain", {"previous"}, {});
+ const double candy_context=context_model.contextual_score("candy", {"previous"}, {});
+ assert(rain_context>candy_context);
+ MaskedNgramScorer empty_context;
+ assert(empty_context.contextual_score("rain", {"previous"}, {})==0.0);
  ConnectionModel connections;
  connections.set_cost(2, 1, 7);
  std::vector<CandidateScoreTrace> trace;
