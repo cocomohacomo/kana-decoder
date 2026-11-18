@@ -39,6 +39,16 @@ The pinned corpus is unchanged:
 
 The causal track is a teacher-segmented sequential diagnostic. A full end-to-end evaluation still requires the decoder to predict segmentation and candidate paths without gold token boundaries.
 
+### 2.3 Native C++ sentence-level sequential evaluation
+
+`tools/evaluate_sequential_corpus.cpp` adds a second, stronger diagnostic:
+- Concatenates each test sentence's kana token readings into one uninterrupted reading string. Gold token boundaries are not passed to the decoder.
+- Calls the production C++ `decode_reading` path with an empty scorer (morphology-only) and with a scorer built from train-split unigram and left-bigram counts.
+- The decoder's own selected candidate IDs become the left history for subsequent candidates. No gold neighbor IDs and no right/future context are supplied.
+- Uses gold token boundaries only after decoding to measure exact token alignment precision/recall. Sentence exact match and CER are measured against concatenated gold surface text.
+- Sentences above the Core's 256-codepoint input ceiling are reported as over-limit rather than partially decoded.
+- This is full sentence-level reading-to-text decoding with gold sentence segmentation, but it is not streaming chunk latency or raw-text tokenization evaluation.
+
 ## 3. Scoring and resource boundaries
 
 - Additive smoothing remains alpha=0.5, matching `MaskedNgramScorer`.
