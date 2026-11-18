@@ -1,4 +1,3 @@
 # candidate IDs per utterance, tab-separated
-rain	verb_rain
-candy	verb_eat
-bridge	verb_cross
+rain	candy	bridge
+candy	bridge
