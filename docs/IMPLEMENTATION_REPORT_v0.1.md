@@ -439,7 +439,7 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - UniversalDependencies/UD_Japanese-GSDをcommit c662dc96ed5ee5ac0fc8b5e44261557e431f50e6へ固定し、CI時のみtrain/dev/test CoNLL-UとLICENSE.txtを取得する。データはCC BY-SA 4.0の注記を持ち、上流は注釈と元文章の権利を区別しているため、評価専用の一時データとして扱い、データ・学習済みngram・訓練Packをコミット/Artifact公開しない。
 - tools/prepare_ud_gsd_corpus.pyを追加。大文字小文字を区別せずMISC.UnidicInfoの実データ第5フィールド（token-form reading）を優先して読みを取得し、kana判定付きfallback後にひらがな化し、Sudachi正規化辞書のreading/surface完全一致で語彙カバレッジを確認する。未知語・読み欠損で連続区間を分断し、未知語をまたぐ誤った隣接bigramを作らない。splitは上流train/dev/testを維持し、source commitとファイルSHA-256、coverage統計をmanifestに記録する。
 - tools/evaluate_context_ablation.pyを追加。train_sequences.tsvからunigram / 左右bigramを再集計し、src/scoring.cppと同じalpha=0.5の平滑化式を用いる。形態素のみ、unigram+context、context evidence gated SURGEの3方式をtest token単位で比較する。候補surfaceは最大8候補に制限し、同一surfaceの複数形態素IDは方式別best scoreで集約する。
-- morphology scoreはword cost、candidate connection cost、gold前後tokenの接続行列costを反映。疎な接続行列は逐次走査し、評価対象候補に必要な遷移pairだけを保持して全行列のPython dict展開を避ける。SURGEは少なくとも2つの候補surfaceに実観測されたcontext countがあり、supported候補間marginが0.5以上のときのみ解決し、それ以外はabstainする。
+- morphology scoreはword costとcandidate-local connection costを反映。token-local ablationのためfull connection matrix transition costは除外し、full-path decoder testと評価境界を分離する。SURGEは少なくとも2つの候補surfaceに実観測されたcontext countがあり、supported候補間marginが0.5以上のときのみ解決し、それ以外はabstainする。
 - 重要な評価境界: test tokenの正解ラベルは精度計測にのみ使用するが、左右neighbor IDはgoldをteacher-forceする。したがって文脈スコアの寄与を切り分けるoracle-context upper boundであり、全文デコードCERや本番時のSURGE効果を示すものではない。
 - CIはcandidate-covered test token 1,000件未満を失敗とし、coverage / morphology accuracy / combined accuracy / SURGE resolution precision・recall / abstentionを出力する。コーパス本体・train sequences・derived modelはArtifactとしてアップロードしない。
 - v0.29の実コーパス計測値はCI完了後に追記する。現時点で精度向上は未主張。
