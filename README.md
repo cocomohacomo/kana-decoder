@@ -40,6 +40,7 @@
 - 詳細: docs/PACK_IMPORT_AND_EVALUATION.md
 
 ## 実行時メモリとSURGE診断
+- v0.34のクラスター評価は文全体の共起ではなく、予測左履歴からの距離別・方向付き証拠を使用。dev校正後にtestで評価し、本番採用は実測結果を条件とします。
 - v0.26で入力長・ラティス・候補・展開状態・trace量の決定的上限を導入。上限超過は不完全な候補を返さずfail-closed。
 - Sudachi実PackのCIは1,792 MiBのプロセスメモリ上限とPeak RSS検査を実施。
 - v0.27でunigram priorと隣接形態素のmasked n-gram証拠を分離。簡易SURGE probeは差別化された文脈証拠がある場合のみQuestionを解決し、証拠不足時はFocusへ残します。
@@ -47,6 +48,7 @@
 - tools/evaluate_ablation.py は全読みを覆う単一span候補に限定し、形態素スコア・combined local score・SURGEの根拠付き解決を比較します。複数形態素文の正解token alignmentを推測しません。
 
 ## 仕様
+- v0.34: docs/SPECIFICATION_v0.34.md
 - v0.33: docs/SPECIFICATION_v0.33.md
 - v0.32: docs/SPECIFICATION_v0.32.md
 - Python API: docs/PYTHON_API.md
