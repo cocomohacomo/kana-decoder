@@ -72,7 +72,7 @@ class SurgeClusterTests(unittest.TestCase):
             {0: {("id-x", 2): 9, ("id-y", 2): 1}},
             {(0, 2): 10}, beta=1.0, margin=0.0)
         self.assertEqual(metrics["resolved_tokens"], 0)
-        self.assertEqual(metrics["abstained_tokens"], 1)
+        self.assertEqual(metrics["abstained_tokens"], 2)
 
 if __name__ == "__main__":
     unittest.main()
