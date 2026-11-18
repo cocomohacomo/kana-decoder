@@ -26,19 +26,34 @@ constexpr std::array<std::uint32_t,64> K = {
 std::uint32_t rotr(std::uint32_t x,unsigned n){return (x>>n)|(x<<(32-n));}
 std::string sha256_file(const std::filesystem::path& path) {
  std::ifstream in(path,std::ios::binary);if(!in)return{};
- std::vector<unsigned char> data((std::istreambuf_iterator<char>(in)),{});
- std::uint64_t bits=static_cast<std::uint64_t>(data.size())*8;
- data.push_back(0x80);while(data.size()%64!=56)data.push_back(0);
- for(int i=7;i>=0;--i)data.push_back(static_cast<unsigned char>((bits>>(i*8))&0xff));
  std::array<std::uint32_t,8> h={0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19};
- for(std::size_t off=0;off<data.size();off+=64){
+ std::array<unsigned char,64> block{};std::size_t used=0;std::uint64_t total=0;
+ auto transform=[&](const unsigned char* data){
   std::array<std::uint32_t,64>w{};
-  for(int i=0;i<16;++i){std::size_t p=off+static_cast<std::size_t>(i)*4;w[i]=(std::uint32_t(data[p])<<24)|(std::uint32_t(data[p+1])<<16)|(std::uint32_t(data[p+2])<<8)|data[p+3];}
+  for(int i=0;i<16;++i){std::size_t p=static_cast<std::size_t>(i)*4;w[i]=(std::uint32_t(data[p])<<24)|(std::uint32_t(data[p+1])<<16)|(std::uint32_t(data[p+2])<<8)|data[p+3];}
   for(int i=16;i<64;++i){auto s0=rotr(w[i-15],7)^rotr(w[i-15],18)^(w[i-15]>>3);auto s1=rotr(w[i-2],17)^rotr(w[i-2],19)^(w[i-2]>>10);w[i]=w[i-16]+s0+w[i-7]+s1;}
   auto a=h[0],b=h[1],c=h[2],d=h[3],e=h[4],f=h[5],g=h[6],z=h[7];
   for(int i=0;i<64;++i){auto s1=rotr(e,6)^rotr(e,11)^rotr(e,25);auto ch=(e&f)^((~e)&g);auto t1=z+s1+ch+K[i]+w[i];auto s0=rotr(a,2)^rotr(a,13)^rotr(a,22);auto maj=(a&b)^(a&c)^(b&c);auto t2=s0+maj;z=g;g=f;f=e;e=d+t1;d=c;c=b;b=a;a=t1+t2;}
   h[0]+=a;h[1]+=b;h[2]+=c;h[3]+=d;h[4]+=e;h[5]+=f;h[6]+=g;h[7]+=z;
+ };
+ std::array<char,65536> input{};
+ while(in){
+  in.read(input.data(),static_cast<std::streamsize>(input.size()));
+  const auto count=static_cast<std::size_t>(in.gcount());total+=count;
+  std::size_t offset=0;
+  while(offset<count){
+   const auto take=std::min<std::size_t>(64-used,count-offset);
+   std::copy_n(reinterpret_cast<const unsigned char*>(input.data()+offset),take,block.data()+used);
+   used+=take;offset+=take;
+   if(used==64){transform(block.data());used=0;}
+  }
  }
+ if(!in.eof())return{};
+ const std::uint64_t bits=total*8;block[used++]=0x80;
+ if(used>56){std::fill(block.begin()+static_cast<std::ptrdiff_t>(used),block.end(),0);transform(block.data());used=0;}
+ std::fill(block.begin()+static_cast<std::ptrdiff_t>(used),block.begin()+56,0);
+ for(int i=7;i>=0;--i)block[56+static_cast<std::size_t>(7-i)]=static_cast<unsigned char>((bits>>(i*8))&0xff);
+ transform(block.data());
  std::ostringstream out;out<<std::hex<<std::setfill('0');for(auto x:h)out<<std::setw(8)<<x;return out.str();
 }
 bool fail(std::string* error,const std::string& message){if(error)*error=message;return false;}
@@ -61,7 +76,11 @@ bool verify_pack_manifest(const std::string& directory,std::string* error){
  if(!capture(json,std::regex(R"("format_version"\s*:\s*([0-9]+))"),value)||value!="1")return fail(error,"unsupported Pack format");
  for(const char* key:{"pack_id","language_id","pack_version"})if(!capture(json,std::regex(std::string("\"")+key+R"rx("\s*:\s*"([^"]+)")rx"),value)||value.empty())return fail(error,"missing Pack identity field");
  std::uint64_t limit=8ull*1024ull*1024ull*1024ull;
- if(capture(json,std::regex(R"("max_expanded_bytes"\s*:\s*([0-9]+))"),value)){try{limit=std::stoull(value);}catch(...){return fail(error,"invalid resource limit");}}
+ std::string resource_block;
+ if(capture(json,std::regex(R"("resource_limits"\s*:\s*\{([\s\S]*?)\})"),resource_block)){
+  if(!capture(resource_block,std::regex(R"("max_expanded_bytes"\s*:\s*([0-9]+))"),value))return fail(error,"resource_limits.max_expanded_bytes missing");
+  try{limit=std::stoull(value);}catch(...){return fail(error,"invalid resource limit");}
+ }
  if(limit==0)return fail(error,"Pack resource limit must be positive");
  std::string license_block;if(!capture(json,std::regex(R"("license"\s*:\s*\{([\s\S]*?)\})"),license_block))return fail(error,"license metadata missing");
  std::string license_file,spdx,upstream;
@@ -70,7 +89,7 @@ bool verify_pack_manifest(const std::string& directory,std::string* error){
  const std::regex entry_re(R"rx(\{\s*"path"\s*:\s*"([^"]+)"\s*,\s*"size"\s*:\s*([0-9]+)\s*,\s*"sha256"\s*:\s*"([0-9a-fA-F]{64})"\s*\})rx");
  std::set<std::string> listed;std::uint64_t total=0;std::size_t file_count=0;bool has_lex=false,has_ngram=false,has_license=false;
  for(std::sregex_iterator it(files_block.begin(),files_block.end(),entry_re),end;it!=end;++it){
-  if(++file_count>64)return fail(error,"too many Pack payload files");
+  if(++file_count>256)return fail(error,"too many Pack payload files");
   const std::string relative=(*it)[1].str(),hash=(*it)[3].str();if(!safe_path(relative)||!listed.insert(relative).second)return fail(error,"unsafe or duplicate Pack path");
   std::uint64_t expected=0;try{expected=std::stoull((*it)[2].str());}catch(...){return fail(error,"invalid file size");}
   fs::path file=root/fs::path(relative);if(fs::is_symlink(fs::symlink_status(file))||!fs::is_regular_file(file))return fail(error,"Pack payload missing or symlink");
