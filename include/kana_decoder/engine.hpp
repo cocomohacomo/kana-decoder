@@ -140,7 +140,8 @@ public:
  std::vector<DecodedPath> decode(std::size_t reading_length,
   const std::vector<LatticeEdge>& lattice,const MaskedNgramScorer& scorer,
   const std::vector<std::string>& right_context={},
-  const DecoderOptions& options={},const ConnectionModel* connections=nullptr,\n  std::vector<CandidateScoreTrace>* trace=nullptr) const;
+  const DecoderOptions& options={},const ConnectionModel* connections=nullptr,
+  std::vector<CandidateScoreTrace>* trace=nullptr) const;
 };
 std::string render_ambiguity(const std::vector<Candidate>&,bool);
 }
