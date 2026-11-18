@@ -11,7 +11,7 @@
 - 出力バッファ不足時に入力・revision・commit状態を変更しないトランザクション動作
 - 軽度誤り補正、UTF-8検証、Pack Manifest / SHA-256 / license検証（C++側は容量上限を共有しSHA-256をストリーミング検証）
 - Sudachi V0/V1 import adapter、Pack builder、文書単位のtrain/dev/test分割
-- GitHub ActionsによるC++ / Pythonテストとベンチマーク
+- GitHub ActionsによるC++ / Pythonテストとベンチマーク\n- 実コーパスを使ったC++全文デコード評価（予測左履歴、未来文脈なし）
 
 ## ビルドとテスト
     cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
