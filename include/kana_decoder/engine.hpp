@@ -117,7 +117,7 @@ public:
  explicit StreamingSession(std::size_t max_reading_codepoints=256);
  bool append(const std::string& chunk,const LexiconTrie& lexicon,
    const MaskedNgramScorer& scorer,StreamingSnapshot& snapshot,
-   const DecoderOptions& options={},const ConnectionModel* connections=nullptr,\n std::vector<CandidateScoreTrace>* trace=nullptr);
+   const DecoderOptions& options={},const ConnectionModel* connections=nullptr);
  bool commit_common_prefix(StreamingSnapshot& snapshot,std::string& committed_output);
  bool commit_best(StreamingSnapshot& snapshot,std::string& committed_output);
  void reset();
@@ -130,7 +130,8 @@ private:
 bool load_language_pack(const std::string& directory,LexiconTrie& lexicon,MaskedNgramScorer& scorer,std::size_t* loaded_entries=nullptr,ConnectionModel* connections=nullptr,CorrectionOptions* corrections=nullptr);
 std::vector<DecodedPath> decode_reading(const std::string& reading,
  const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,
- const DecoderOptions& options={},const ConnectionModel* connections=nullptr);
+ const DecoderOptions& options={},const ConnectionModel* connections=nullptr,
+ std::vector<CandidateScoreTrace>* trace=nullptr);
 CorrectionDecodeResult decode_with_corrections(const std::string& reading,
  const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,
  const CorrectionOptions& correction_options={},const DecoderOptions& decoder_options={},
