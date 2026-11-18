@@ -25,11 +25,11 @@ std::vector<std::string> utf8_chars(const std::string&s){std::vector<std::string
 }
 namespace kana_decoder {
 bool is_valid_utf8(const std::string& text){return valid_utf8_impl(text);}
-std::vector<DecodedPath> decode_reading(const std::string& reading,const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,const DecoderOptions& options,const ConnectionModel* connections,std::vector<CandidateScoreTrace>* trace){
+std::vector<DecodedPath> decode_reading(const std::string& reading,const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,const DecoderOptions& options,const ConnectionModel* connections,std::vector<CandidateScoreTrace>* trace,std::vector<LatticePositionTrace>* lattice_trace){
  if (!valid_utf8_impl(reading)) return {};
  auto chars = utf8_chars(reading);
  if (chars.empty()) return {};
- auto lattice = lexicon.build_lattice(reading, 16, true);
+ auto lattice = lexicon.build_lattice(reading, 16, true, lattice_trace);
  MorphologyDecoder decoder;
  return decoder.decode(chars.size(), lattice, scorer, {}, options, connections, trace);
 }
