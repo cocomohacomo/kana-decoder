@@ -47,6 +47,11 @@ def _database(directory, schema):
 
 def _canonical_header(raw, source):
     normalized = [norm(value) for value in raw]
+    if not any(name in ALIASES for name in normalized):
+        raise ValueError(
+            f"{source}: not a named Sudachi V1 header; raw={raw!r}. "
+            "Headerless V0 CSV is not accepted by this V1 importer."
+        )
     if len(set(normalized)) != len(normalized):
         duplicates = sorted({name for name in normalized if normalized.count(name) > 1})
         raise ValueError(f"{source}: duplicate normalized CSV header {duplicates}; raw={raw!r}")
