@@ -40,7 +40,7 @@
 - 詳細: docs/PACK_IMPORT_AND_EVALUATION.md
 
 ## 実行時メモリとSURGE診断
-- v0.34のクラスター評価は文全体の共起ではなく、予測左履歴からの距離別・方向付き証拠を使用。dev校正後にtestで評価し、本番採用は実測結果を条件とします。
+- v0.34のクラスター評価は距離別・方向付き証拠を使用。SURGE Questionは異なる表層候補が2つ以上ある場合だけ計上し、単一候補を棄権に含めません。
 - v0.26で入力長・ラティス・候補・展開状態・trace量の決定的上限を導入。上限超過は不完全な候補を返さずfail-closed。
 - Sudachi実PackのCIは1,792 MiBのプロセスメモリ上限とPeak RSS検査を実施。
 - v0.27でunigram priorと隣接形態素のmasked n-gram証拠を分離。簡易SURGE probeは差別化された文脈証拠がある場合のみQuestionを解決し、証拠不足時はFocusへ残します。
