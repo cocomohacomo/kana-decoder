@@ -50,8 +50,11 @@
 - 学習用のtoken candidate ID列からU/L/R n-gram countを生成。学習IDは辞書候補IDに存在する必要があります。
 - 評価: `./build/kana_decoder_eval packs/ja-lite tests/data/ja-smoke-gold.tsv`
 - smoke corpusは配線確認用で、実用精度の代表値ではありません。
+- 第三者辞書のライセンスプロファイルは `--license-profile` でPackに同梱し、各コンポーネントのライセンス・NOTICEを個別に保持します。
+- `python3 tools/validate_license_profile.py dist/ja-pack` で商用利用・再配布・改変再配布・固定バージョン・NOTICEを機械検査します（法的判断を代替しません）。
 
 ## 設計仕様
+- 仕様書 v0.8: docs/SPECIFICATION_v0.8.md
 - 仕様書 v0.7: docs/SPECIFICATION_v0.7.md
 - 仕様書 v0.6: docs/SPECIFICATION_v0.6.md
 - 仕様書 v0.5: docs/SPECIFICATION_v0.5.md
@@ -63,4 +66,9 @@
 - 実装・検証報告: docs/IMPLEMENTATION_REPORT_v0.1.md
 
 ## ライセンス
-Coreと自作fixtureはMIT。将来追加するLanguage Packは個別にライセンス・upstream・checksumを記録します。
+- 本リポジトリの独自Core・ツール・fixture: MIT (`LICENSE`)
+- 第三者辞書・コーパス・モデル: upstreamごとのライセンスを継承し、Pack単位で複数ライセンスを保持
+- 方針: `docs/LICENSING_POLICY.md`
+- 調査済み候補と除外対象: `docs/THIRD_PARTY_COMPONENTS.md`
+- SudachiDict upstream notice: `licenses/UPSTREAM_SUDACHIDICT_LEGAL.txt`
+- v0.8仕様: `docs/SPECIFICATION_v0.8.md`
