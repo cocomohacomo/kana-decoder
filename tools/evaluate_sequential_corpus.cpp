@@ -213,17 +213,18 @@ bool better_metrics(const Metrics& candidate, const Metrics& current) {
     if (std::abs(ae - be) > 1e-12) return ae > be;
     return candidate.aligned_tokens > current.aligned_tokens;
 }
-bool write_calibration(const std::string& path, double weight, double margin) {
+bool write_calibration(const std::string& path, double weight, double margin, double alpha) {
     std::ofstream out(path, std::ios::trunc);
     if (!out) return false;
-    out << std::setprecision(17) << weight << "\t" << margin << "\n";
+    out << std::setprecision(17) << weight << "\t" << margin << "\t" << alpha << "\n";
     return static_cast<bool>(out);
 }
-bool read_calibration(const std::string& path, double& weight, double& margin) {
+bool read_calibration(const std::string& path, double& weight, double& margin, double& alpha) {
     std::ifstream in(path);
-    if (!(in >> weight >> margin)) return false;
+    if (!(in >> weight >> margin >> alpha)) return false;
     return std::isfinite(weight) && weight >= 0.0
-        && std::isfinite(margin) && margin >= 0.0;
+        && std::isfinite(margin) && margin >= 0.0
+        && std::isfinite(alpha) && alpha > 0.0 && alpha <= 100.0;
 }
 void print_calibration_metrics(const char* name, const Metrics& m) {
     std::cout << ",\"" << name << "\":{"
@@ -276,12 +277,15 @@ int main(int argc, char** argv) {
     if (mode == "dev-calibrate") {
         const double weights[] = {0.25, 0.5, 1.0, 2.0};
         const double margins[] = {0.0, 0.01, 0.05, 0.1, 0.25, 0.5};
+        const double alphas[] = {0.1, 0.5, 1.0};
         Metrics best;
-        double best_weight = 0.0, best_margin = 0.5;
+        double best_weight = 0.0, best_margin = 0.5, best_alpha = 0.5;
         bool have_best = false;
         std::size_t configurations = 0;
         for (double weight : weights) {
             for (double margin : margins) {
+              for (double alpha : alphas) {
+                if (!trained_scorer.set_smoothing_alpha(alpha)) return 2;
                 kana_decoder::DecoderOptions options;
                 options.surge_left_context_gate = true;
                 options.context_weight = weight;
@@ -294,17 +298,20 @@ int main(int argc, char** argv) {
                     best = candidate;
                     best_weight = weight;
                     best_margin = margin;
+                    best_alpha = alpha;
                     have_best = true;
                 }
+              }
             }
         }
         // Never deploy a dev configuration that is worse than morphology-only.
         if (!have_best || !better_metrics(best, morphology)) {
             best_weight = 0.0;
             best_margin = 0.5;
+            best_alpha = 0.5;
             best = morphology;
         }
-        if (!write_calibration(argv[5], best_weight, best_margin)) {
+        if (!write_calibration(argv[5], best_weight, best_margin, best_alpha)) {
             std::cerr << "failed to write calibration file\n";
             return 2;
         }
@@ -313,7 +320,8 @@ int main(int argc, char** argv) {
                   << ",\"test_split_used_for_selection\":false"
                   << ",\"configurations_evaluated\":" << configurations
                   << ",\"selected_context_weight\":" << best_weight
-                  << ",\"selected_evidence_margin\":" << best_margin;
+                  << ",\"selected_evidence_margin\":" << best_margin
+                  << ",\"selected_smoothing_alpha\":" << best_alpha;
         print_calibration_metrics("morphology_only", morphology);
         print_calibration_metrics("trained_unigram_left_context", causal);
         print_calibration_metrics("selected_surge_gate", best);
@@ -321,11 +329,12 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    double selected_weight = 1.0, selected_margin = 0.5;
-    if (argc == 6 && !read_calibration(argv[5], selected_weight, selected_margin)) {
+    double selected_weight = 1.0, selected_margin = 0.5, selected_alpha = 0.5;
+    if (argc == 6 && !read_calibration(argv[5], selected_weight, selected_margin, selected_alpha)) {
         std::cerr << "invalid calibration file\n";
         return 2;
     }
+    if (!trained_scorer.set_smoothing_alpha(selected_alpha)) return 2;
     kana_decoder::DecoderOptions surge_options;
     surge_options.surge_left_context_gate = true;
     surge_options.context_weight = selected_weight;
@@ -339,6 +348,7 @@ int main(int argc, char** argv) {
               << ",\"future_context_used\":false"
               << ",\"dev_selected_context_weight\":" << selected_weight
               << ",\"dev_selected_evidence_margin\":" << selected_margin
+              << ",\"dev_selected_smoothing_alpha\":" << selected_alpha
               << ",\"source_test_tokens\":" << source_tokens
               << ",\"sentences\":" << sentences.size();
     print_metrics("morphology_only", morphology);
