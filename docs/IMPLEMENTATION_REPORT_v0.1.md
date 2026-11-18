@@ -184,3 +184,18 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Added docs/SPECIFICATION_v0.9.md and updated the Pack import guide and third-party component register.
 - GitHub Actions run 44351954164 for commit ec0a16de065ddc02704b929e9505ec84c838915b: completed / success. CTest 6/6 passed; Python unittest 22/22 passed; Pack verification and bounded decode benchmark passed.
 - Production dictionary import remains pending: exact archive bytes must be acquired and checked against the lock, the exact release notices reviewed, then the generated Pack's installed size, load time, runtime RSS, unknown-word rate and held-out accuracy measured. The sparse unordered-map connection matrix is not yet approved for production memory budgets.
+
+
+## 19. v0.10: completion-first Pack policy and data integrity gates
+- User decision: the 30 MiB Pack size target is provisional during development. Completing library functionality, correctness and practical dictionary integration takes priority over size optimization.
+- Removed the fixed 30 MiB ceiling from the native C++ Pack Manifest verifier. The verifier now honors the Pack-declared max_expanded_bytes budget; the default for older manifests without this field is 8 GiB. Manifest size remains capped at 1 MiB and payload file count at 64.
+- Changed the Pack builder default max_expanded_bytes to 8 GiB. Explicit lower or higher budgets remain configurable. Python verify_pack now uses the Pack-declared budget by default; --max-mib is an optional additional verification ceiling.
+- Added a native regression test proving that a Pack declaring 64 MiB is accepted even when its actual fixture payload is small. Added a Python regression test for budgets above 30 MiB and retained rejection of a Pack that exceeds its own declared budget.
+- Updated Sudachi V1 importer header matching: case-insensitive, underscore-insensitive, required canonical columns, optional extra columns counted and ignored, duplicate normalized headers and malformed row widths rejected.
+- Changed Sudachi source verification to read expected SHA-256 values and archive member names from the versioned source-lock JSON. The verifier validates lock schema, exact source IDs, HTTPS URLs, expected members and checksum format, then verifies local archive bytes before extraction and writes a machine-readable receipt. No network download is performed.
+- Added tools/validate_corpus_splits.py. Train/dev/test TSV inputs require reading, expected surface, domain and group_id. Group IDs cannot cross split boundaries; empty splits, malformed rows and empty fields are rejected. JSON summary includes case counts, unique groups, domain counts and unique readings/references.
+- Added tests for V1 header compatibility, extra columns, malformed row widths, source-lock-based local archive verification, matrix conversion, corpus leakage and Pack size budgets.
+- Added docs/SPECIFICATION_v0.10.md and updated README / Pack import and evaluation guide.
+- GitHub Actions run 44354197584 for commit 5ffd4a304345be9e38f8c54992662a86a8b784b2: completed / success. CTest 6/6 PASS; Python unittest 25/25 PASS; bounded decode microbenchmark PASS; Japanese reference Pack verification PASS.
+- No real Sudachi source archive has been acquired or verified as part of this milestone. The lock-driven verifier is tested with synthetic archives only. Production dictionary creation, upstream notice audit, connection matrix memory behavior, representative held-out quality, target hardware latency and peak RSS remain pending.
+- Size optimization is deferred until the full Japanese Pack and real workload are available. This policy does not waive runtime safety, checksum verification, offline operation or upstream license obligations.
