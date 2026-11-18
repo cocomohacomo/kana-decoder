@@ -21,6 +21,9 @@ on:
       - "tools/evaluate_context_ablation.py"
       - "licenses/ud-japanese-gsd-source-lock.json"
       - "tools/evaluate_corpus.cpp"
+      - "tools/evaluate_sequential_corpus.cpp"
+      - "tests/test_evaluate_sequential_decoder.py"
+      - "CMakeLists.txt"
       - "include/kana_decoder/engine.hpp"
       - "src/engine.cpp"
       - "src/scoring.cpp"
@@ -129,7 +132,7 @@ jobs:
         run: |
           set -euo pipefail
           cmake -S . -B "$RUNNER_TEMP/kana-runtime-build" -DCMAKE_BUILD_TYPE=Release
-          cmake --build "$RUNNER_TEMP/kana-runtime-build" --target kana_decoder_eval --parallel 2
+          cmake --build "$RUNNER_TEMP/kana-runtime-build" --target kana_decoder_eval kana_decoder_sequential_eval --parallel 2
           # RLIMIT_DATA leaves room for allocator virtual arenas; the post-run RSS check
           # independently guards total resident memory including mapped pages.
           ulimit -d $((3072 * 1024))
@@ -142,6 +145,15 @@ jobs:
           python tools/check_memory_budget.py --log "$RUNNER_TEMP/sudachi-runtime-time.log" --max-rss-mib 1792
           python tools/evaluate_surge.py "$RUNNER_TEMP/sudachi-runtime-evaluation.json"
           python tools/evaluate_ablation.py "$RUNNER_TEMP/sudachi-runtime-evaluation.json"
+          /usr/bin/time -v -o "$RUNNER_TEMP/sequential-runtime-time.log" \
+            "$RUNNER_TEMP/kana-runtime-build/kana_decoder_sequential_eval" \
+            "$RUNNER_TEMP/ja-jp-sudachi-small" \
+            "$RUNNER_TEMP/context-corpus/compiled/train_sequences.tsv" \
+            "$RUNNER_TEMP/context-corpus/tokenized.tsv" \
+            > "$RUNNER_TEMP/sequential-decoder-evaluation.json"
+          cat "$RUNNER_TEMP/sequential-decoder-evaluation.json"
+          cat "$RUNNER_TEMP/sequential-runtime-time.log"
+          python tools/check_memory_budget.py --log "$RUNNER_TEMP/sequential-runtime-time.log" --max-rss-mib 1792
 
       - name: Upload verified Pack artifact
         uses: actions/upload-artifact@v4
