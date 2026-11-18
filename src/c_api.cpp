@@ -1,5 +1,6 @@
 #include "kana_decoder/c_api.h"
 #include "kana_decoder/engine.hpp"
+#include <algorithm>
 #include <cstring>
 #include <new>
 #include <string>
@@ -13,6 +14,7 @@ struct kd_engine {
     kana_decoder::ConnectionModel connections;
     bool loaded = false;
 };
+struct kd_decode_result { std::vector<kana_decoder::DecodedPath> paths; };
 struct kd_streaming_session {
     kana_decoder::LexiconTrie lexicon;
     kana_decoder::MaskedNgramScorer scorer;
@@ -64,6 +66,44 @@ int kd_engine_decode(kd_engine* p, const char* reading, char* out, size_t cap) {
     }
 }
 
+
+
+kd_decode_result* kd_engine_decode_nbest(const kd_engine* engine,const char* reading,size_t max_paths) {
+    if (!engine || !engine->loaded || !reading || !*reading || max_paths>64) return nullptr;
+    try {
+        kana_decoder::DecoderOptions options;
+        options.max_paths=max_paths ? max_paths : 8;
+        options.beam_width=std::max<std::size_t>(options.beam_width,options.max_paths);
+        auto paths=kana_decoder::decode_reading(reading,engine->lexicon,engine->scorer,options,&engine->connections);
+        if (paths.empty()) return nullptr;
+        auto* result=new (std::nothrow) kd_decode_result();
+        if (!result) return nullptr;
+        result->paths=std::move(paths);
+        return result;
+    } catch (...) { return nullptr; }
+}
+void kd_decode_result_destroy(kd_decode_result* result) { delete result; }
+size_t kd_decode_result_path_count(const kd_decode_result* result) {
+    return result ? result->paths.size() : 0;
+}
+int kd_decode_result_path_score(const kd_decode_result* result,size_t index,double* score) {
+    if (!result || !score || index>=result->paths.size()) return KD_ERR_INVALID_ARGUMENT;
+    *score=result->paths[index].score; return 0;
+}
+size_t kd_decode_result_token_count(const kd_decode_result* result,size_t path_index) {
+    return result && path_index<result->paths.size() ? result->paths[path_index].tokens.size() : 0;
+}
+int kd_decode_result_token(const kd_decode_result* result,size_t path_index,size_t token_index,kd_token_view* view) {
+    if (!result || !view || path_index>=result->paths.size() || token_index>=result->paths[path_index].tokens.size())
+        return KD_ERR_INVALID_ARGUMENT;
+    const auto& token=result->paths[path_index].tokens[token_index];
+    view->start_codepoint=token.start; view->end_codepoint=token.end;
+    view->candidate_id=token.candidate.id.c_str(); view->surface=token.candidate.surface.c_str();
+    view->pos=token.candidate.pos.c_str(); view->inflection_type=token.candidate.inflection_type.c_str();
+    view->inflection_form=token.candidate.inflection_form.c_str();
+    view->morphology_score=token.morphology_score; view->context_score=token.context_score;
+    return 0;
+}
 
 kd_streaming_session* kd_streaming_session_create(const kd_engine* engine,size_t max_reading_codepoints) {
     if (!engine || !engine->loaded) return nullptr;
