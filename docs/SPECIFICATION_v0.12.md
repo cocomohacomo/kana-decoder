@@ -9,6 +9,8 @@
 
 The C ABI exposes \`kd_engine_decode_nbest(engine, reading, max_paths)\` returning an opaque owned result. \`max_paths=0\` selects the default maximum of 8; values above 8 are rejected because the Core decoder has a hard beam/path ceiling of 8.
 
+The C API exposes `KD_C_API_VERSION` and `kd_c_api_version()` so an FFI consumer can verify the ABI major version before binding structures.
+
 The result provides:
 - path count and per-path total score;
 - token count per path;
