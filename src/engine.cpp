@@ -1,6 +1,8 @@
 #include "kana_decoder/engine.hpp"
 #include <algorithm>
 #include <cmath>
+#include <fstream>
+#include <limits>
 #include <set>
 #include <sstream>
 #include <utility>
@@ -23,6 +25,55 @@ double MaskedNgramScorer::score(const std::string&c,const std::vector<std::strin
  if(!r.empty()){std::vector<std::string>b(r.begin(),r.begin()+static_cast<std::ptrdiff_t>(std::min<std::size_t>(2,r.size())));auto i=right_counts_.find(key(c,context_key(b)));if(i==right_counts_.end())i=right_counts_.find(key(c,r.front()));s+=std::log(((i==right_counts_.end()?0.0:i->second)+a)/(uc+10*a));}return s;
 }
 
+
+bool LexiconTrie::add(const std::string& reading,const LatticeCandidate& candidate){
+ if(reading.empty()||candidate.id.empty()||candidate.surface.empty())return false;
+ auto chars=utf8_chars(reading);std::size_t node=0;
+ for(const auto&ch:chars){auto it=nodes_[node].next.find(ch);if(it==nodes_[node].next.end()){
+  std::size_t next=nodes_.size();nodes_[node].next.emplace(ch,next);nodes_.push_back(Node{});node=next;
+ }else node=it->second;}
+ auto& values=nodes_[node].values;
+ auto duplicate=std::find_if(values.begin(),values.end(),[&](const LatticeCandidate&v){return v.id==candidate.id&&v.surface==candidate.surface;});
+ if(duplicate!=values.end())return false;
+ values.push_back(candidate);++entry_count_;return true;
+}
+bool LexiconTrie::load_tsv(const std::string& path,std::size_t* loaded){
+ std::ifstream in(path);if(!in)return false;
+ LexiconTrie parsed;std::string line;std::size_t count=0;
+ while(std::getline(in,line)){
+  if(line.empty()||line[0]=='#')continue;
+  std::vector<std::string> cols;std::stringstream ss(line);std::string field;
+  while(std::getline(ss,field,'\t'))cols.push_back(field);
+  if(cols.size()<5)return false;
+  LatticeCandidate candidate;candidate.id=cols.size()>5&&!cols[5].empty()?cols[5]:cols[4];candidate.surface=cols[1];
+  try{if(cols.size()>6&&!cols[6].empty())candidate.word_cost=static_cast<std::int32_t>(std::stol(cols[6]));if(cols.size()>7&&!cols[7].empty())candidate.connection_cost=static_cast<std::int32_t>(std::stol(cols[7]));}catch(...){return false;}
+  if(!parsed.add(cols[0],candidate))return false;++count;
+ }
+ if(!in.eof())return false;
+ *this=std::move(parsed);if(loaded)*loaded=count;return true;
+}
+std::vector<LatticeEdge> LexiconTrie::build_lattice(const std::string& reading,std::size_t max_matches,bool fallback)const{
+ std::vector<LatticeEdge> out;auto chars=utf8_chars(reading);if(chars.empty()||max_matches==0)return out;
+ for(std::size_t start=0;start<chars.size();++start){std::size_t node=0,matches=0;
+  for(std::size_t end=start;end<chars.size();++end){auto it=nodes_[node].next.find(chars[end]);if(it==nodes_[node].next.end())break;node=it->second;
+   if(!nodes_[node].values.empty()){LatticeEdge edge;edge.start=start;edge.end=end+1;edge.candidates=nodes_[node].values;
+    std::stable_sort(edge.candidates.begin(),edge.candidates.end(),[](const LatticeCandidate&a,const LatticeCandidate&b){return static_cast<std::int64_t>(a.word_cost)+a.connection_cost<static_cast<std::int64_t>(b.word_cost)+b.connection_cost;});
+    if(edge.candidates.size()>8)edge.candidates.resize(8);out.push_back(std::move(edge));if(++matches>=max_matches)break;
+   }
+  }
+  if(fallback&&matches==0)out.push_back(LatticeEdge{start,start+1,{LatticeCandidate{"kana:"+chars[start],chars[start],10000,0}}});
+ }return out;
+}
+std::vector<DecodedPath> decode_reading(const std::string& reading,const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,const DecoderOptions& options){
+ auto chars=utf8_chars(reading);if(chars.empty())return {};auto lattice=lexicon.build_lattice(reading,16,true);MorphologyDecoder decoder;return decoder.decode(chars.size(),lattice,scorer,{},options);
+}
+StreamingSession::StreamingSession(std::size_t limit):max_reading_codepoints_(limit?limit:1){}
+bool StreamingSession::append(const std::string& chunk,const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,StreamingSnapshot& snapshot,const DecoderOptions& options){
+ if(chunk.empty())return false;auto current=utf8_chars(reading_),incoming=utf8_chars(chunk);if(current.size()+incoming.size()>max_reading_codepoints_)return false;
+ std::string candidate=reading_+chunk;auto paths=decode_reading(candidate,lexicon,scorer,options);if(paths.empty())return false;
+ reading_=std::move(candidate);++revision_;snapshot.revision=revision_;snapshot.reading=reading_;snapshot.paths=std::move(paths);snapshot.provisional=true;return true;
+}
+void StreamingSession::reset(){reading_.clear();revision_=0;}
 std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  const std::vector<LatticeEdge>& lattice,const MaskedNgramScorer& scorer,
  const std::vector<std::string>& right_context,const DecoderOptions& opt) const {
