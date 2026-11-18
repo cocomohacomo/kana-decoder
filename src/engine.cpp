@@ -28,6 +28,11 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  const std::vector<std::string>& right_context,const DecoderOptions& opt) const {
  if(length==0||opt.beam_width==0||opt.max_edges_per_position==0||
     opt.max_candidates_per_edge==0||opt.max_paths==0)return {};
+ // Hard ceilings keep caller-supplied options from defeating bounded-work guarantees.
+ const std::size_t beam_limit=std::min<std::size_t>(opt.beam_width,8);
+ const std::size_t edge_limit=std::min<std::size_t>(opt.max_edges_per_position,16);
+ const std::size_t candidate_limit=std::min<std::size_t>(opt.max_candidates_per_edge,8);
+ const std::size_t path_limit=std::min<std::size_t>(opt.max_paths,8);
  std::vector<std::vector<const LatticeEdge*>> at(length+1);
  for(const auto& edge:lattice){
   if(edge.start>=edge.end||edge.end>length||edge.candidates.empty())continue;
@@ -38,7 +43,7 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  beams[0].push_back(State{});
  auto prune=[&](std::vector<State>& states){
   std::stable_sort(states.begin(),states.end(),[](const State&a,const State&b){return a.path.score>b.path.score;});
-  if(states.size()>opt.beam_width)states.resize(opt.beam_width);
+  if(states.size()>beam_limit)states.resize(beam_limit);
  };
  for(std::size_t pos=0;pos<length;++pos){
   if(beams[pos].empty())continue;
@@ -47,14 +52,14 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
    if(a->end!=b->end)return a->end<b->end;
    return a->candidates.size()<b->candidates.size();
   });
-  if(edges.size()>opt.max_edges_per_position)edges.resize(opt.max_edges_per_position);
+  if(edges.size()>edge_limit)edges.resize(edge_limit);
   for(const auto* edge:edges){
    auto candidates=edge->candidates;
    std::stable_sort(candidates.begin(),candidates.end(),[](const LatticeCandidate&a,const LatticeCandidate&b){
     return static_cast<std::int64_t>(a.word_cost)+a.connection_cost<
            static_cast<std::int64_t>(b.word_cost)+b.connection_cost;
    });
-   if(candidates.size()>opt.max_candidates_per_edge)candidates.resize(opt.max_candidates_per_edge);
+   if(candidates.size()>candidate_limit)candidates.resize(candidate_limit);
    for(const auto& state:beams[pos])for(const auto& candidate:candidates){
     if(candidate.id.empty()||candidate.surface.empty())continue;
     State next=state;
@@ -74,7 +79,7 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  std::vector<DecodedPath> out;
  for(auto& state:beams[length])out.push_back(std::move(state.path));
  std::stable_sort(out.begin(),out.end(),[](const DecodedPath&a,const DecodedPath&b){return a.score>b.score;});
- if(out.size()>opt.max_paths)out.resize(opt.max_paths);
+ if(out.size()>path_limit)out.resize(path_limit);
  return out;
 }
 std::string render_ambiguity(const std::vector<Candidate>&c,bool other){std::ostringstream o;o<<'[';bool f=true;for(const auto&x:c){if(x.surface.empty())continue;if(!f)o<<'/';o<<x.surface;f=false;}if(other){if(!f)o<<'/';o<<"other";}o<<']';return o.str();}
