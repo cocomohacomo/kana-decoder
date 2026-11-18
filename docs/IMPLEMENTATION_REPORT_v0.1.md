@@ -366,4 +366,5 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - `kana_decoder_eval --trace` を追加。ケース別JSONへcandidate_traceを追加し、通常の集計値は変更しない。CLI回帰テストでJSON解析、集計同一性、fallback flag、score decompositionを検証。
 - `tests/test_decoder_trace.cpp` を追加。word cost、candidate connection cost、transition connection cost、context scoreの各項目と合計式を検証。
 - 既知の観察点: 現行Trieは各読み位置に辞書一致がある場合、その位置のかなfallback edgeを生成しない。従って「ぴ→日」のケースではfallback候補が候補集合に存在しない可能性を、実データtraceで直接確認できる。今回の変更では候補選択規則自体は変更していない。
-- 仕様書 `docs/SPECIFICATION_v0.22.md` を追加。CI runは確認中であり、成功を確認後にこの節へrun IDとテスト数を追記する。
+- 仕様書 `docs/SPECIFICATION_v0.22.md` を追加。
+- GitHub Actions run `44377822634`（code commit `713eb22ec4712a43cccac47909b2ab1106d6c042`）: completed / success。Configure / Build / CTest / bounded decode benchmark / Pack verification / Python Pack・license testsすべてPASS。CTest 14/14 PASS。新規 `decoder_trace_tests` と拡張 `evaluator_cli_contract_tests` を含む。
