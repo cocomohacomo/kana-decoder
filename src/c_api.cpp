@@ -210,7 +210,7 @@ int kd_ngram_resolve(kd_ngram_scorer* p, const kd_candidate_view* c, size_t coun
         std::vector<std::string> ls, rs;
         for (size_t i = 0; i < count; ++i) {
             if (!c[i].id || !c[i].surface) return KD_ERR_INVALID_ARGUMENT;
-            candidates.push_back({c[i].id, c[i].surface});
+            candidates.push_back({c[i].id, c[i].surface, {}, {}, {}});
         }
         for (size_t i = 0; i < nl; ++i) {
             if (!left || !left[i]) return KD_ERR_INVALID_ARGUMENT;
