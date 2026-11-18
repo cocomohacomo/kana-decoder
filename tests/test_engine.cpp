@@ -39,5 +39,25 @@ int main(){
  DecoderOptions bounded; bounded.beam_width=1; bounded.max_paths=1;
  auto one_path=decoder.decode(2,lattice,lattice_scorer,{},bounded);
  assert(one_path.size()==1&&one_path[0].tokens[0].candidate.id=="A");
+
+ // Trie-backed Pack loading, lattice generation and bounded streaming revisions.
+ LexiconTrie trie;std::size_t loaded=0;
+ const std::string pack_path=std::string(KANA_DECODER_SOURCE_DIR)+"/packs/ja-lite/lexicon.tsv";
+ assert(trie.load_tsv(pack_path,&loaded));assert(loaded>=7&&trie.size()==loaded);
+ auto generated=trie.build_lattice("あめ",16,true);
+ assert(generated.size()==1&&generated[0].start==0&&generated[0].end==2);
+ assert(generated[0].candidates.size()==2);
+ auto generated_paths=decode_reading("あめ",trie,lattice_scorer,dop);
+ assert(!generated_paths.empty()&&generated_paths[0].tokens.size()==1);
+ auto unknown=trie.build_lattice("ぴ",16,true);
+ assert(unknown.size()==1&&unknown[0].candidates[0].surface=="ぴ");
+ StreamingSession session(4);StreamingSnapshot snapshot;
+ assert(session.append("あ",trie,lattice_scorer,snapshot,dop));
+ assert(snapshot.revision==1&&snapshot.provisional&&snapshot.reading=="あ");
+ assert(session.append("め",trie,lattice_scorer,snapshot,dop));
+ assert(snapshot.revision==2&&snapshot.reading=="あめ"&&!snapshot.paths.empty());
+ assert(!session.append("がふる",trie,lattice_scorer,snapshot,dop));
+ assert(session.reading()=="あめ"&&snapshot.revision==2);
+ session.reset();assert(session.reading().empty());
  std::cout<<"all C++ tests passed\n";
 }
