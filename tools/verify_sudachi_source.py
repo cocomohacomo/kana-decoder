@@ -26,8 +26,8 @@ def safe_extract(archive, destination, member):
         for info in z.infolist():
             p=PurePosixPath(info.filename)
             mode=info.external_attr >> 16
-            if p.is_absolute() or any(x in ("..","") for x in p.parts) or "\\" in info.filename:
-                raise ValueError("unsafe archive path: "+info.filename)
+            if p.is_absolute() or any(x in ("..","") for x in p.parts) or "\\" in info.filename or ":" in info.filename or info.file_size > 512*1024*1024:
+                raise ValueError("unsafe or oversized archive member: "+info.filename)
             if stat.S_ISLNK(mode): raise ValueError("symlink archive member rejected")
             if not info.is_dir() and p.name==member: matches.append(info)
         if len(matches)!=1: raise ValueError(f"expected exactly one {member} member, found {len(matches)}")
