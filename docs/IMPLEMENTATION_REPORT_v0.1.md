@@ -442,4 +442,5 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - morphology scoreはword costとcandidate-local connection costを反映。token-local ablationのためfull connection matrix transition costは除外し、full-path decoder testと評価境界を分離する。SURGEは少なくとも2つの候補surfaceに実観測されたcontext countがあり、supported候補間marginが0.5以上のときのみ解決し、それ以外はabstainする。
 - 重要な評価境界: test tokenの正解ラベルは精度計測にのみ使用するが、左右neighbor IDはgoldをteacher-forceする。したがって文脈スコアの寄与を切り分けるoracle-context upper boundであり、全文デコードCERや本番時のSURGE効果を示すものではない。
 - CIはcandidate-covered test token 1,000件未満を失敗とし、coverage / morphology accuracy / combined accuracy / SURGE resolution precision・recall / abstentionを出力する。コーパス本体・train sequences・derived modelはArtifactとしてアップロードしない。
-- v0.29の実コーパス計測値はCI完了後に追記する。現時点で精度向上は未主張。
+- C++/Pack CI run 44393631002（commit e734e3893757212598b63bf40a362777a6115d4c）: completed / success。Warning-as-error build、CTest 20/20、Python unittest 61件（57 PASS / 4 SKIP）、bounded decode benchmark、Japanese reference Pack verificationがPASS。
+- 実コーパス計測 workflow run 44393633264 は実行中。GSDの実データcoverageと3方式の測定値は完了後に追記し、現時点では精度向上を未主張。
