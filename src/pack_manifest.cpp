@@ -76,7 +76,7 @@ bool verify_pack_manifest(const std::string& directory,std::string* error){
  if(!capture(json,std::regex(R"("license"\s*:\s*\{([\s\S]*?)\})"),license_block))return fail(error,"license metadata missing");
  std::string license_file,spdx,upstream;
  if(!capture(license_block,std::regex(R"rx("file"\s*:\s*"([^"]+)")rx"),license_file)||
-    !capture(license_block,std::regex(R"rx("spdx"\s*:\s*"([^"]+)")rx"),spdx)||spdx.empty()||!safe_path(license_file))
+    !capture(license_block,std::regex(R"rx("spdx"\s*:\s*"([^"]+)")rx"),spdx)||!capture(license_block,std::regex(R"rx("upstream"\s*:\s*"([^"]+)")rx"),upstream)||spdx.empty()||upstream.empty()||!safe_path(license_file))
   return fail(error,"invalid license metadata");
  std::string files_block;
  if(!capture(json,std::regex(R"("files"\s*:\s*\[([\s\S]*?)\])"),files_block))return fail(error,"manifest files list missing");
