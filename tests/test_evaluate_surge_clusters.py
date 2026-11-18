@@ -44,7 +44,7 @@ class SurgeClusterTests(unittest.TestCase):
             sentences, candidates, {"id-weather": 0},
             {0: {("id-rain", 1): 10, ("id-candy", 1): 1}},
             {(0, 1): 11},
-            beta=1.0, margin=0.0)
+            gap_threshold=0.0)
         self.assertEqual(metrics["morphology_accuracy"], 0.5)
         self.assertEqual(metrics["cluster_gated_accuracy"], 1.0)
         self.assertEqual(metrics["resolved_tokens"], 1)
@@ -70,7 +70,7 @@ class SurgeClusterTests(unittest.TestCase):
         metrics = evaluator.evaluate(
             sentences, candidates, {"id-context": 0},
             {0: {("id-x", 2): 9, ("id-y", 2): 1}},
-            {(0, 2): 10}, beta=1.0, margin=0.0)
+            {(0, 2): 10}, gap_threshold=0.0)
         self.assertEqual(metrics["resolved_tokens"], 0)
         self.assertEqual(metrics["question_tokens"], 1)
         self.assertEqual(metrics["abstained_tokens"], 1)
@@ -83,7 +83,7 @@ class SurgeClusterTests(unittest.TestCase):
         }
         sentences = [[("only", "Only", candidates["only"][0])]]
         metrics = evaluator.evaluate(
-            sentences, candidates, {}, {}, {}, beta=1.0, margin=0.0)
+            sentences, candidates, {}, {}, {}, gap_threshold=0.0)
         self.assertEqual(metrics["question_tokens"], 0)
         self.assertEqual(metrics["resolved_tokens"], 0)
         self.assertEqual(metrics["abstained_tokens"], 0)
