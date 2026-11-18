@@ -44,7 +44,7 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 
 ## 5. 既知の制約
 1. 実用日本語形態素辞書・大規模接続行列は未実装。N-best参照デコーダと小規模接続モデルfixtureは実装済み。
-2. n-gram countはfixture。学習パイプライン、ドメイン別評価、確率校正が必要。
+2. n-gram countの簡易学習パイプラインは実装済み。実コーパスの前処理・ドメイン別評価・確率校正は未実施。
 3. Correction Engineは候補生成器。辞書・形態素解析器との統合が必要。
 4. DependencyGraphは単体実装。Streaming Context CoreのClaim / Evidence / Question / Focusとの統合が必要。
 5. Pack Manifest/SHA-256検証はPythonツール。C++ runtime側のManifest/SHA-256検証、mmap、複数Sessionでの辞書共有ポリシーは未実装。
