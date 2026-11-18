@@ -32,7 +32,7 @@ class SudachiV1Tests(unittest.TestCase):
             conn=root/"connections.tsv"
             run=subprocess.run([sys.executable,str(IMPORTER),"matrix","--input",str(matrix),"--output",str(conn)],capture_output=True,text=True)
             self.assertEqual(run.returncode,0,run.stderr)
-            self.assertEqual(conn.read_text(encoding="utf-8").splitlines()[2],"1\t2\t-20")
+            self.assertEqual(conn.read_text(encoding="utf-8").splitlines()[1],"1\t2\t-20")
 
     def test_pinned_zip_hash_and_extract(self):
         with tempfile.TemporaryDirectory() as tmp:
