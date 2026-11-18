@@ -48,6 +48,9 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
  std::size_t max_total_candidates,bool* resource_limit_exceeded) const {
  if (trace) trace->clear();
  if (resource_limit_exceeded) *resource_limit_exceeded=false;
+ max_matches=std::min<std::size_t>(max_matches,16);
+ max_total_edges=std::min<std::size_t>(max_total_edges,4096);
+ max_total_candidates=std::min<std::size_t>(max_total_candidates,32768);
  std::vector<LatticeEdge> out;
  if(max_total_edges==0||max_total_candidates==0){
   if(resource_limit_exceeded)*resource_limit_exceeded=true;
@@ -55,8 +58,16 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
  }
  std::size_t retained_candidates=0;
  if (!valid_utf8_impl(reading)) return out;
+ if(reading.size()>1024){
+  if(resource_limit_exceeded)*resource_limit_exceeded=true;
+  return out;
+ }
  auto chars = utf8_chars(reading);
  if (chars.empty()) return out;
+ if(chars.size()>256){
+  if(resource_limit_exceeded)*resource_limit_exceeded=true;
+  return out;
+ }
  for (std::size_t start = 0; start < chars.size(); ++start) {
   if(out.size()>=max_total_edges){
    if(resource_limit_exceeded)*resource_limit_exceeded=true;
@@ -82,13 +93,20 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
      edge.end = end + 1;
      const std::size_t take=std::min<std::size_t>(
       8,std::min(nodes_[node].values.size(),max_total_candidates-retained_candidates));
-     edge.candidates.resize(take);
      auto less_cost=[](const LatticeCandidate& a,const LatticeCandidate& b){
       return static_cast<std::int64_t>(a.word_cost)+a.connection_cost
            < static_cast<std::int64_t>(b.word_cost)+b.connection_cost;
      };
-     std::partial_sort_copy(nodes_[node].values.begin(),nodes_[node].values.end(),
-      edge.candidates.begin(),edge.candidates.end(),less_cost);
+     edge.candidates.reserve(take);
+     for(const auto& candidate:nodes_[node].values){
+      auto where=std::find_if(edge.candidates.begin(),edge.candidates.end(),
+       [&](const LatticeCandidate& current){return less_cost(candidate,current);});
+      if(edge.candidates.size()<take)edge.candidates.insert(where,candidate);
+      else if(where!=edge.candidates.end()){
+       edge.candidates.insert(where,candidate);
+       edge.candidates.pop_back();
+      }
+     }
      retained_candidates+=take;
      if(take==0)break;
      if (trace) {
