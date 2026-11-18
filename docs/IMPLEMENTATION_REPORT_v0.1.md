@@ -509,3 +509,5 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Sudachi Pack workflowはdev校正とtest評価を別プロセスで実行し、Peak RSSを個別に1,792 MiB以下で検査する。校正値・コーパス・派生ngramはCI workspace限定であり、ArtifactやPackへ含めない。
 - v0.32の精度結果はCI完了後に追記する。test結果を見て校正値を再調整しない。
 - 仕様: docs/SPECIFICATION_v0.32.md。
+
+- v0.32 code CI run `44415996245`（commit `c6b21bca5379b12d64f0f029cb2567705e714e5d`）: completed / success。Warning-as-error build、CTest 21/21 PASS、Python 63件（58 PASS / 5 SKIP）、bounded benchmark、Japanese reference Pack verificationがPASS。実Sudachi Packでの72構成dev校正とtest評価workflow run `44415786196` は現在実行中で、実測値は未確定。
