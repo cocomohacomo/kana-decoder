@@ -455,3 +455,15 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - 追加テスト: oracle/causal出力の分離、予測履歴での文脈改善、SURGE解決・fallback、証拠不足時の棄却、候補上限・candidate miss、非有限margin拒否。
 - 評価上の制約: gold token境界は維持するため、全文かな入力からの自動形態素分割やend-to-end CERの検証ではない。C++ runtimeのスコアリング/API/Pack schema/メモリ上限は変更しない。
 - 次の検証はcausal結果の実測と、C++ decoderの実際の逐次経路との一致確認。causal評価が悪化する場合、context weightを増やすのではなく、予測履歴誤りの伝播とSURGE fallback条件を先に分析する。
+
+
+### v0.30 実コーパス逐次評価の実測・CI結果追記
+
+- 実Sudachi Pack workflow run `44405759595`: completed / success。oracle/causal両評価を完了し、native Packのメモリ検査・artifact uploadもPASS。
+- 同じtest 10,317 token、candidate coverage 9,774 / 10,317（94.7368%）で比較。causal morphology-only 45.2936%（4,427 correct）、causal morphology+unigram+predicted-left context 45.3857%（4,436 correct、+0.0921ポイント）。
+- Causal SURGE-gated（棄却時はmorphology fallback）は46.2861%（4,524 correct、morphology-only比+0.9925ポイント）。151件をSURGE解決、10,166件を棄却。解決適合率85.4305%、covered tokenに対する正解解決recall 1.3198%。全体精度はfallbackを含むため、SURGE単独で46.29%を解決した意味ではない。
+- Oracle trackはv0.29と同じ値: morphology 45.2936%、combined 45.4164%、SURGE 875 resolved / 8,899 abstained / precision 90.8571%。Oracleとcausalの差は未来情報・正解neighbor IDを使えるかどうかを示す。
+- Native runtime smoke: 4件中1件完全一致、CER 1.0、decode failure 0。Peak RSS 1,425,528 KiB（1,392.1 MiB）、1,792 MiB gate内。Pack load 7,610 ms。これはGitHub runner上でのSudachi実Pack基準値であり、製品精度や対象PCの性能保証ではない。
+- Pack artifact: 149,644,215 bytes、基礎Sudachi Packのみをアップロード。コーパス・train sequence・派生ngram modelは含めない。
+- Code CI run `44405760611`（commit `b3b32aacc2c0b5d12610334d6d8af1ba52bf0201`）: completed / success。warning-as-error build、CTest 20/20、Python unittest 62件（58 PASS / 4 SKIP）、bounded benchmark、Japanese reference Pack verificationがPASS。
+- 結論: causal sequential条件でもSURGE gate + morphology fallbackはこのGSD token-aligned benchmark上で約0.99ポイントの改善を示した。ただしtoken境界はgoldで与えているため、次段階ではC++ runtimeの実際のstreaming pathへ同じ予測履歴制約を適用し、full reading-to-textのCERと誤り伝播を検証する。
