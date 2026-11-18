@@ -131,3 +131,14 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - `src/pack_manifest.cpp` を追加。外部依存なしのSHA-256検証、Pack ABI/format、license metadata、必須ファイル、payloadサイズ/hash、相対パス、symlink、未登録ファイル、30MiB runtime上限を確認する。C++ `load_language_pack` は辞書読み込み前にnative検証を実行。
 - 重要な制約: native verifierは現在、builderが生成するManifestの限定スキーマを正規表現で検査する実装であり、汎用JSON parserではない。Manifest形式を拡張する場合はparserも同時に更新する必要がある。Python verifierも併用する。
 - AdapterテストはSudachi/IPADIC/header CSV、読めない項目のskip、壊れた行の拒否を検証。Correction統合とPack payload改ざん検知をC++テストに追加。
+
+
+## 13. Native verifier hardeningとCI最終結果
+- Runtime Manifest verifierにManifest 1 MiB上限、Pack payload 64ファイル上限、Pack root symlink拒否、license upstream metadata必須を追加。
+- C++ Pack loaderは、Manifest検証・payload全件SHA-256照合・サイズ検証・path containment・symlink/未登録ファイル検査を完了してからLexicon/N-gramを読み込む。
+- GitHub Actions run `44346915656`（commit `bfe7c07976460de17314a66707129f9a527f8de4`）: completed / success。
+- CTest: 6/6 PASS。C API integration、C++ engine（native manifest tamper検知・Correction統合含む）、Python Pack validation、Japanese smoke quality、Pack builder、Japanese dictionary adapters。
+- Python Pack verifier tests 7件、Pack builder tests 2件、Japanese adapter tests 4ケースを含む。
+- Smoke corpus: 4件。domainラベル付きJSON集計を確認。小規模fixtureなので精度性能を示すものではない。
+- CI microbenchmark: n-gram resolve 5,422.39 ns/resolve、2-token/5-edge decoder 2,183.57 ns/decode。native verifier追加前の以前の測定値とは実行条件・ビルド内容が異なるため、直接の速度比較に使わない。
+- この時点で実用Sudachi/UniDic辞書の投入は未実施。辞書Adapterは形式変換機能であり、辞書ライセンス確認、connection matrixの取得/変換、領域別の実データ精度評価は引き続き必要。
