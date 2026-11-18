@@ -1,4 +1,4 @@
-import hashlib,importlib.util,pathlib,tempfile,unittest
+import hashlib,importlib.util,json,pathlib,tempfile,unittest
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 def load(name,path):
  spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);return m
