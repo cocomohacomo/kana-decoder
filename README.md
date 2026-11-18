@@ -48,7 +48,7 @@
 
 ## 仕様
 - Python API: docs/PYTHON_API.md
-- v0.30: docs/SPECIFICATION_v0.30.md\n- v0.29: docs/SPECIFICATION_v0.29.md
+- v0.32: docs/SPECIFICATION_v0.31.md（v0.32校正入力堅牢化を含む）\n- v0.31: docs/SPECIFICATION_v0.31.md\n- v0.30: docs/SPECIFICATION_v0.30.md\n- v0.29: docs/SPECIFICATION_v0.29.md
 - v0.28: docs/SPECIFICATION_v0.28.md
 - v0.27: docs/SPECIFICATION_v0.27.md
 - v0.26: docs/SPECIFICATION_v0.26.md
