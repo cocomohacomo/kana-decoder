@@ -31,7 +31,7 @@
 - source acquisition: python3 tools/fetch_sudachi_source.py --output-dir work/archives
 - Pack build: python3 tools/build_sudachi_pack.py --small-zip work/archives/small_lex.zip --matrix-zip work/archives/matrix.def.zip --work-dir work/build --output dist/ja-jp-sudachi-small
 - 文脈学習用データの準備: python3 tools/prepare_context_corpus.py --lexicon normalized-lexicon.tsv --corpus tokenized-corpus.tsv --output-dir work/context-data
-- 実コーパス評価: tools/prepare_ud_gsd_corpus.py と tools/evaluate_context_ablation.py。UD Japanese-GSDのtrain/dev/testを固定commitからCI時のみ取得し、辞書カバレッジのある連続token列で3方式を比較します。
+- 実コーパス評価: tools/prepare_ud_gsd_corpus.py と tools/evaluate_context_ablation.py。UD Japanese-GSDのtrain/dev/testを固定commitからCI時のみ取得し、gold左右文脈によるoracle ablationと、各方式が独立した予測履歴を使うcausal sequential評価を分けて比較します。causal評価もgold token境界を使うため、全文デコード精度とは区別します。
 - train_sequences.tsv をPack builderの --sequences に渡し、dev_gold.tsv / test_gold.tsv は学習に混ぜずに評価へ使用します。
 - 入力コーパスは文書ID・文単位の形態素トークン列。文書単位で分割し、同一文書がtrain/dev/testをまたがないようにします。辞書にない reading/surface は黙って捨てずにエラーにします。
 - GitHub Actionsからの手動Pack生成: Actions → Build Sudachi Small Pack → Run workflow（生成Packは30日間Artifactとして保存）
@@ -48,7 +48,7 @@
 
 ## 仕様
 - Python API: docs/PYTHON_API.md
-- v0.29: docs/SPECIFICATION_v0.29.md
+- v0.30: docs/SPECIFICATION_v0.30.md\n- v0.29: docs/SPECIFICATION_v0.29.md
 - v0.28: docs/SPECIFICATION_v0.28.md
 - v0.27: docs/SPECIFICATION_v0.27.md
 - v0.26: docs/SPECIFICATION_v0.26.md
