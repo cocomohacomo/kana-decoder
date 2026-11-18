@@ -86,11 +86,12 @@ bool ConnectionModel::load_tsv(const std::string& path){
   std::int32_t right=0,left=0,value=0;
   if(!parse_i32_strict(a,right,true)||!parse_i32_strict(b,left,true)||!parse_i32_strict(v,value))return false;
   if(parsed.left_size_&&(left>=parsed.left_size_||right>=parsed.right_size_))return false;
-  if(value!=0)parsed.costs_.push_back(Entry{packed_key(right,left),value});
+  parsed.costs_.push_back(Entry{packed_key(right,left),value});
  }
  if(!in.eof())return false;
  std::sort(parsed.costs_.begin(),parsed.costs_.end(),[](const Entry&a,const Entry&b){return a.key<b.key;});
  for(std::size_t i=1;i<parsed.costs_.size();++i)if(parsed.costs_[i-1].key==parsed.costs_[i].key)return false;
+ parsed.costs_.erase(std::remove_if(parsed.costs_.begin(),parsed.costs_.end(),[](const Entry& entry){return entry.value==0;}),parsed.costs_.end());
  *this=std::move(parsed);return true;
 }
 
