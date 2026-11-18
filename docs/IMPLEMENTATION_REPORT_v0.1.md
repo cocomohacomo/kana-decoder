@@ -292,3 +292,12 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - 実Sudachiアーカイブは引き続きダウンロード・SHA-256照合に成功。Pack Artifactはまだ生成されていない。raw header診断を含む最新コードで手動Workflowを再実行し、実ヘッダー互換性を確定させる必要がある。
 
 - GitHub Actions run 44371939507 for v0.16 commit 84755b08b01b9df56df0c62edfd6a9096450d6f5: completed / success. CTest 12/12 PASS; Python unittest 39 tests discovered, 35 passed and 4 skipped because standalone discovery lacks CTest-only native arguments; the skipped native paths are exercised by CTest integration. Bounded decode benchmark, reference Pack verification and license policy validation also PASS.
+
+
+## 28. 実Sudachi Pack失敗原因の確定と修正
+- 2026-11-18の実辞書Workflow run 44372231418（commit 657947d94a2ec6e19605d0a9d49b130f19e2f6fe）を調査。アーカイブ取得・SHA-256検証は成功したが、辞書検証で停止しPack Artifact uploadはskip。
+- エラーのraw headerは \`[' ', '5967', '5967', '10', ' ', '空白', '*', '*', '*', '*', '*', 'キゴウ', ' ', '*', 'A', '*', '*', '*', '*']\`。これはヘッダーではなく辞書の第1データ行である。
+- 根本原因: source lockがSudachiDict V1と宣言していた一方、取得URLは \`sudachidict-raw/20260723/small_lex.zip\` で、V0 raw CSVを指していた。SudachiDictはV1 raw sourceを \`sudachidict-raw/v1/20260723/\` に分けて配布する。V0/V1は同じファイル名でも内容が異なる。
+- V1 small archiveの公開SHA-256として \`e49936daef64043657752eb9f4ada912cf0316e26dd158a6200c770e2f93e706\` を採用し、source lockとlicense profileのURL/hashをV1 endpointへ変更。fetcherのURL規約も \`/v1/{release}/\` に固定。
+- ImporterをV1ヘッダー形式に対応。Index_Form/Headwordをsurface/writingへ正規化し、V1の追加メタデータ列（Synonym_Groups、Split_C、User_Data、POS_Id、Reference_Id）を許容。V0 headerless CSVはV1 importerで誤読せず、明示的に拒否する。
+- 23列V1ヘッダーfixtureとheaderless V0拒否fixtureを追加。実アーカイブの新SHA-256照合と実データPack生成は、修正後Workflowで再確認するまで未成功扱い。
