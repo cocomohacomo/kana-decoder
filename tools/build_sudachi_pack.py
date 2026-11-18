@@ -4,7 +4,13 @@ import argparse,hashlib,json,subprocess,sys
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 def run_json(command):
- result=subprocess.run(command,check=True,capture_output=True,text=True)
+ try:
+  result=subprocess.run(command,check=True,capture_output=True,text=True)
+ except subprocess.CalledProcessError as exc:
+  raise RuntimeError(
+   f"subcommand failed (exit={exc.returncode}): {' '.join(command)}\n"
+   f"--- stdout ---\n{exc.stdout or ''}\n--- stderr ---\n{exc.stderr or ''}"
+  ) from exc
  try:return json.loads(result.stdout)
  except json.JSONDecodeError as exc:raise RuntimeError(f"command did not return JSON: {' '.join(command)}\n{result.stdout}\n{result.stderr}") from exc
 def sha256(path):
