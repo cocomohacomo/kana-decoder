@@ -58,16 +58,6 @@ GitHub Actions run `44407712247` completed successfully:
 - Peak RSS 1,425,568 KiB (1,392.2 MiB), below the 1,792 MiB gate. Sequential evaluation elapsed 19.18 seconds on the GitHub-hosted runner.
 - This is a modest measured gain on the filtered UD Japanese-GSD domain, not a broad accuracy guarantee. SURGE's explicit evidence gate is not yet integrated into this C++ full-path evaluator; the causal Python SURGE-gated result is a separate token-aligned diagnostic.
 
-### 2.3 Native C++ sentence-level sequential evaluation
-
-`tools/evaluate_sequential_corpus.cpp` adds a second, stronger diagnostic:
-- Concatenates each test sentence's kana token readings into one uninterrupted reading string. Gold token boundaries are not passed to the decoder.
-- Calls the production C++ `decode_reading` path with an empty scorer (morphology-only) and with a scorer built from train-split unigram and left-bigram counts.
-- The decoder's own selected candidate IDs become the left history for subsequent candidates. No gold neighbor IDs and no right/future context are supplied.
-- Uses gold token boundaries only after decoding to measure exact token alignment precision/recall. Sentence exact match and CER are measured against concatenated gold surface text.
-- Sentences above the Core's 256-codepoint input ceiling are reported as over-limit rather than partially decoded.
-- This is full sentence-level reading-to-text decoding with gold sentence segmentation, but it is not streaming chunk latency or raw-text tokenization evaluation.
-
 ## 3. Scoring and resource boundaries
 
 - Additive smoothing remains alpha=0.5, matching `MaskedNgramScorer`.
@@ -91,7 +81,7 @@ GitHub Actions run `44394039136` completed successfully:
 - The real Sudachi Pack workflow runs corpus preparation and both evaluation tracks before the native Pack smoke test.
 - The runtime Pack Peak RSS gate remains <= 1,792 MiB on the GitHub-hosted runner.
 - Decoder hard ceilings remain enforced in the C++ Core: input length, lattice edges, candidates, expanded states, beam width, and trace records.
-- This evaluation refactor does not change C++ scoring, public APIs, C ABI, Pack schema, or runtime memory ceilings.
+- The Python oracle/causal ablation does not change C++ scoring or public APIs. The native sequential evaluator calls the existing C++ Core path and does not change the C ABI, Pack schema, or runtime memory ceilings.
 
 ## 6. Interpretation
 
