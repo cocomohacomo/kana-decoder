@@ -73,9 +73,9 @@ def train_counts(path):
     return unigram, left, right, left_total, right_total, unigram_total
 
 
-def read_connections(path):
+def read_connections(path, required_pairs=None):
     result = {}
-    if path is None:
+    if path is None or not required_pairs:
         return result
     with path.open(encoding="utf-8") as stream:
         for line_no, line in enumerate(stream, 1):
@@ -85,7 +85,9 @@ def read_connections(path):
             if len(cols) != 3:
                 raise ValueError(f"{path}:{line_no}: connection row must have three columns")
             right_id, left_id, cost = map(int, cols)
-            result[(right_id, left_id)] = cost
+            key = (right_id, left_id)
+            if key in required_pairs:
+                result[key] = cost
     return result
 
 
@@ -130,7 +132,6 @@ def analyze(lexicon_path, corpus_path, sequences_path, connections_path=None,
         raise ValueError("context margin must be non-negative and max candidates positive")
     by_reading, by_pair = read_lexicon(lexicon_path)
     counts = train_counts(sequences_path)
-    connections = read_connections(connections_path)
     sentences = defaultdict(list)
     source_tokens = 0
     with corpus_path.open(encoding="utf-8", newline="") as stream:
@@ -148,6 +149,22 @@ def analyze(lexicon_path, corpus_path, sequences_path, connections_path=None,
             if gold is None:
                 raise ValueError(f"{corpus_path}:{line_no}: test token absent from normalized lexicon")
             sentences[key].append((row["reading"], row["surface"], gold))
+
+    # The imported matrix can contain millions of sparse transitions. Retain only
+    # transitions needed by the held-out gold-neighbor candidate windows.
+    required_connections = set()
+    for sentence in sentences.values():
+        for index, (reading, _, _) in enumerate(sentence):
+            previous = sentence[index - 1][2] if index else None
+            following = sentence[index + 1][2] if index + 1 < len(sentence) else None
+            previous_right = previous["right_id"] if previous else None
+            following_left = following["left_id"] if following else None
+            for candidate in by_reading.get(reading, [])[:max_candidates]:
+                if previous_right is not None:
+                    required_connections.add((previous_right, candidate["left_id"]))
+                if following_left is not None:
+                    required_connections.add((candidate["right_id"], following_left))
+    connections = read_connections(connections_path, required_connections)
 
     totals = Counter()
     for sentence in sentences.values():
