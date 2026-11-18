@@ -44,6 +44,8 @@ if(Python3_Interpreter_FOUND)
  add_test(NAME sudachi_v1_import_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sudachi_v1.py)
  add_test(NAME sudachi_pack_build_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_sudachi_pack_build.py)
  add_test(NAME evaluator_cli_contract_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_evaluator_cli.py $<TARGET_FILE:kana_decoder_eval> ${CMAKE_CURRENT_SOURCE_DIR}/packs/ja-lite ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/ja-smoke-gold.tsv)
+ add_test(NAME surge_probe_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_surge_probe.py)
+ add_test(NAME memory_budget_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_memory_budget.py)
 endif()
 
 add_executable(kana_decoder_trace_tests tests/test_decoder_trace.cpp)
