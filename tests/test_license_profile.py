@@ -18,6 +18,7 @@ class LicenseProfileTests(unittest.TestCase):
             "components": [{
                 "id": "sample-dictionary",
                 "version": version,
+                "source_sha256": "0" * 64,
                 "spdx": "BSD-3-Clause",
                 "commercial_use": commercial,
                 "redistribution": redistribution,
