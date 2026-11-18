@@ -227,3 +227,26 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - The 30 MiB value remains a provisional optimization target, not a development or runtime hard cap. Pack manifest resource budgets remain explicit and configurable.
 - No production Sudachi source archive was downloaded or imported during this milestone. The new downloader and validation pipeline are implemented and tested with synthetic fixtures, but real archive checksum confirmation, release-specific legal/NOTICE audit, full Pack generation, held-out quality evaluation, target CPU latency and peak RSS remain open release gates.
 - Upstream source research confirms Small lexicon and matrix are separate inputs and that Small/Core/Full have different data composition. Core/Full are not implicitly approved for redistribution; retain the current Small-only licensing review gate.
+
+
+## 22. v0.13: sparse connection matrix and reproducible Sudachi Pack build
+- Replaced the string-keyed connection matrix hash map with a sorted sparse sequence using packed 64-bit (right_id, left_id) keys and int32 costs. Lookup uses binary search; zero-cost cells are omitted from the normalized representation.
+- Added explicit matrix dimensions to normalized connections.tsv. The C++ loader validates dimensions, rejects malformed/out-of-range/duplicate coordinates (including duplicate zero-cost rows), and publishes the model only after complete validation.
+- Updated the V1 matrix importer to emit sorted sparse rows with matrix dimensions and detect duplicate coordinates before dropping zero values.
+- Expanded validate_sudachi_pack_inputs.py to scan every matrix row, validate row width, IDs, int32 cost range, duplicate cells, CSV row widths and every lexicon LEFT_ID/RIGHT_ID.
+- Added tools/build_sudachi_pack.py to orchestrate archive verification, safe extraction, matrix/lexicon compatibility checks, V1 import, provenance generation, Pack build, license-profile validation and final Pack manifest verification.
+- Added Pack provenance.json with source-lock contents, source archive hashes, compatibility report, import reports and importer/tool hashes. Generated Packs also include the complete upstream LEGAL notice.
+- Corrected the source-license register: the release v20260723 LEGAL notice identifies the distribution as Apache-2.0 and identifies both small_lex.csv and matrix.def.zip as UniDic-derived with BSD-3-Clause conditions. Added exact Apache-2.0 and BSD-3-Clause texts and four artifact/license components. Combined data expression is Apache-2.0 AND BSD-3-Clause; original repository Core remains MIT.
+- Added synthetic end-to-end Pack build coverage, matrix boundary/duplicate tests and source-profile checks. Added docs/SPECIFICATION_v0.13.md and updated Pack, licensing and README documentation.
+- 30 MiB remains a provisional optimization target only. The Pack builder defaults to a declared expanded budget of 8 GiB, configurable by the caller.
+- The actual upstream archives have not yet been downloaded and verified in this environment. The complete build pipeline is tested using synthetic source fixtures; no production Sudachi Pack is claimed.
+
+## 23. v0.14: supported Python package and streaming wrapper
+- Added pip-installable package python/kana_decoder with project metadata in pyproject.toml.
+- KanaDecoder checks KD_C_API_VERSION, loads the shared library via explicit path, KANA_DECODER_LIBRARY or system discovery, loads a local Pack and exposes decode() and decode_nbest().
+- Added immutable DecodedPath and DecodedToken values, including Unicode code-point spans and raw ranking scores.
+- Added Python StreamingSession with append, common-prefix commit, best-path commit and reset. Native sessions retain independent snapshots after the originating engine is closed.
+- Added bounded output-buffer growth and explicit native error translation. The Python layer delegates all decoding to the native C ABI.
+- Added docs/PYTHON_API.md and docs/SPECIFICATION_v0.14.md. CTest now covers Python ctypes, the public Python wrapper, snapshot lifetime after engine close and pip installation.
+- GitHub Actions run 44359119067 for commit 243386680abc2684ac806a34842de37c2ece0cc3: completed / success. CTest 12/12 PASS; Python unittest 34 tests PASS; bounded decode microbenchmark PASS; Japanese reference Pack verification PASS; Pack/license policy validation PASS.
+- Remaining production gates: obtain and verify the pinned official Sudachi archives; build the real Pack; evaluate on disjoint train/dev/test corpora; measure target CPU latency and peak RSS; improve unknown-word handling and test long-running streaming stability.
