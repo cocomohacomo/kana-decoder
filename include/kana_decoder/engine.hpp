@@ -22,7 +22,7 @@ public:
  AmbiguityResult resolve(const std::vector<Candidate>&,const std::vector<std::string>&,const std::vector<std::string>&,
   OutputMode,double minimum_score=-8.0,double minimum_margin=1.25,bool include_other=true,const std::string& original_reading={}) const;
 private:
- std::unordered_map<std::string,std::uint32_t> left_counts_,right_counts_,unigram_counts_;
+ std::unordered_map<std::string,std::uint64_t> left_counts_,right_counts_,unigram_counts_;\n std::unordered_map<std::string,std::uint64_t> left_context_totals_,right_context_totals_;\n std::uint64_t unigram_total_=0;
  static std::string key(const std::string&,const std::string&);
  static std::string context_key(const std::vector<std::string>&);
 };
