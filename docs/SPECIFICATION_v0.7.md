@@ -1223,3 +1223,62 @@ Language Packは言語固有の読み誤り規則・混同表・編集操作コ�
 
 ---
 v0.7は曖昧性の明示出力と軽度誤り補正を追加した設計仕様であり、閾値・校正・精度・性能は実装および評価データによる検証後に確定する。
+
+
+## 27. 日本語辞書インポート・形態素属性・Pack実行時検証
+
+### 27.1 正規化辞書インターフェース
+
+言語固有の辞書形式をCoreへ直接持ち込まず、Language Pack Builderが扱う正規化TSVへ変換する。日本語の初期インポートAdapterはSudachi 17列CSV、IPADIC互換MeCab 13列CSV、および列名を明示したheader CSVをサポートする。UniDic等のリリース差がある形式は、IPADIC互換と仮定せず、監査済みの列マッピングを明示する。
+
+正規化辞書は次の最大12列とする。
+
+1. reading
+2. surface
+3. lemma
+4. pos
+5. reading_group
+6. candidate_id
+7. word_cost
+8. candidate_connection_cost
+9. left_connection_class_id
+10. right_connection_class_id
+11. inflection_type（任意）
+12. inflection_form（任意）
+
+5列形式および従来10列形式との後方互換を維持する。POS・活用型・活用形はMorphological CandidateからDecodedTokenまで保持し、表層選択や後続の言語固有処理で参照できること。候補IDはPack内で一意かつ安定でなければならない。
+
+読みが存在しない語彙は純かな入力から照合できないため、Adapterは既定で除外し、除外件数を報告する。カタカナ読みは日本語Packの正規化方針に従ってひらがなへ正規化する。原辞書の読み・表記・品詞情報を失わないよう、変換前後の件数と属性を監査する。
+
+### 27.2 接続行列
+
+辞書候補のleft/right connection class IDと、遷移コスト行列は分離して保持する。遷移時には直前候補のright IDと次候補のleft IDから接続コストを引く。実用辞書を取り込む際は、辞書本体と同一バージョン・同一体系の接続行列を使用すること。fixture用の小規模行列を実用辞書へ流用してはならない。
+
+### 27.3 Correction Rule Pack
+
+Language Packは任意のcorrection_rules.tsvを持てる。1行は次の5列とする。
+
+- from
+- to
+- rule_id
+- type（insert / delete / replace / duplicate / phonetic）
+- cost（有限かつ非負の数値）
+
+Coreは最大256ルール、from/to各256 bytes以下に制限する。ルールは読み仮説を生成するEvidenceであり、原文を破壊的に置換しない。Correction Engineは補正仮説を形態素デコーダで再評価し、原文に対する改善幅と最低スコア条件を満たす場合のみ自動採用する。数字・URL・protected spanは自動補正しない。
+
+### 27.4 Native Pack Integrity
+
+C++ runtimeはLanguage Packの辞書・モデル読み込み前にManifestとpayloadを検証する。必須条件:
+- Core ABI / Pack format versionの一致
+- pack identityとlicense SPDX / upstream / license fileの存在
+- lexicon.tsv、ngram.tsv、license fileがManifestに列挙されていること
+- payloadごとのsizeとSHA-256の一致
+- 相対パスのみ許可し、絶対パス・親参照・symlink・Pack root外参照を拒否
+- Manifest未登録payloadを拒否
+- 現行native verifier上限: Manifest 1 MiB、payload 64ファイル、展開後30 MiB
+
+Native verifierは現行Pack Builderの限定Manifestスキーマを受け付ける。汎用JSON拡張やManifest schema変更時はnative parserとPython verifierを同時更新し、互換テストを追加する。Packロードは一時オブジェクトで検証・読込を完了してからEngineへ反映し、失敗時に既存状態を破壊しない。
+
+### 27.5 Corpus Evaluation
+
+評価コーパスはreading、expected_surface、optional_domainの2～3列TSVとする。評価CLIは全体およびdomain別にExact Match、CER（Unicode code point基準）、edit distance、decode failureを集計する。train/dev/testは文書・話者・セッション単位で分離し、同一ソースのリークを防止する。小規模smoke corpusの結果を製品精度として報告してはならない。
