@@ -44,7 +44,7 @@ def validate_profile(pack_root: Path, profile_name: str = "license-profile.json"
         version = component.get("version")
         if not isinstance(version, str) or not version.strip() or version.strip().lower() in FLOATING:
             raise ValueError(f"{ident}: exact immutable version is required")
-        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]*", version) or not re.search(r"\\d", version):
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]*", version) or not re.search(r"\d", version):
             raise ValueError(f"{ident}: version must be an exact release identifier or commit")
         source_hash = component.get("source_sha256")
         if not isinstance(source_hash, str) or not re.fullmatch(r"[0-9a-f]{64}", source_hash):
