@@ -8,6 +8,7 @@ target_include_directories(kana_decoder_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/
 target_compile_options(kana_decoder_core PRIVATE -Wall -Wextra -Wpedantic)
 add_executable(kana_decoder_tests tests/test_engine.cpp)
 target_link_libraries(kana_decoder_tests PRIVATE kana_decoder_core)
+target_compile_definitions(kana_decoder_tests PRIVATE KANA_DECODER_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 enable_testing()
 add_test(NAME kana_decoder_tests COMMAND kana_decoder_tests)
 find_package(Python3 COMPONENTS Interpreter)
