@@ -61,7 +61,10 @@ bool capture(const std::string& text,const std::regex& re,std::string& out){std:
 bool safe_path(const std::string& value){
  if(value.empty()||value.front()=='/'||value.find('\\')!=std::string::npos||value.find(':')!=std::string::npos)return false;
  std::filesystem::path p(value);if(p.is_absolute()||p.has_root_path())return false;
- for(const auto& part:p)if(part==".."||part=="."||part.empty())return false;return true;
+ for (const auto& part : p) {
+  if (part == ".." || part == "." || part.empty()) return false;
+ }
+ return true;
 }
 }
 namespace kana_decoder {
@@ -95,12 +98,16 @@ bool verify_pack_manifest(const std::string& directory,std::string* error){
   fs::path file=root/fs::path(relative);if(fs::is_symlink(fs::symlink_status(file))||!fs::is_regular_file(file))return fail(error,"Pack payload missing or symlink");
   fs::path resolved=fs::canonical(file);auto rel=resolved.lexically_relative(root);if(rel.empty()||rel.native().find("..")==0)return fail(error,"Pack payload escapes root");
   auto actual=fs::file_size(file);if(actual!=expected)return fail(error,"Pack payload size mismatch");
-  if(actual>limit-total)return fail(error,"Pack expanded size exceeds declared limit");total+=actual;
+  if (actual > limit - total) return fail(error, "Pack expanded size exceeds declared limit");
+  total += actual;
   if(sha256_file(file)!=hash)return fail(error,"Pack payload SHA-256 mismatch");
-  if(relative=="lexicon.tsv")has_lex=true;if(relative=="ngram.tsv")has_ngram=true;if(relative==license_file)has_license=true;
+  if (relative == "lexicon.tsv") has_lex = true;
+  if (relative == "ngram.tsv") has_ngram = true;
+  if (relative == license_file) has_license = true;
  }
  if(listed.empty()||!has_lex||!has_ngram||!has_license)return fail(error,"required Pack payload or hashed license missing");
  for(fs::recursive_directory_iterator it(root),end;it!=end;++it){if(it->is_symlink())return fail(error,"symlink found in Pack directory");if(it->is_regular_file()){auto rel=it->path().lexically_relative(root).generic_string();if(rel!="manifest.json"&&!listed.count(rel))return fail(error,"unlisted Pack payload");}}
- if(error)error->clear();return true;
+ if (error) error->clear();
+ return true;
 }
 }
