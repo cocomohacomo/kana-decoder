@@ -69,6 +69,46 @@ Validate the resulting pack before use:
 
 The Python verifier and C++ runtime loader both check ABI/format metadata, license provenance, relative paths, symlinks, unlisted payloads, file sizes and SHA-256 hashes before Pack use. The native verifier accepts the repository's current builder Manifest schema (not arbitrary JSON extensions), with 1 MiB manifest, 64-file and 30 MiB expanded-payload ceilings. Run the Python verifier as an additional preflight check.
 
+## Component-level license profiles
+
+A production Pack with third-party data should be built with a component profile. Each source license is copied into the Pack, and the normalized profile plus notices are included in the manifest checksum list.
+
+Input profile example (paths are relative to the profile JSON file):
+
+```json
+{
+  "schema_version": 1,
+  "components": [
+    {
+      "id": "sudachidict",
+      "version": "v20261015",
+      "spdx": "Apache-2.0",
+      "commercial_use": true,
+      "redistribution": true,
+      "modified_redistribution": true,
+      "upstream_url": "https://github.com/WorksApplications/SudachiDict",
+      "license_file": "notices/LICENSE-2.0.txt"
+    },
+    {
+      "id": "unidic-small",
+      "version": "2011-2013",
+      "spdx": "BSD-3-Clause",
+      "commercial_use": true,
+      "redistribution": true,
+      "modified_redistribution": true,
+      "upstream_url": "https://clrd.ninjal.ac.jp/unidic/",
+      "license_file": "notices/UNIDIC-BSD.txt"
+    }
+  ]
+}
+```
+
+Build with `--license-profile license-input.json` and a combined SPDX expression such as `--license-spdx "Apache-2.0 AND BSD-3-Clause"`. The builder copies each component's license file into `THIRD_PARTY_LICENSES/`, writes `license-profile.json`, and hashes both in `manifest.json`. It rejects profile files and notice paths outside the profile directory.
+
+Run `python3 tools/validate_license_profile.py PACK_DIR` after building. The validator requires exact pinned versions, a reviewed permissive SPDX identifier, HTTPS upstream URLs, explicit commercial-use / redistribution / modified-redistribution permissions, and present notice files. The validator checks declarations and packaging only; a human must verify those declarations against the exact upstream artifact.
+
+See `docs/LICENSING_POLICY.md` and `docs/THIRD_PARTY_COMPONENTS.md` for source-selection decisions. The profile is not a legal opinion.
+
 ## Evaluation corpus
 UTF-8 TSV with exactly two columns:
 - reading
