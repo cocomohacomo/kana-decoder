@@ -75,6 +75,7 @@ def _value(row, key, default=""):
 
 def import_lexicon(source, output):
     skipped = 0
+    non_decodable_skipped = 0
     inserted = 0
     raw = []
     recognized = []
@@ -115,8 +116,12 @@ def import_lexicon(source, output):
                         pos_parts = [_value(row, f"pos{i}") for i in range(1, 7)]
                         pos = "/".join(pos_parts).rstrip("/")
                         left, right, cost = int(_value(row, "left_id")), int(_value(row, "right_id")), int(_value(row, "cost"))
-                        if min(left, right) < 0 or max(left, right, cost) > 2**31 - 1 or cost < -(2**31):
+                        if left < -1 or right < -1 or max(left, right, cost) > 2**31 - 1 or cost < -(2**31):
                             raise ValueError("numeric field outside int32 range")
+                        if left == -1 or right == -1:
+                            skipped += 1
+                            non_decodable_skipped += 1
+                            continue
                         fields = [reading, surface, lemma, pos or "未知語", pos or "未知語"]
                         ident = "sudachi_" + hashlib.sha256(
                             "\x1f".join(fields + [str(left), str(right), str(cost)]).encode()
@@ -148,7 +153,7 @@ def import_lexicon(source, output):
         finally:
             db.close()
     return {
-        "entries": inserted, "skipped": skipped,
+        "entries": inserted, "skipped": skipped, "non_decodable_skipped": non_decodable_skipped,
         "extra_columns_ignored": len(raw) - len(recognized),
         "source_columns": len(raw),
         "import_storage": "temporary SQLite database; bounded application memory",
