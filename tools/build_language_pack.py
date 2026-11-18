@@ -125,6 +125,7 @@ def copy_license_profile(profile_path, out, payload_names):
         normalized.append({
             "id": ident,
             "version": item.get("version"),
+            "source_sha256": item.get("source_sha256"),
             "spdx": item.get("spdx"),
             "commercial_use": item.get("commercial_use"),
             "redistribution": item.get("redistribution"),
