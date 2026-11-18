@@ -7,7 +7,7 @@ import re
 from pathlib import Path, PurePosixPath
 
 def _safe_relative(value):
-    if not isinstance(value, str) or not value or "\\\\" in value:
+    if not isinstance(value, str) or not value or "\\" in value:
         return False
     path = PurePosixPath(value)
     return not path.is_absolute() and all(part not in ("", ".", "..") for part in path.parts)
