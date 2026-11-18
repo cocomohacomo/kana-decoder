@@ -51,12 +51,15 @@ std::uint64_t ConnectionModel::packed_key(std::int32_t right_id,std::int32_t lef
         static_cast<std::uint32_t>(left_id);
 }
 void ConnectionModel::set_cost(std::int32_t right_id,std::int32_t left_id,std::int32_t value){
- if(right_id<0||left_id<0||value==0)return;
+ if(right_id<0||left_id<0)return;
  const auto key=packed_key(right_id,left_id);
  auto it=std::lower_bound(costs_.begin(),costs_.end(),key,
   [](const Entry& entry,std::uint64_t target){return entry.key<target;});
- if(it!=costs_.end()&&it->key==key){it->value=value;return;}
- costs_.insert(it,Entry{key,value});
+ if(it!=costs_.end()&&it->key==key){
+  if(value==0)costs_.erase(it);else it->value=value;
+  return;
+ }
+ if(value!=0)costs_.insert(it,Entry{key,value});
 }
 std::int32_t ConnectionModel::cost(std::int32_t right_id,std::int32_t left_id)const{
  if(right_id<0||left_id<0)return 0;
