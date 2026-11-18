@@ -1,6 +1,16 @@
 name: Build Sudachi Small Pack
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/sudachi-pack.yml"
+      - "licenses/sudachidict-small-20260723-source-lock.json"
+      - "licenses/sudachi-small-20260723/license-profile.json"
+      - "tools/fetch_sudachi_source.py"
+      - "tools/import_sudachi_v1.py"
+      - "tools/validate_sudachi_pack_inputs.py"
+      - "tools/build_sudachi_pack.py"
   workflow_dispatch:
     inputs:
       max_expanded_gib:
@@ -26,7 +36,7 @@ jobs:
 
       - name: Validate size input
         env:
-          MAX_EXPANDED_GIB: ${{ inputs.max_expanded_gib }}
+          MAX_EXPANDED_GIB: ${{ inputs.max_expanded_gib || '8' }}
         run: |
           python - <<'PY'
           import os
@@ -42,7 +52,7 @@ jobs:
 
       - name: Build and verify Language Pack
         env:
-          MAX_EXPANDED_GIB: ${{ inputs.max_expanded_gib }}
+          MAX_EXPANDED_GIB: ${{ inputs.max_expanded_gib || '8' }}
         run: |
           python - <<'PY'
           import os, subprocess, sys
