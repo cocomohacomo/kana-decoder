@@ -134,7 +134,8 @@ void evaluate(const std::vector<Sentence>& sentences,
               const kana_decoder::LexiconTrie& lexicon,
               const kana_decoder::MaskedNgramScorer& scorer,
               const kana_decoder::ConnectionModel& connections,
-              Metrics& metrics) {
+              Metrics& metrics,
+              const kana_decoder::DecoderOptions& options = {}) {
     for (const auto& sentence : sentences) {
         ++metrics.cases;
         const auto reading_points = codepoints(sentence.reading);
@@ -145,7 +146,7 @@ void evaluate(const std::vector<Sentence>& sentences,
         }
         metrics.gold_tokens += sentence.tokens.size();
         const auto paths = kana_decoder::decode_reading(
-            sentence.reading, lexicon, scorer, {}, &connections);
+            sentence.reading, lexicon, scorer, options, &connections);
         std::string predicted;
         if (paths.empty()) {
             ++metrics.decode_failures;
@@ -221,9 +222,13 @@ int main(int argc, char** argv) {
         return 2;
     }
     kana_decoder::MaskedNgramScorer morphology_scorer;
-    Metrics morphology, causal;
+    Metrics morphology, causal, surge;
     evaluate(sentences, lexicon, morphology_scorer, connections, morphology);
     evaluate(sentences, lexicon, trained_scorer, connections, causal);
+    kana_decoder::DecoderOptions surge_options;
+    surge_options.surge_left_context_gate = true;
+    surge_options.surge_context_margin = 0.5;
+    evaluate(sentences, lexicon, trained_scorer, connections, surge, surge_options);
     std::cout << "{\\"mode\\":\\"end_to_end_sentence_reading_with_predicted_left_history\\""
               << ",\\"gold_token_boundaries_used_for_decoding\\":false"
               << ",\\"gold_token_boundaries_used_for_alignment_only\\":true"
@@ -232,6 +237,7 @@ int main(int argc, char** argv) {
               << ",\\"sentences\\":" << sentences.size();
     print_metrics("morphology_only", morphology);
     print_metrics("trained_unigram_left_context", causal);
+    print_metrics("surge_evidence_gated_left_context", surge);
     std::cout << "}\\n";
     return 0;
 }
