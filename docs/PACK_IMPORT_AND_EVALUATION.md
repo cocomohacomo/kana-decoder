@@ -84,3 +84,8 @@ No production dictionary Pack is claimed until the real source archives are down
 The repository also provides a manual workflow at .github/workflows/sudachi-pack.yml. In GitHub, open Actions, select Build Sudachi Small Pack, choose the expanded Pack budget (default 8 GiB), and run the workflow. It downloads the pinned archives, verifies both SHA-256 values, builds and verifies the Pack, then uploads a 30-day Actions artifact. The Pack binary is not committed to the source repository.
 
 This workflow has been added but has not yet been manually dispatched in this development session. Its success must be confirmed by a completed workflow run and inspection of the uploaded artifact before treating the real dictionary Pack as available.
+
+
+## Native runtime budget enforcement
+
+The C++ runtime now enforces the same nested \`resource_limits.max_expanded_bytes\` value as the Python Pack verifier. A missing or invalid value inside an existing \`resource_limits\` object fails closed. Legacy Packs without that object retain the 8 GiB runtime default. Native SHA-256 checks are streamed with bounded memory rather than reading an entire payload file into RAM. The 30 MiB figure remains an optimization target only.
