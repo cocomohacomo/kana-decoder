@@ -17,6 +17,8 @@ public:
  void add_left_ngram(const std::vector<std::string>&,const std::string&,std::uint32_t);
  void add_right_ngram(const std::string&,const std::vector<std::string>&,std::uint32_t);
  void add_unigram(const std::string&,std::uint32_t);
+ bool set_smoothing_alpha(double);
+ double smoothing_alpha() const { return smoothing_alpha_; }
  bool load_tsv(const std::string& path);
  double score(const std::string&,const std::vector<std::string>&,const std::vector<std::string>&) const;
  double contextual_score(const std::string&,const std::vector<std::string>&,const std::vector<std::string>&) const;
@@ -27,6 +29,7 @@ private:
  std::unordered_map<std::string,std::uint64_t> left_counts_,right_counts_,unigram_counts_;
  std::unordered_map<std::string,std::uint64_t> left_context_totals_,right_context_totals_;
  std::uint64_t unigram_total_=0;
+ double smoothing_alpha_=0.5;
  static std::string key(const std::string&,const std::string&);
  static std::string context_key(const std::vector<std::string>&);
 };
