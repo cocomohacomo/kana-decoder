@@ -21,7 +21,7 @@ def main():
  p.add_argument("--license-file",type=Path,default=ROOT/"licenses"/"sudachi-small-20260723"/"PACK-LICENSE-NOTICE.txt")
  p.add_argument("--upstream-legal-notice",type=Path,default=ROOT/"licenses"/"UPSTREAM_SUDACHIDICT_LEGAL.txt")
  p.add_argument("--sequences",type=Path);p.add_argument("--correction-rules",type=Path)
- p.add_argument("--pack-version",default="20260723.1");p.add_argument("--max-expanded-bytes",type=int,default=8*1024*1024*1024)
+ p.add_argument("--pack-version",default="20260723.1");p.add_argument("--license-spdx",default="Apache-2.0 AND BSD-3-Clause");p.add_argument("--max-expanded-bytes",type=int,default=8*1024*1024*1024)
  a=p.parse_args()
  if a.max_expanded_bytes<=0:p.error("--max-expanded-bytes must be positive")
  for path in (a.small_zip,a.matrix_zip,a.lock,a.license_profile,a.license_file,a.upstream_legal_notice):
@@ -47,7 +47,7 @@ def main():
  provenance_path=work/"provenance.json";provenance_path.write_text(json.dumps(provenance,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
  command=[sys.executable,str(ROOT/"tools"/"build_language_pack.py"),"--lexicon",str(lexicon),"--connections",str(connections),
   "--output",str(a.output.resolve()),"--license-file",str(a.license_file.resolve()),"--license-profile",str(a.license_profile.resolve()),
-  "--license-spdx","Apache-2.0 AND BSD-3-Clause","--upstream","WorksApplications/SudachiDict v20260723 + UniDic 2.1.2 matrix",
+  "--license-spdx",a.license_spdx,"--upstream","WorksApplications/SudachiDict v20260723 + UniDic 2.1.2 matrix",
   "--pack-id","ja-jp-sudachi-small","--language-id","ja-JP","--pack-version",a.pack_version,
   "--dictionary-version",str(lock.get("release")),"--reading-encoding","hiragana-utf8",
   "--normalization-profile","ja-kana-nfc-v1","--orthography-profile","ja-general-v1",
