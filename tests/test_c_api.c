@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <string.h>
 int main(void) {
+    assert(kd_c_api_version() == KD_C_API_VERSION);
     kd_engine *engine = kd_engine_create();
     char output[64] = {0};
     assert(engine != NULL);
