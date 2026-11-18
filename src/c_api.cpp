@@ -69,7 +69,7 @@ int kd_engine_decode(kd_engine* p, const char* reading, char* out, size_t cap) {
 
 
 kd_decode_result* kd_engine_decode_nbest(const kd_engine* engine,const char* reading,size_t max_paths) {
-    if (!engine || !engine->loaded || !reading || !*reading || max_paths>64) return nullptr;
+    if (!engine || !engine->loaded || !reading || !*reading || max_paths>8) return nullptr;
     try {
         kana_decoder::DecoderOptions options;
         options.max_paths=max_paths ? max_paths : 8;
