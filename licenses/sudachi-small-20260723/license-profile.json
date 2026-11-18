@@ -4,23 +4,23 @@
     {
       "id": "sudachi-small-apache",
       "version": "20260723",
-      "source_sha256": "b578ac9545899783d5d7e30d5d78d5d9dcf40b36965d4af0663ec2eb041c1093",
+      "source_sha256": "e49936daef64043657752eb9f4ada912cf0316e26dd158a6200c770e2f93e706",
       "spdx": "Apache-2.0",
       "commercial_use": true,
       "redistribution": true,
       "modified_redistribution": true,
-      "upstream_url": "https://sudachi.s3.ap-northeast-1.amazonaws.com/sudachidict-raw/20260723/small_lex.zip",
+      "upstream_url": "https://sudachi.s3.ap-northeast-1.amazonaws.com/sudachidict-raw/v1/20260723/small_lex.zip",
       "license_file": "Apache-2.0-small.txt"
     },
     {
       "id": "sudachi-small-unidic-bsd",
       "version": "20260723",
-      "source_sha256": "b578ac9545899783d5d7e30d5d78d5d9dcf40b36965d4af0663ec2eb041c1093",
+      "source_sha256": "e49936daef64043657752eb9f4ada912cf0316e26dd158a6200c770e2f93e706",
       "spdx": "BSD-3-Clause",
       "commercial_use": true,
       "redistribution": true,
       "modified_redistribution": true,
-      "upstream_url": "https://sudachi.s3.ap-northeast-1.amazonaws.com/sudachidict-raw/20260723/small_lex.zip",
+      "upstream_url": "https://sudachi.s3.ap-northeast-1.amazonaws.com/sudachidict-raw/v1/20260723/small_lex.zip",
       "license_file": "BSD-3-Clause-small.txt"
     },
     {
