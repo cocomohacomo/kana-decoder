@@ -50,7 +50,7 @@ def parse_row(row, fmt, header):
             raise ValueError(f"IPADIC row must have 13 columns, got {len(row)}")
         surface, left, right, cost = row[:4]
         pos = row[4:8]
-        lemma, reading = row[9], row[11]
+        lemma, reading = row[10], row[11]
         inflection_type, inflection_form = row[8], row[9]
     else:
         indexes = {name: header.index(name) for name in header}
@@ -81,7 +81,7 @@ def parse_row(row, fmt, header):
         raise ValueError("numeric field outside int32 range")
     group = (group if fmt == "header-csv" else "/".join(pos_parts)) or pos_label
     ident = explicit_id if fmt == "header-csv" and explicit_id else candidate_id(
-        [reading, surface, lemma, pos_label, str(left_id), str(right_id), inflection_type, inflection_form])
+        [reading, surface, lemma, pos_label, str(left_id), str(right_id), str(word_cost), inflection_type, inflection_form])
     return [reading, surface, lemma, pos_label, group, ident, str(word_cost), "0", str(left_id), str(right_id), inflection_type, inflection_form]
 
 def import_csv(source, output, fmt):
