@@ -44,12 +44,14 @@ def parse_row(row, fmt, header):
         surface, left, right, cost = row[:4]
         pos = row[4:8]
         reading, lemma = row[10], row[12]
+        inflection_type, inflection_form = row[8], row[9]
     elif fmt == "ipadic-csv":
         if len(row) != 13:
             raise ValueError(f"IPADIC row must have 13 columns, got {len(row)}")
         surface, left, right, cost = row[:4]
         pos = row[4:8]
         lemma, reading = row[9], row[11]
+        inflection_type, inflection_form = row[8], row[9]
     else:
         indexes = {name: header.index(name) for name in header}
         required = ("surface", "reading", "pos", "word_cost", "left_id", "right_id")
@@ -61,6 +63,7 @@ def parse_row(row, fmt, header):
         pos = [get("pos")]
         left, right, cost = get("left_id"), get("right_id"), get("word_cost")
         explicit_id, group = get("candidate_id"), get("reading_group")
+        inflection_type, inflection_form = get("inflection_type"), get("inflection_form")
     surface = clean(surface)
     reading = to_hiragana(clean(reading))
     if not surface or not reading:
@@ -68,6 +71,8 @@ def parse_row(row, fmt, header):
     pos_parts = [clean(x) for x in pos if clean(x)]
     pos_label = "/".join(pos_parts) or "未知語"
     lemma = clean(lemma) or surface
+    inflection_type = clean(inflection_type)
+    inflection_form = clean(inflection_form)
     try:
         left_id, right_id, word_cost = int(left), int(right), int(cost)
     except (TypeError, ValueError) as exc:
@@ -76,8 +81,8 @@ def parse_row(row, fmt, header):
         raise ValueError("numeric field outside int32 range")
     group = (group if fmt == "header-csv" else "/".join(pos_parts)) or pos_label
     ident = explicit_id if fmt == "header-csv" and explicit_id else candidate_id(
-        [reading, surface, lemma, pos_label, str(left_id), str(right_id)])
-    return [reading, surface, lemma, pos_label, group, ident, str(word_cost), "0", str(left_id), str(right_id)]
+        [reading, surface, lemma, pos_label, str(left_id), str(right_id), inflection_type, inflection_form])
+    return [reading, surface, lemma, pos_label, group, ident, str(word_cost), "0", str(left_id), str(right_id), inflection_type, inflection_form]
 
 def import_csv(source, output, fmt):
     rows, seen, skipped = [], set(), 0
@@ -109,7 +114,7 @@ def import_csv(source, output, fmt):
         raise ValueError("no importable entries (all readings may be missing)")
     rows.sort(key=lambda x: (x[0], x[8], x[9], x[5]))
     with output.open("w", encoding="utf-8", newline="\n") as stream:
-        stream.write("# kana\tsurface\tlemma\tpos\treading_group\tcandidate_id\tword_cost\tconnection_cost\tleft_id\tright_id\n")
+        stream.write("# kana\tsurface\tlemma\tpos\treading_group\tcandidate_id\tword_cost\tconnection_cost\tleft_id\tright_id\tinflection_type\tinflection_form\n")
         for row in rows:
             stream.write("\t".join(row) + "\n")
     return {"input_format": fmt, "imported_entries": len(rows), "skipped_unreadable": skipped,
