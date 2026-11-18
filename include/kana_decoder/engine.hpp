@@ -19,6 +19,7 @@ public:
  void add_unigram(const std::string&,std::uint32_t);
  bool load_tsv(const std::string& path);
  double score(const std::string&,const std::vector<std::string>&,const std::vector<std::string>&) const;
+ double contextual_score(const std::string&,const std::vector<std::string>&,const std::vector<std::string>&) const;
  AmbiguityResult resolve(const std::vector<Candidate>&,const std::vector<std::string>&,const std::vector<std::string>&,
   OutputMode,double minimum_score=-8.0,double minimum_margin=1.25,bool include_other=true,const std::string& original_reading={}) const;
 private:
@@ -83,7 +84,7 @@ struct CandidateScoreTrace {
  std::size_t start=0,end=0;
  std::string candidate_id,surface;
  std::int32_t word_cost=0,candidate_connection_cost=0,transition_cost=0;
- double raw_context_score=0.0,context_weight=1.0,morphology_score=0.0,weighted_context_score=0.0,local_score=0.0;
+ double raw_context_score=0.0,context_evidence_score=0.0,context_weight=1.0,morphology_score=0.0,weighted_context_score=0.0,local_score=0.0;
  bool unknown_fallback=false;
 };
 struct LatticeMatchTrace {
