@@ -256,3 +256,12 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Added .github/workflows/sudachi-pack.yml with workflow_dispatch. It downloads the two source archives from the pinned lock, verifies their SHA-256 values, builds the real Small Pack, runs final Pack/license verification and uploads the result as a 30-day Actions artifact.
 - Added README and Pack import guide instructions for selecting Actions → Build Sudachi Small Pack → Run workflow. The expanded Pack budget defaults to 8 GiB and is bounded to 0.25–64 GiB.
 - This manual workflow has been added but has not been dispatched in this session. No real dictionary archive or production Pack is claimed until the workflow completes successfully and the artifact is inspected.
+
+
+## 25. v0.15 native Pack verifier resource consistency
+- Fixed a schema mismatch: C++ runtime verification now reads the nested \`resource_limits.max_expanded_bytes\` field that the Pack builder and Python verifier emit. Previously, the native verifier could silently use its 8 GiB fallback instead of enforcing a smaller declared Pack budget.
+- If \`resource_limits\` exists but its byte budget is missing or invalid, native verification fails closed. Legacy manifests without the optional object retain the 8 GiB default.
+- Replaced whole-file SHA-256 buffering with bounded streaming hashing (64 KiB input buffer, 64-byte SHA-256 blocks), preventing a large lexicon file from being copied wholesale into temporary RAM during integrity verification.
+- Increased the native payload-file ceiling from 64 to 256 while retaining the 1 MiB manifest cap.
+- Added C++ conformance tests: declared 64 MiB budget is accepted, and a deliberately undersized 1-byte budget is rejected with the expected resource-limit error.
+- CI validation is pending for commits \`770ba78\` and \`f730f66\`. No production Sudachi archive or Pack was downloaded or built as part of this change.
