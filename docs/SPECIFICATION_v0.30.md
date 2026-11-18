@@ -74,7 +74,17 @@ GitHub Actions run `44394039136` completed successfully:
 - Morphology-only top-1 accuracy: 45.2936%.
 - Combined unigram + bidirectional context top-1 accuracy: 45.4164% (+0.1228 percentage points).
 - Oracle SURGE resolved 875 tokens, abstained on 8,899; resolution precision 90.8571%, correct-resolution recall over covered tokens 8.1338%.
-- These are oracle-context measurements. They are not causal or end-to-end accuracy claims.\n\n## 4.1 v0.30 causal measurement\n\nGitHub Actions run `44405759595` completed successfully using the same pinned corpus and dictionary:\n- Candidate coverage: 9,774 / 10,317 (94.74%).\n- Causal morphology-only: 45.2936% (4,427 correct tokens).\n- Causal morphology + unigram + predicted-left context: 45.3857% (4,436 correct, +0.0921 percentage points).\n- Causal SURGE-gated with morphology fallback: 46.2861% (4,524 correct, +0.9925 percentage points versus morphology-only).\n- SURGE resolved 151 tokens and abstained on 10,166; resolution precision 85.4305%, correct-resolution recall over covered tokens 1.3198%.\n- This is a token-aligned causal diagnostic, not full end-to-end conversion accuracy. Gold token boundaries/readings remain supplied. The SURGE overall accuracy includes morphology fallback on abstentions, so the gain is a selective reranking effect, not 46.29% SURGE-only coverage.
+- These are oracle-context measurements. They are not causal or end-to-end accuracy claims.
+
+## 4.1 v0.30 causal measurement
+
+GitHub Actions run `44405759595` completed successfully using the same pinned corpus and dictionary:
+- Candidate coverage: 9,774 / 10,317 (94.74%).
+- Causal morphology-only: 45.2936% (4,427 correct tokens).
+- Causal morphology + unigram + predicted-left context: 45.3857% (4,436 correct, +0.0921 percentage points).
+- Causal SURGE-gated with morphology fallback: 46.2861% (4,524 correct, +0.9925 percentage points versus morphology-only).
+- SURGE resolved 151 tokens and abstained on 10,166; resolution precision 85.4305%, correct-resolution recall over covered tokens 1.3198%.
+- This is a token-aligned causal diagnostic, not full end-to-end conversion accuracy. Gold token boundaries/readings remain supplied. The SURGE overall accuracy includes morphology fallback on abstentions, so the gain is a selective reranking effect, not 46.29% SURGE-only coverage.
 
 ## 5. CI and runtime guardrails
 
