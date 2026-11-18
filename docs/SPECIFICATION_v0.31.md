@@ -63,3 +63,12 @@ These figures are historical baseline measurements, not v0.31 SURGE results.
 ## 6. Validation status
 
 The v0.31 implementation includes unit coverage for observed evidence, missing evidence abstention, distinct-surface support, and native evaluator JSON contract. CI run 44414980579 passed (CTest 21/21; Python 63 tests, 58 passed / 5 skipped). Sudachi Pack run 44414667242 passed with 2,414 sentences / 10,317 tokens. The default SURGE gate produced the same full-path result as morphology-only: exact 24.6479%, CER 48.6578%; ordinary unigram + predicted-left context achieved exact 24.8136%, CER 48.4772%. Peak RSS was 1,425,512 KiB (1,392.1 MiB), below the 1,792 MiB gate. The measured gate did not resolve a path often enough to change aggregate output, so no v0.31 SURGE accuracy gain is claimed. This result motivates dev-only calibration in v0.32.
+
+
+## v0.32: 校正データと数値入力の堅牢化
+
+- SURGE校正ファイルは重み・証拠マージン・平滑化係数の3値だけを受け付け、余分なフィールドを拒否する。
+- NaN / Inf、負のcontext weight、負のevidence marginはデコーダ入口でfail-closedとし、空の経路とresource-limit相当の拒否状態を返す。
+- これにより不正な校正Artifactや呼び出し側オプションがBeam順位を汚染することを防ぐ。
+- C++テストでNaN重み・負のmarginを、Python統合テストで余分な列・NaN校正値の拒否を検証する。
+- この変更は精度改善を目的とするものではなく、校正パラメータ境界と再現可能性の安全性改善である。CI結果は実行完了後に追記する。
