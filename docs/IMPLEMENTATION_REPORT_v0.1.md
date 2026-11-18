@@ -47,12 +47,12 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 2. n-gram countの簡易学習パイプラインは実装済み。実コーパスの前処理・ドメイン別評価・確率校正は未実施。
 3. Correction Engineは候補生成器。辞書・形態素解析器との統合が必要。
 4. DependencyGraphは単体実装。Streaming Context CoreのClaim / Evidence / Question / Focusとの統合が必要。
-5. Pack Manifest/SHA-256検証はPythonツール。C++ runtime側のManifest/SHA-256検証、mmap、複数Sessionでの辞書共有ポリシーは未実装。
+5. Pack Manifest/SHA-256検証はPythonとC++ runtimeの両方に実装済み。mmap、複数Sessionでの辞書共有ポリシーは未実装。
 6. 30 MiB実用Packにはライセンス確認済み語彙の選定・インポート・圧縮・カバレッジ測定が必要。
 7. UTF-8不正シーケンス拒否とコードポイント範囲処理は実装済み。Unicode NFC等の正規化、全APIにわたる原入力byte span対応は未実装。
 8. 補正閾値はfixture上の値。実データで誤修正率・見逃し率を評価して決める。
 9. 部分Commitは保持中のN-best上位集合の共通接頭辞に限定。Beamで破棄された候補まで含む保証ではない。
-10. C++ Pack loaderはManifestのhashを検証しない。必ずPython verifierを事前実行する。
+10. C++ Pack loaderはbuilderが生成する限定Manifest形式のhashを検証する。Python verifierも配布前の追加preflightとして実行する。
 
 ## 6. 総合判定
 **実装基盤と単体テストは成功。製品機能としては部分実装。**
@@ -75,7 +75,7 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - TSV列は `kana, surface, lemma, pos, reading_group` を必須とし、6列目のcandidate_id、7列目word_cost、8列目connection_costを任意で受け取る。既存の5列形式も互換。
 - 一致辞書がない位置には1 code point単位のかなfallback edgeを作り、未知語を失わずに末尾まで経路を構成する。未知語は高コストのため既知語を優先する。
 - `MaskedNgramScorer::load_tsv` を追加。PackのL/R/Uレコードを読み込み、Lは左文脈、Rは右文脈、Uはunigramとして取り込む。
-- `load_language_pack` はlexicon.tsvとngram.tsvを一時オブジェクトへ読み込み、両方成功した場合のみEngine側へ反映する。Manifest、SHA-256、ライセンス、サイズの検証はC++ローダーではなく既存のオフラインPython検証器で事前実行する必要がある。
+- `load_language_pack` はlexicon.tsvとngram.tsvを一時オブジェクトへ読み込み、両方成功した場合のみEngine側へ反映する。Manifest、SHA-256、ライセンス、サイズの検証はC++ローダーとオフラインPython検証器の両方で検証する。
 - `decode_reading` により読み文字列→Trieラティス→N-bestデコードを接続。
 - `StreamingSession` は入力チャンクごとに現在の読み全体を再デコードし、単調増加revision付きのprovisional snapshotを返す。最大読み長をcode point数で制限。
 - `commit_best` は呼び出し側が明示した時点で上位経路を文字列化してsegment commitする。自動commit・右文脈待ち時間による確定は未実装。部分commitはsection 9の `commit_common_prefix` で追加。commit後は読みバッファを空にして次segmentを受け付ける。
@@ -93,7 +93,7 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Pack検証器を強化。Manifest file entryの型・必須キー、重複パス、root外参照、必須辞書/n-gramファイル、宣言済みmax_expanded_bytesを検証。connections.tsvをManifest対象に追加。
 - CMakeをC/C++両言語対応にし、C API統合テストをCTestへ追加。GitHub ActionsでC/C++ビルド、CTest、辞書Pack検証に加えてN-bestデコーダmicrobenchmarkを実行する。
 - テスト追加: UTF-8妥当/不正/過長シーケンス、接続IDによる経路選択、共通接頭辞部分commitと未確定suffix保持、C ABIによるPackロードと「あめ」変換、出力バッファ不足、Manifest重複パス/容量制限。
-- C++ PackローダーはTSV構造を検査するが、ManifestのSHA-256検証は行わない。利用前に `tools/verify_pack.py` を実行する運用契約とし、C ABIのPackロード関数も同じ前提に従う。
+- C++ Packローダーは辞書読込前にManifestとSHA-256を検証する。さらに配布前に `tools/verify_pack.py` を実行する運用とする。
 - `commit_common_prefix` の確定安全性は保持中のN-best集合に対する共通性に限定される。Beamで破棄された候補まで含む数学的な全候補保証ではない。
 - 実用辞書・大規模接続行列、文脈モデルの実データ校正、補正器の形態素統合、mmap、無動的確保のhot path、p50/p95/p99・peak RSSの計測は引き続き未完了。
 
