@@ -13,6 +13,14 @@ struct kd_engine {
     kana_decoder::ConnectionModel connections;
     bool loaded = false;
 };
+struct kd_streaming_session {
+    kana_decoder::LexiconTrie lexicon;
+    kana_decoder::MaskedNgramScorer scorer;
+    kana_decoder::ConnectionModel connections;
+    kana_decoder::StreamingSession session;
+    kana_decoder::StreamingSnapshot snapshot;
+    explicit kd_streaming_session(std::size_t limit) : session(limit) {}
+};
 
 extern "C" {
 kd_ngram_scorer* kd_ngram_scorer_create(void) {
@@ -54,6 +62,84 @@ int kd_engine_decode(kd_engine* p, const char* reading, char* out, size_t cap) {
     } catch (...) {
         return KD_ERR_INTERNAL;
     }
+}
+
+
+kd_streaming_session* kd_streaming_session_create(const kd_engine* engine,size_t max_reading_codepoints) {
+    if (!engine || !engine->loaded) return nullptr;
+    try {
+        auto* result = new (std::nothrow) kd_streaming_session(max_reading_codepoints ? max_reading_codepoints : 256);
+        if (!result) return nullptr;
+        result->lexicon = engine->lexicon;
+        result->scorer = engine->scorer;
+        result->connections = engine->connections;
+        return result;
+    } catch (...) { return nullptr; }
+}
+void kd_streaming_session_destroy(kd_streaming_session* p) { delete p; }
+
+static int copy_stream_output(const std::string& value,char* output,size_t capacity) {
+    if (!output || !capacity) return KD_ERR_INVALID_ARGUMENT;
+    if (value.size()+1>capacity) return KD_ERR_BUFFER_TOO_SMALL;
+    std::memcpy(output,value.c_str(),value.size()+1);
+    return 0;
+}
+static std::string best_surface(const kana_decoder::StreamingSnapshot& snapshot) {
+    if (snapshot.paths.empty()) return {};
+    std::string result;
+    for (const auto& token : snapshot.paths.front().tokens) result += token.candidate.surface;
+    return result;
+}
+int kd_streaming_append(kd_streaming_session* p,const char* chunk,char* output,size_t capacity,uint64_t* revision) {
+    if (!p || !chunk || !*chunk || !output || !capacity) return KD_ERR_INVALID_ARGUMENT;
+    try {
+        auto trial_session=p->session;
+        auto trial_snapshot=p->snapshot;
+        if (!trial_session.append(chunk,p->lexicon,p->scorer,trial_snapshot,{},&p->connections))
+            return KD_ERR_INVALID_ARGUMENT;
+        const std::string result=best_surface(trial_snapshot);
+        const int copied=copy_stream_output(result,output,capacity);
+        if (copied) return copied;
+        p->session=std::move(trial_session);
+        p->snapshot=std::move(trial_snapshot);
+        if (revision) *revision=p->snapshot.revision;
+        return 0;
+    } catch (...) { return KD_ERR_INTERNAL; }
+}
+int kd_streaming_commit_common_prefix(kd_streaming_session* p,char* output,size_t capacity,uint64_t* revision) {
+    if (!p || !output || !capacity) return KD_ERR_INVALID_ARGUMENT;
+    try {
+        auto trial_session=p->session;
+        auto trial_snapshot=p->snapshot;
+        std::string committed;
+        if (!trial_session.commit_common_prefix(trial_snapshot,committed)) return KD_ERR_INVALID_ARGUMENT;
+        const int copied=copy_stream_output(committed,output,capacity);
+        if (copied) return copied;
+        p->session=std::move(trial_session);
+        p->snapshot=std::move(trial_snapshot);
+        if (revision) *revision=p->snapshot.revision;
+        return 0;
+    } catch (...) { return KD_ERR_INTERNAL; }
+}
+int kd_streaming_commit_best(kd_streaming_session* p,char* output,size_t capacity,uint64_t* revision) {
+    if (!p || !output || !capacity) return KD_ERR_INVALID_ARGUMENT;
+    try {
+        auto trial_session=p->session;
+        auto trial_snapshot=p->snapshot;
+        std::string committed;
+        if (!trial_session.commit_best(trial_snapshot,committed)) return KD_ERR_INVALID_ARGUMENT;
+        const int copied=copy_stream_output(committed,output,capacity);
+        if (copied) return copied;
+        p->session=std::move(trial_session);
+        p->snapshot=std::move(trial_snapshot);
+        if (revision) *revision=p->snapshot.revision;
+        return 0;
+    } catch (...) { return KD_ERR_INTERNAL; }
+}
+int kd_streaming_reset(kd_streaming_session* p) {
+    if (!p) return KD_ERR_INVALID_ARGUMENT;
+    try { p->session.reset(); p->snapshot={}; return 0; }
+    catch (...) { return KD_ERR_INTERNAL; }
 }
 
 int kd_ngram_add_unigram(kd_ngram_scorer* p, const char* id, uint32_t n) {
