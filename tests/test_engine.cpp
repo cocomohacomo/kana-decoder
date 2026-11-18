@@ -178,6 +178,20 @@ int main(){
  assert(undersized_error=="Pack expanded size exceeds declared limit");
  std::filesystem::remove_all(undersized_budget_pack);
 
+ // Exercise the streaming SHA-256 path across multiple 64 KiB input chunks.
+ const auto streaming_hash_pack=std::filesystem::temp_directory_path()/"kana_decoder_streaming_hash_pack";
+ std::filesystem::remove_all(streaming_hash_pack);
+ std::filesystem::copy(std::filesystem::path(KANA_DECODER_SOURCE_DIR)/"packs"/"ja-lite",streaming_hash_pack,std::filesystem::copy_options::recursive);
+ {std::ofstream large(streaming_hash_pack/"large.bin",std::ios::binary);for(int i=0;i<70000;++i)large.put('x');}
+ const auto streaming_manifest=streaming_hash_pack/"manifest.json";
+ {std::ifstream in(streaming_manifest);std::string json((std::istreambuf_iterator<char>(in)),{});
+  const auto files_pos=json.find("\"files\"");assert(files_pos!=std::string::npos);
+  const auto files_end=json.find("\n ]",files_pos);assert(files_end!=std::string::npos);
+  json.insert(files_end,",\n  {\"path\":\"large.bin\",\"size\":70000,\"sha256\":\"bca09f4a757d5571c7d9f3341d4301f3c391c090826acc1a3013c6bcb7c01722\"}");
+  std::ofstream out_file(streaming_manifest);out_file<<json;}
+ std::string streaming_hash_error;assert(verify_pack_manifest(streaming_hash_pack.string(),&streaming_hash_error));
+ std::filesystem::remove_all(streaming_hash_pack);
+
  // Integrated C ABI: load a local Language Pack and decode kana to a surface form.
  kd_engine* engine=kd_engine_create();assert(engine);
  assert(kd_engine_load_pack(engine,(std::string(KANA_DECODER_SOURCE_DIR)+"/packs/ja-lite").c_str())==0);
