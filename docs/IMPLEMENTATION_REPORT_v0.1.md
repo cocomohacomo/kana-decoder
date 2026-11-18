@@ -303,3 +303,11 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - 23列V1ヘッダーfixtureとheaderless V0拒否fixtureを追加。実アーカイブの新SHA-256照合と実データPack生成は、修正後Workflowで再確認するまで未成功扱い。
 
 - Added v0.17 regression gates for the official 23-column V1 named header, V0 headerless rejection, and exact pinned V1 source URL/hash. The Sudachi Pack workflow now also runs on pushes that change the pinned source lock, source importer/fetcher/validator, or this workflow definition, so the corrected source pipeline is retried from the new main commit without a manual dispatch.
+
+
+## 29. Sudachi V1 composition-only context IDs
+- Workflow run 44373076130 successfully downloaded the corrected V1 lexicon archive (14,641,540 bytes) and verified SHA-256 \`e49936daef64043657752eb9f4ada912cf0316e26dd158a6200c770e2f93e706\`. The matrix archive also passed its pinned checksum.
+- The build advanced beyond the previous header error and stopped at lexicon line 12 because a context ID was \`-1\`.
+- Sudachi V1 documentation states that entries used only as components of split words may have Left_Id or Right_Id set to -1; such entries do not appear independently as analysis results. The importer now skips these rows as standalone candidates, while validation counts and reports them. Values below -1 and out-of-dimension positive IDs remain errors.
+- Added regression tests for validator acceptance, importer filtering and skip counts. The first test revision contained literal escaped newlines in fixture data; corrected in commit 62399cc20a0d2415c61824b0ef8bddb4e0d15b6f before final CI verification.
+- The V1 Pack Workflow has not yet succeeded. A new push-triggered run will verify the sentinel handling against the complete source.
