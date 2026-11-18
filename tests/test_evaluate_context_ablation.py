@@ -48,6 +48,16 @@ class ContextAblationTests(unittest.TestCase):
             self.assertEqual(result["surge_resolved_tokens"], 0)
             self.assertGreaterEqual(result["surge_abstained_tokens"], 1)
 
+    def test_connection_matrix_loader_keeps_only_required_pairs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            matrix = Path(tmp) / "connections.tsv"
+            matrix.write_text(
+                "# matrix 10 10\n# right_id\tleft_id\tcost\n"
+                "1\t2\t30\n3\t4\t40\n",
+                encoding="utf-8")
+            result = evaluator.read_connections(matrix, {(1, 2)})
+            self.assertEqual(result, {(1, 2): 30})
+
     def test_context_scoring_matches_smoothing_and_candidate_cap(self):
         with tempfile.TemporaryDirectory() as tmp:
             lexicon, corpus, seq = self._fixture(Path(tmp), True)
