@@ -25,6 +25,7 @@ struct kd_streaming_session {
 };
 
 extern "C" {
+uint32_t kd_c_api_version(void) { return KD_C_API_VERSION; }
 kd_ngram_scorer* kd_ngram_scorer_create(void) {
     return new (std::nothrow) kd_ngram_scorer();
 }
