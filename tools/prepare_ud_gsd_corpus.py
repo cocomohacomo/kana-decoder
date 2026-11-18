@@ -46,15 +46,33 @@ def parse_misc(misc):
     return values
 
 
+def looks_like_reading(value):
+    if not value or value in ("*", "？"):
+        return False
+    for char in value:
+        code = ord(char)
+        if (0x3040 <= code <= 0x309F or 0x30A0 <= code <= 0x30FF
+                or char in "ー・ゝゞヽヾ"):
+            continue
+        if unicodedata.category(char)[0] in ("P", "S", "N"):
+            continue
+        return False
+    return True
+
+
 def token_reading(form, misc):
     values = parse_misc(misc)
     info = values.get("unidicinfo")
     if info:
         fields = info.split(",")
-        if len(fields) >= 4 and fields[3] not in ("", "*", "？"):
-            return to_hiragana(fields[3])
+        # In UD_Japanese-GSD's actual UnidicInfo values, field 5 (index 4)
+        # carries the token-form reading (e.g. 行っ -> オコナッ). The
+        # neighboring fields may instead contain orthography or lemma reading.
+        for index in (4, 3, 0):
+            if len(fields) > index and looks_like_reading(fields[index]):
+                return to_hiragana(fields[index])
     reading = values.get("reading") or values.get("pron")
-    if reading and reading not in ("*", "？"):
+    if looks_like_reading(reading or ""):
         return to_hiragana(reading)
     if form and all(unicodedata.category(ch)[0] in ("P", "S", "N") for ch in form):
         return form
