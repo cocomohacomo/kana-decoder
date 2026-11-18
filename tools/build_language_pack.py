@@ -180,6 +180,10 @@ def write_pack(args):
     license_components = []
     if args.license_profile:
         license_components = copy_license_profile(args.license_profile, out, payload_names)
+        declared = [part.strip() for part in args.license_spdx.split(" AND ")]
+        expected = sorted({item["spdx"] for item in license_components})
+        if len(declared) != len(set(declared)) or sorted(declared) != expected:
+            raise ValueError("combined --license-spdx must exactly match the component SPDX conjunction")
 
     files = []
     for name in payload_names:
