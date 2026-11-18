@@ -31,9 +31,9 @@ class BoundedImportTests(unittest.TestCase):
                 for i in range(5000):
                     stream.write(f"語{i},1,2\n")
             with matrix.open("w", encoding="utf-8") as stream:
-                stream.write("3 4\n")
+                stream.write("5000 5000\n")
                 for i in range(5000):
-                    stream.write(f"{i % 4} {i % 3} {i - 2500}\n")
+                    stream.write(f"{i} {i} {i - 2500}\n")
             result = validate.validate(lex, matrix)
             self.assertEqual(result["lexicon_rows"], 5000)
             self.assertEqual(result["matrix_rows"], 5000)
