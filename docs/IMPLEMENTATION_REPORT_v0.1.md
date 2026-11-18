@@ -120,3 +120,14 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Smoke gold corpus: 4件中4件完全一致。これはfixtureの配線確認であり、製品精度指標ではない。
 - CI microbenchmark: n-gram resolve 4,429.48 ns/resolve、2-token/5-edge decoder 1,672.04 ns/decode。1回の小規模測定であり、実機・実用辞書・全文処理・tail latency・RSSの保証ではない。
 - 追加したstrict numeric parserはint32/uint32の範囲と文字列全体の一致を検査し、`100junk` や `10x` のような末尾不正文字を拒否する。
+
+
+## 12. 日本語辞書Adapter・Correction統合・native Pack検証
+- `tools/import_japanese_dictionary.py` を追加。Sudachi 17列CSV、IPADIC互換13列CSV、明示ヘッダーCSVを正規化辞書TSVへ変換する。
+- 読みはカタカナからひらがなへ変換。読みが `*` / 空の項目はスキップ。surface、lemma、POS、word cost、left/right connection IDを保持。candidate IDはソースIDがなければ決定的SHA-256由来IDを生成する。
+- UniDicはリリース・出力形式が複数あるため、IPADIC形式と決めつけない。監査済みの列対応を明示ヘッダーCSVで渡す。実際の第三者辞書は同梱していない。
+- `tools/evaluate_corpus.cpp` は3列目のdomainラベルに対応。全体とdomain別のExact Match、CER、編集距離、decode failureをJSON出力する。旧2列形式は `unspecified` に集計。
+- `decode_with_corrections` を追加。重複文字・Language Pack規則による最大8候補を生成し、候補ごとに形態素デコードしてスコア比較。CorrectionEngineの閾値を満たす候補のみ採用。数字、URL形式、protected spanは自動補正しない。
+- `src/pack_manifest.cpp` を追加。外部依存なしのSHA-256検証、Pack ABI/format、license metadata、必須ファイル、payloadサイズ/hash、相対パス、symlink、未登録ファイル、30MiB runtime上限を確認する。C++ `load_language_pack` は辞書読み込み前にnative検証を実行。
+- 重要な制約: native verifierは現在、builderが生成するManifestの限定スキーマを正規表現で検査する実装であり、汎用JSON parserではない。Manifest形式を拡張する場合はparserも同時に更新する必要がある。Python verifierも併用する。
+- AdapterテストはSudachi/IPADIC/header CSV、読めない項目のskip、壊れた行の拒否を検証。Correction統合とPack payload改ざん検知をC++テストに追加。
