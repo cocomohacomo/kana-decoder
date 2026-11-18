@@ -79,6 +79,13 @@ struct CorrectionDecodeResult {
  CorrectionCandidate correction{"", "", {CorrectionKind::Phonetic, 0, "", ""}, 0.0, false, ""};
  std::vector<DecodedPath> paths;
 };
+struct CandidateScoreTrace {
+ std::size_t start=0,end=0;
+ std::string candidate_id,surface;
+ std::int32_t word_cost=0,candidate_connection_cost=0,transition_cost=0;
+ double raw_context_score=0.0,context_weight=1.0,morphology_score=0.0,weighted_context_score=0.0,local_score=0.0;
+ bool unknown_fallback=false;
+};
 struct DecoderOptions {
  std::size_t beam_width=8;
  std::size_t max_edges_per_position=16;
@@ -133,7 +140,7 @@ public:
  std::vector<DecodedPath> decode(std::size_t reading_length,
   const std::vector<LatticeEdge>& lattice,const MaskedNgramScorer& scorer,
   const std::vector<std::string>& right_context={},
-  const DecoderOptions& options={},const ConnectionModel* connections=nullptr) const;
+  const DecoderOptions& options={},const ConnectionModel* connections=nullptr,\n  std::vector<CandidateScoreTrace>* trace=nullptr) const;
 };
 std::string render_ambiguity(const std::vector<Candidate>&,bool);
 }
