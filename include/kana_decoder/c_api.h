@@ -8,6 +8,18 @@ extern "C" {
 typedef struct kd_ngram_scorer kd_ngram_scorer;
 typedef struct kd_engine kd_engine;
 typedef struct kd_streaming_session kd_streaming_session;
+typedef struct kd_decode_result kd_decode_result;
+typedef struct kd_token_view {
+    size_t start_codepoint;
+    size_t end_codepoint;
+    const char* candidate_id;
+    const char* surface;
+    const char* pos;
+    const char* inflection_type;
+    const char* inflection_form;
+    double morphology_score;
+    double context_score;
+} kd_token_view;
 typedef struct kd_candidate_view { const char* id; const char* surface; } kd_candidate_view;
 enum { KD_OUTPUT_NORMAL=0,KD_OUTPUT_AMBIGUOUS=1,KD_OUTPUT_CONSERVATIVE=2,KD_OUTPUT_DIAGNOSTIC=3 };
 enum { KD_ERR_INVALID_ARGUMENT=-1,KD_ERR_BUFFER_TOO_SMALL=-2,KD_ERR_INTERNAL=-3 };
@@ -18,6 +30,13 @@ void kd_engine_destroy(kd_engine*);
 int kd_engine_load_pack(kd_engine*,const char* pack_directory);
 // Returns best-path surface text. 0 success; negative values are KD_ERR_* codes.
 int kd_engine_decode(kd_engine*,const char* reading,char* output,size_t output_capacity);
+// N-best result owns all returned strings. Views remain valid until result destruction.
+kd_decode_result* kd_engine_decode_nbest(const kd_engine*,const char* reading,size_t max_paths);
+void kd_decode_result_destroy(kd_decode_result*);
+size_t kd_decode_result_path_count(const kd_decode_result*);
+int kd_decode_result_path_score(const kd_decode_result*,size_t path_index,double* score);
+size_t kd_decode_result_token_count(const kd_decode_result*,size_t path_index);
+int kd_decode_result_token(const kd_decode_result*,size_t path_index,size_t token_index,kd_token_view* view);
 // A streaming session owns a snapshot of the loaded engine. It remains valid if the
 // original engine is later destroyed or reloaded.
 kd_streaming_session* kd_streaming_session_create(const kd_engine*,size_t max_reading_codepoints);
