@@ -385,4 +385,5 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - これらは警告の原因となる記述を整理したもので、スコア式・候補順位・fallback発火条件・補正閾値・探索上限・Pack形式・公開APIは変更していない。
 - CMakeのstatic/shared両ターゲットに `-Werror` を追加し、今後の警告再発をCIビルド段階で失敗として検出する。
 - 既存の `decoder_trace_tests` と `evaluator_cli_contract_tests` を回帰ゲートとして維持。`--trace` 有無で全体/domain集計が一致すること、traceのscore decompositionが一致することを引き続き検証する。
-- v0.24のCI結果はGitHub Actions run完了後に追記する。警告ゼロおよび全テスト成功は、実際のrun結果で確認するまで未確定とする。
+- GitHub Actions run `44380200959`（commit `4f9aa8c2076626dad075555e161fcae76d26093d`）: completed / success。Configure / Build（`-Werror`有効）/ CTest / bounded decode benchmark / Japanese reference Pack verification / Python Pack・license testsすべて成功。Buildログのwarning/errorは0件。
+- CTest: 14/14 PASS。Python unittest: 45件実行、41 PASS・4 SKIP。static coreとshared runtimeの双方がwarning-as-error条件でビルド成功。
