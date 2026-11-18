@@ -26,12 +26,14 @@
 
 ## Sudachi V1とコーパス検証
 - source lock: licenses/sudachidict-small-20260723-source-lock.json
-- local archive verification: python3 tools/verify_sudachi_source.py --small-zip small_lex.zip --matrix-zip matrix.def.zip --output work/sudachi
+- source acquisition: python3 tools/fetch_sudachi_source.py --output-dir work/archives
+- Pack build: python3 tools/build_sudachi_pack.py --small-zip work/archives/small_lex.zip --matrix-zip work/archives/matrix.def.zip --work-dir work/build --output dist/ja-jp-sudachi-small
 - V1 header matching is case-insensitive and ignores underscores.
 - train/dev/test leakage guard: tools/validate_corpus_splits.py
 - 詳細: docs/PACK_IMPORT_AND_EVALUATION.md
 
 ## 仕様
+- v0.13: docs/SPECIFICATION_v0.13.md
 - v0.12: docs/SPECIFICATION_v0.12.md
 - v0.11: docs/SPECIFICATION_v0.11.md
 - v0.10: docs/SPECIFICATION_v0.10.md
