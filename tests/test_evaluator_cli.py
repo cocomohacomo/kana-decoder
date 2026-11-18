@@ -49,6 +49,24 @@ def main():
             )
             assert isinstance(candidate["unknown_fallback"], bool)
 
+    lattice_traced = run([evaluator, pack_dir, corpus, "--lattice-trace"])
+    assert lattice_traced.returncode == 0, lattice_traced.stderr
+    lattice_result = json.loads(lattice_traced.stdout)
+    assert lattice_result["overall"] == normal_result["overall"]
+    assert lattice_result["domains"] == normal_result["domains"]
+    assert len(lattice_result["details"]) == normal_result["overall"]["cases"]
+    for item in lattice_result["details"]:
+        positions = item["candidate_generation"]
+        assert len(positions) == len(item["reading"])
+        for position in positions:
+            assert position["dictionary_match_count"] == len(position["matches"])
+            if position["fallback_generated"]:
+                assert position["dictionary_match_count"] == 0
+                assert position["fallback_enabled"]
+            if position["fallback_suppressed_by_dictionary"]:
+                assert position["dictionary_match_count"] > 0
+                assert not position["fallback_generated"]
+
     # CRLF input must not contaminate the domain key.
     with tempfile.TemporaryDirectory() as directory:
         crlf = pathlib.Path(directory) / "crlf.tsv"
