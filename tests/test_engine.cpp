@@ -89,6 +89,13 @@ int main(){
  auto context_paths=decode_reading("あしたあめ",contextual_trie,pack_scorer,dop);
  assert(!context_paths.empty()&&context_paths[0].tokens.size()==2);
  assert(context_paths[0].tokens[1].candidate.id=="rain");
+ LexiconTrie morphology_trie;
+ assert(morphology_trie.add("たべる",LatticeCandidate{"verb-tab eru","食べる",20,0,7,8,"動詞/一般","下一段-バ行","終止形-一般"}));
+ auto morphology_path=decode_reading("たべる",morphology_trie,pack_scorer,dop);
+ assert(!morphology_path.empty());
+ assert(morphology_path.front().tokens.front().candidate.pos=="動詞/一般");
+ assert(morphology_path.front().tokens.front().candidate.inflection_type=="下一段-バ行");
+ assert(morphology_path.front().tokens.front().candidate.inflection_form=="終止形-一般");
 
  // Trie-backed Pack loading, lattice generation and bounded streaming revisions.
  LexiconTrie trie;std::size_t loaded=0;
