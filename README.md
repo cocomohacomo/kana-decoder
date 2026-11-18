@@ -50,10 +50,12 @@
 - 学習用のtoken candidate ID列からU/L/R n-gram countを生成。学習IDは辞書候補IDに存在する必要があります。
 - 評価: `./build/kana_decoder_eval packs/ja-lite tests/data/ja-smoke-gold.tsv`
 - smoke corpusは配線確認用で、実用精度の代表値ではありません。
+- Sudachi V1 import: `tools/verify_sudachi_source.py` と `tools/import_sudachi_v1.py`。20260723 source lock: `licenses/sudachidict-small-20260723-source-lock.json`。
 - 第三者辞書のライセンスプロファイルは `--license-profile` でPackに同梱し、各コンポーネントのライセンス・NOTICEを個別に保持します。
 - `python3 tools/validate_license_profile.py dist/ja-pack` で商用利用・再配布・改変再配布・固定バージョン・NOTICEを機械検査します（法的判断を代替しません）。
 
 ## 設計仕様
+- 仕様書 v0.9: docs/SPECIFICATION_v0.9.md
 - 仕様書 v0.8: docs/SPECIFICATION_v0.8.md
 - 仕様書 v0.7: docs/SPECIFICATION_v0.7.md
 - 仕様書 v0.6: docs/SPECIFICATION_v0.6.md
