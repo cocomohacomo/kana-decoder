@@ -8,12 +8,12 @@
 ## 1. 実装範囲
 | 要求 | 実装 | 現時点の境界 |
 |---|---|---|
-| 1. 曖昧性候補/API | AmbiguityResult、Candidate、4出力モード、C API | Morphological Decoder全体との統合は未実装 |
+| 1. 曖昧性候補/API | AmbiguityResult、Candidate、4出力モード、N-best Decoder、統合C ABI decode | C ABIはbest-path単発変換まで。Session/差分/ambiguityの完全公開は未実装 |
 | 2. Context-masked n-gram | 左右文脈のmasked n-gram順位付け、最大2トークン窓、加算平滑化 | 手作業fixture count。実コーパス学習・確率校正なし |
 | 3. 軽度誤り補正 | UTF-8コードポイント重複削除、Pack規則による挿入・削除・置換、編集コスト、候補上限 | ASR音響信頼度連携・音韻モデル学習なし |
 | 4. 依存再評価 | 三層依存グラフ、下流限定無効化、revision | Streaming Session / Claim / Question統合は未実装 |
 | 5. テスト | C++ assert、Python Pack検証、CTest | 大規模ゴールドコーパス評価は未実施 |
-| 6. 日本語Lite Pack | 語彙・n-gram・補正規則・MIT manifest、SHA-256/ライセンス/容量検証 | 小規模fixture。実用語彙カバレッジの30 MiB Packではない |
+| 6. 日本語Lite Pack | 語彙・n-gram・接続行列・補正規則・MIT manifest、SHA-256/ライセンス/容量検証 | 小規模fixture。実用語彙カバレッジ/接続精度の30 MiB Packではない |
 
 ## 2. API
 MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位を計算する。AmbiguityResultは候補順位・top score・margin・曖昧性判定を保持する。Ambiguousモードは低確信時に [雨/飴/other] を生成し、Conservativeモードは元かなを保持する。CorrectionEngineは原文を変更せず補正候補を別に生成し、補正コスト控除後の改善幅と最低スコアで自動採用可否を判定する。DependencyGraphは下流依存だけを無効化する。C APIはn-gram scorerを公開する。
@@ -36,19 +36,19 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 
 ## 4. サイズ・速度
 - Release static library libkana_decoder_core.a: 131,502 bytes。この環境での静的ライブラリサイズであり、全OSのruntime保証ではない。
-- 日本語Lite fixture: payload 1,574 bytes + manifest 1,048 bytes = 2,622 bytes（約0.00250 MiB）。SHA-256全4ファイル検証、30 MiB上限PASS。
+- 現行日本語Lite fixture: payload 1,751 bytes + manifest 1,164 bytes = 2,915 bytes（約0.00278 MiB）。SHA-256全5ファイル検証、30 MiB上限PASS。
 - fixtureはテスト用であり、実用辞書のサイズ・語彙カバレッジ評価には使えない。外部辞書はライセンス確認前のため含めていない。
-- n-gram microbenchmark: 200,000回の4候補resolve、約2,298 ns/resolve（約2.30 µs）。コンテナ内の単一測定で、全文変換・p95/p99・実機CPU・RSSを含まない。1文節1ms未満を証明しない。
+- 旧n-gram microbenchmark: 200,000回の4候補resolve、約2,298 ns/resolve（約2.30 µs）。現行CI microbenchmark（Ubuntu 26.04 / GCC 15.2 / Release）: n-gram resolve 約4,306 ns、2-token/5-edge小規模ラティスdecode 約2,242 ns。単一CIランナーの小規模測定であり、全文変換・p50/p95/p99・実機CPU・RSSを含まず、1文節1ms未満を証明しない。
 
 ## 5. 既知の制約
-1. 実用日本語形態素辞書・接続行列・Viterbi/N-bestは未実装。
+1. 実用日本語形態素辞書・大規模接続行列は未実装。N-best参照デコーダと小規模接続モデルfixtureは実装済み。
 2. n-gram countはfixture。学習パイプライン、ドメイン別評価、確率校正が必要。
 3. Correction Engineは候補生成器。辞書・形態素解析器との統合が必要。
 4. DependencyGraphは単体実装。Streaming Context CoreのClaim / Evidence / Question / Focusとの統合が必要。
-5. Pack検証はPythonツール。C++ runtime Manifest loader、mmap、Session共有、ABI検証は未実装。
+5. Pack Manifest/SHA-256検証はPythonツール。C++ runtime側のManifest/SHA-256検証、mmap、複数Sessionでの辞書共有ポリシーは未実装。
 6. 30 MiB実用Packにはライセンス確認済み語彙の選定・インポート・圧縮・カバレッジ測定が必要。
-7. Unicode不正シーケンス検証・正規化・原入力byte span対応は次段階。
-8. 補正閾値はfixture上の値。実データで誤修正率・見逃し率を評価して決める。
+7. UTF-8不正シーケンス拒否とコードポイント範囲処理は実装済み。Unicode NFC等の正規化、全APIにわたる原入力byte span対応は未実装。
+8. 補正閾値はfixture上の値。実データで誤修正率・見逃し率を評価して決める。\n9. 部分Commitは保持中のN-best上位集合の共通接頭辞に限定。Beamで破棄された候補まで含む保証ではない。\n10. C++ Pack loaderはManifestのhashを検証しない。必ずPython verifierを事前実行する。
 
 ## 6. 総合判定
 **実装基盤と単体テストは成功。製品機能としては部分実装。**
