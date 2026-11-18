@@ -39,11 +39,23 @@ int main(){
  DecoderOptions bounded; bounded.beam_width=1; bounded.max_paths=1;
  auto one_path=decoder.decode(2,lattice,lattice_scorer,{},bounded);
  assert(one_path.size()==1&&one_path[0].tokens[0].candidate.id=="A");
+ ConnectionModel cm;cm.set_cost(5,1,50);cm.set_cost(5,2,0);
+ std::vector<LatticeEdge> pos_lattice{
+  {0,1,{{"X","共通",10,0,0,5}}},
+  {1,2,{{"Y","候補甲",10,0,1,6},{"Z","候補乙",10,0,2,7}}}
+ };
+ auto pos_paths=decoder.decode(2,pos_lattice,lattice_scorer,{},dop,&cm);
+ assert(!pos_paths.empty()&&pos_paths.front().tokens[1].candidate.id=="Z");
+
 
 
  LexiconTrie pack_lexicon;MaskedNgramScorer pack_scorer;std::size_t pack_entries=0;
  assert(load_language_pack(std::string(KANA_DECODER_SOURCE_DIR)+"/packs/ja-lite",pack_lexicon,pack_scorer,&pack_entries));
  assert(pack_entries==7&&pack_lexicon.size()==7);
+ ConnectionModel pack_connections;assert(load_language_pack(std::string(KANA_DECODER_SOURCE_DIR)+"/packs/ja-lite",pack_lexicon,pack_scorer,&pack_entries,&pack_connections));
+ assert(pack_connections.cost(1,1)==0&&pack_connections.cost(1,2)==20);
+ assert(is_valid_utf8("こんにちは🙂")&&!is_valid_utf8(std::string("\\xF0\\x28\\x8C\\x28",4)));
+ assert(!pack_lexicon.add(std::string("\\xC0\\xAF",2),{"bad","bad",0,0}));
  assert(pack_scorer.score("rain",{"あした"},{})>pack_scorer.score("candy",{"あした"},{}));
  LexiconTrie contextual_trie;
  assert(contextual_trie.add("あした",{"あした","明日",100,0}));
@@ -76,5 +88,27 @@ int main(){
  std::string committed;assert(session.commit_best(snapshot,committed));
  assert(committed=="雨"&&!snapshot.provisional&&snapshot.revision==2);
  assert(session.reading().empty());
+
+ // Integrated C ABI: load a local Language Pack and decode kana to a surface form.
+ kd_engine* engine=kd_engine_create();assert(engine);
+ assert(kd_engine_load_pack(engine,(std::string(KANA_DECODER_SOURCE_DIR)+"/packs/ja-lite").c_str())==0);
+ char converted[64]={};assert(kd_engine_decode(engine,"あめ",converted,sizeof(converted))==0);
+ assert(std::string(converted)=="雨");
+ assert(kd_engine_decode(engine,"あめ",converted,1)==-2);
+ assert(kd_engine_decode(engine,std::string("\\xF0\\x28",2).c_str(),converted,sizeof(converted))==-1);
+ kd_engine_destroy(engine);
+
+ // Commit only the shared token prefix, retaining ambiguous suffix for later context.
+ LexiconTrie partial_lexicon;
+ assert(partial_lexicon.add("きょう",{"today","今日",10,0}));
+ assert(partial_lexicon.add("は",{"topic","は",10,0}));
+ assert(partial_lexicon.add("し",{"shi1","詩",10,0}));
+ assert(partial_lexicon.add("し",{"shi2","市",10,0}));
+ StreamingSession partial(16);StreamingSnapshot partial_snapshot;
+ assert(partial.append("きょうはし",partial_lexicon,lattice_scorer,partial_snapshot,dop));
+ assert(partial_snapshot.paths.size()>=2);
+ std::string prefix;assert(partial.commit_common_prefix(partial_snapshot,prefix));
+ assert(prefix=="今日は"&&partial.reading()=="し"&&partial_snapshot.reading=="し");
+ assert(partial_snapshot.provisional&&!partial_snapshot.paths.empty());
  std::cout<<"all C++ tests passed\n";
 }
