@@ -52,13 +52,17 @@ def make_clusters(sequences, max_vocab=2000, window=2, min_similarity=0.32,
     contexts = defaultdict(Counter)
     context_df = Counter()
     for seq in sequences:
-        filtered = [x for x in seq if x in vocab]
-        for i, token in enumerate(filtered):
-            for j in range(max(0, i-window), min(len(filtered), i+window+1)):
-                if i != j:
-                    contexts[token][filtered[j]] += 1
-        for token in set(filtered):
-            context_df[token] += 1
+        # Keep original token positions: removing out-of-vocabulary tokens must
+        # not collapse the distance between otherwise non-adjacent neighbors.
+        for i, token in enumerate(seq):
+            if token not in vocab:
+                continue
+            for j in range(max(0, i-window), min(len(seq), i+window+1)):
+                if i != j and seq[j] in vocab:
+                    contexts[token][seq[j]] += 1
+        for token in set(seq):
+            if token in vocab:
+                context_df[token] += 1
     # Sparse TF-IDF vectors, with common sentence context suppressed.
     vectors = {}
     for token, counts in contexts.items():
@@ -199,8 +203,8 @@ def evaluate(sentences, by_reading, token_cluster, cluster_candidates,
                     cluster_id = token_cluster.get(context_candidate_id)
                     if cluster_id is None:
                         continue
-                    count = cluster_candidates[cluster_id][(cid, distance)]
-                    total = cluster_totals[(cluster_id, distance)]
+                    count = cluster_candidates[cluster_id].get((cid, distance), 0)
+                    total = cluster_totals.get((cluster_id, distance), 0)
                     if count:
                         support += count
                         values.append(math.log((count + alpha) /
