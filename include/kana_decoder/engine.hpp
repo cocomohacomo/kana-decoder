@@ -8,7 +8,7 @@ namespace kana_decoder {
 enum class OutputMode { Normal, Ambiguous, Conservative, Diagnostic };
 enum class Layer { Morphological = 0, Semantic = 1, Orthographic = 2 };
 enum class CorrectionKind { Insert, Delete, Replace, Duplicate, Phonetic };
-struct Candidate { std::string id; std::string surface; };
+struct Candidate { std::string id; std::string surface; std::string pos,inflection_type,inflection_form; };
 struct AmbiguityResult { std::string output; bool ambiguous=false; double top_score=0.0; double margin=0.0; std::vector<Candidate> ranked; };
 class MaskedNgramScorer {
 public:
@@ -43,6 +43,7 @@ struct LatticeCandidate {
  std::string id, surface;
  std::int32_t word_cost=0, connection_cost=0;
  std::int32_t left_id=0, right_id=0;
+ std::string pos,inflection_type,inflection_form;
 };
 class ConnectionModel {
 public:
