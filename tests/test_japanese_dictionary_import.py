@@ -37,7 +37,7 @@ class JapaneseDictionaryImportTests(unittest.TestCase):
 
     def test_ipadic_csv(self):
         row = ["橋", "11", "12", "-100", "名詞", "一般", "*", "*",
-               "*", "橋", "ハシ", "ハシ", "ハシ"]
+               "*", "*", "橋", "ハシ", "ハシ"]
         result, output = self.run_import("ipadic-csv", [row])
         self.assertEqual(result.returncode, 0, result.stderr)
         fields = output.read_text(encoding="utf-8").splitlines()[1].split("\t")
