@@ -18,6 +18,7 @@ class PackBuilderTests(unittest.TestCase):
                 "--lexicon", str(ROOT / "packs" / "ja-lite" / "lexicon.tsv"),
                 "--sequences", str(ROOT / "tests" / "data" / "ja-training-sequences.tsv"),
                 "--connections", str(ROOT / "packs" / "ja-lite" / "connections.tsv"),
+                "--correction-rules", str(ROOT / "packs" / "ja-lite" / "correction_rules.tsv"),
                 "--license-file", str(ROOT / "packs" / "ja-lite" / "LICENSE"),
                 "--license-spdx", "MIT", "--upstream", "original test fixture",
                 "--pack-id", "ja-import-test", "--language-id", "ja-JP",
@@ -29,6 +30,7 @@ class PackBuilderTests(unittest.TestCase):
             self.assertTrue(report["within_limit"])
             self.assertTrue((out / "connections.tsv").is_file())
             self.assertIn("connections.tsv", report["files_verified"])
+            self.assertIn("correction_rules.tsv", report["files_verified"])
             ngram = (out / "ngram.tsv").read_text(encoding="utf-8")
             self.assertIn("L\train\tcandy\t1", ngram)
             manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
