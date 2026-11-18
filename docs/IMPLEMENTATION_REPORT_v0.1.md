@@ -408,4 +408,13 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - `tools/evaluate_surge.py` を追加。読みspanごとの候補をClaim clusterとして集約し、異なる表層候補を同一spanの未解決Questionとして記録。候補スコア差が小さいQuestionへFocusを割り当てる。gold surfaceは候補coverageのオフライン評価にのみ使用し、予測選択や自動解決には使用しない。
 - 実Sudachi Packの既存trace（run 44381438082）を再解析: 4件中gold候補は4件すべて候補集合に存在（candidate coverage 4/4）する一方、top-1完全一致は1/4。raw context scoreは全件0で、Packに学習済みn-gram記録がないことと整合。簡易SURGEは曖昧候補を保持し質問化する点では有効だが、外部文脈・学習済み証拠なしに正解候補を決める能力は確認できない。
 - 注意: 1,792 MiBはGitHub Actionsでの実行上限であり、端末全般でのRSS保証ではない。ターゲットCPU/OS/Packごとの実測が必要。4件smoke corpusも一般精度を示すものではない。
-- 新規テスト: decoder resource ceilings / fail-closed / trace cap、SURGE question/focus/coverage、RSS log parser。GitHub Actions run `44385030265`（main HEAD `80387892`）でwarning-as-error build成功、CTest 16/16 PASS、Python unittest 49件PASS。実Sudachi Packのメモリ上限・SURGE probe workflow run `44385008956` は実行中であり、実RSSとprobe集計は完了後に追記する。
+- 新規テスト: decoder resource ceilings / fail-closed / trace cap、SURGE question/focus/coverage、RSS log parser。GitHub Actions run `44385030265`（main HEAD `80387892`）でwarning-as-error build成功、CTest 16/16 PASS、Python unittest 49件PASS。実Sudachi Packのメモリ上限・SURGE probe workflow run `44385008956` はcompleted/success。Peak RSS 1,425,500 KiBで1,792 MiB gateを通過。4件smokeは完全一致1/4、CER 1.0、decode failure 0。SURGE probeは13 span cluster / 84 claims / 12 contradiction questions / 4 focus cases / gold candidate coverage 4/4。
+
+## 39. 文脈証拠の分離とSURGE Question解決ゲート（v0.27）
+- `MaskedNgramScorer::contextual_score` を追加し、隣接形態素のleft/right masked n-gram寄与をunigram priorから分離。既存の`score`はunigram + contextual_scoreの和とし、スコア式と候補順位を維持。
+- `CandidateScoreTrace` / evaluator JSONに`context_evidence_score`を追加。従来の`raw_context_score`は互換のため維持し、診断上は総スコアと隣接文脈証拠を混同しない。
+- 簡易SURGE probeは候補surfaceをClaim cluster、競合候補をQuestionとして扱う。Morphology/word costやunigram priorの差だけではQuestionを解決しない。少なくとも2候補に差別化された非ゼロの隣接文脈証拠があり、context score marginが既定0.5以上の場合のみ、probe上で解決扱いにする。gold labelはcoverage計測だけに使う。
+- 文脈証拠がないQuestionは未解決のままFocusへ送る。Focusは未解決Questionのうちcontext marginが最小のものを優先。decoder出力は変更しない。
+- MorphologyDecoderの直接APIにもexpanded stateの絶対上限262,144を適用。0 budgetもresource-limit flag付きでfail-closed。decode_reading経由でなくても上限を迂回できない。
+- C++テストでunigram/contextの分離、context score差、direct decoder zero-budget fail-closedを検証。Pythonテストで大きなmorphology marginだけでは解決しないこと、文脈証拠のmarginでQuestionが解決可能になることを検証。
+- v0.26実Pack run `44385008956`: completed/success。Peak RSS 1,425,500 KiB（1,792 MiB gate内）。smoke 4件は1/4 exact、CER 1.0、decode failure 0。SURGE baselineは13 clusters / 84 claims / 12 questions / 4 focus cases / candidate coverage 4/4。Packのcontext evidenceは空で、解決件数0。今回v0.27の新しいCI/実Pack評価は別runで確認する。
