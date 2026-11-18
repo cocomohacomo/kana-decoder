@@ -120,6 +120,32 @@ int main(){
  assert(morphology_path.front().tokens.front().candidate.inflection_type=="下一段-バ行");
  assert(morphology_path.front().tokens.front().candidate.inflection_form=="終止形-一般");
 
+ // SURGE evidence gate resolves only when at least two distinct candidate surfaces
+ // have observed left-context evidence and the evidence margin clears threshold.
+ MaskedNgramScorer surge_scorer;
+ surge_scorer.add_unigram("P",10);surge_scorer.add_unigram("A",10);surge_scorer.add_unigram("B",10);
+ surge_scorer.add_left_bigram("P","A",80);surge_scorer.add_left_bigram("P","B",1);
+ std::vector<LatticeEdge> surge_lattice{
+  {0,1,{{"P","前",100,0}}},
+  {1,2,{{"A","雨",100,0},{"B","飴",100,0}}}
+ };
+ DecoderOptions surge_options=dop;surge_options.surge_left_context_gate=true;
+ surge_options.surge_context_margin=0.5;
+ auto surge_paths=decoder.decode(2,surge_lattice,surge_scorer,{},surge_options);
+ assert(!surge_paths.empty()&&surge_paths.front().tokens.size()==2);
+ assert(surge_paths.front().tokens[1].candidate.id=="A");
+ // One supported surface is insufficient: the gate abstains and contributes
+ // no context score, even if that surface has a strong observed count.
+ MaskedNgramScorer one_sided_scorer;
+ one_sided_scorer.add_unigram("P",10);one_sided_scorer.add_unigram("A",10);one_sided_scorer.add_unigram("B",10);
+ one_sided_scorer.add_left_bigram("P","A",80);
+ std::vector<CandidateScoreTrace> abstain_trace;
+ auto abstain_paths=decoder.decode(2,surge_lattice,one_sided_scorer,{},surge_options,
+                                   nullptr,&abstain_trace);
+ assert(!abstain_paths.empty()&&abstain_paths.front().tokens.size()==2);
+ for(const auto& item:abstain_trace){
+  if(item.start==1)assert(item.context_evidence_score==0.0&&item.weighted_context_score==0.0);
+ }
  // Trie-backed Pack loading, lattice generation and bounded streaming revisions.
  LexiconTrie trie;std::size_t loaded=0;
  const std::string pack_path=std::string(KANA_DECODER_SOURCE_DIR)+"/packs/ja-lite/lexicon.tsv";
