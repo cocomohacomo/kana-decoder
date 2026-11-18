@@ -14,6 +14,7 @@ from collections import Counter
 from pathlib import Path
 
 MAX_I32 = 2**31 - 1
+MAX_U32 = 2**32 - 1
 
 def clean_field(value, label):
     value = value.strip()
@@ -48,26 +49,23 @@ def import_lexicon(source):
             pos = clean_field(pos, "pos")
             group = clean_field(group, "reading_group")
             candidate_id = clean_field(candidate_id or group, "candidate_id")
-            if not kana.isascii() and not kana:
-                raise ValueError(f"{source}:{line_no}: empty reading")
-            if not surface:
-                raise ValueError(f"{source}:{line_no}: empty surface")
-            costs = [parse_i32(cols[6] or "0", "word_cost"),
-                     parse_i32(cols[7] or "0", "connection_cost"),
-                     parse_i32(cols[8] or "0", "left_id", 0),
-                     parse_i32(cols[9] or "0", "right_id", 0)]
+            costs = [
+                parse_i32(cols[6] or "0", "word_cost"),
+                parse_i32(cols[7] or "0", "connection_cost"),
+                parse_i32(cols[8] or "0", "left_id", 0),
+                parse_i32(cols[9] or "0", "right_id", 0),
+            ]
             row = [kana, surface, lemma, pos, group, candidate_id] + [str(x) for x in costs]
             key = tuple(row)
-            if key in seen:
-                continue
-            seen.add(key)
-            rows.append(row)
+            if key not in seen:
+                seen.add(key)
+                rows.append(row)
     if not rows:
         raise ValueError("dictionary contains no entries")
     rows.sort(key=lambda row: (row[0], row[6], row[5], row[1]))
     return rows
 
-def train_ngrams(sequence_file):
+def train_ngrams(sequence_file, known_candidates):
     counts = Counter()
     if sequence_file is None:
         return counts
@@ -82,9 +80,11 @@ def train_ngrams(sequence_file):
             for i, token in enumerate(tokens):
                 counts[("U", "", token)] += 1
                 if i:
-                    counts[("L", tokens[i-1], token)] += 1
+                    counts[("L", tokens[i - 1], token)] += 1
                 if i + 1 < len(tokens):
-                    counts[("R", tokens[i+1], token)] += 1
+                    counts[("R", tokens[i + 1], token)] += 1
+    if any(value > MAX_U32 for value in counts.values()):
+        raise ValueError("trained n-gram count exceeds uint32 pack format")
     return counts
 
 def write_pack(args):
@@ -93,23 +93,31 @@ def write_pack(args):
         raise ValueError("output directory must be empty")
     out.mkdir(parents=True, exist_ok=True)
     rows = import_lexicon(args.lexicon.resolve())
-    lexicon_path = out / "lexicon.tsv"
-    with lexicon_path.open("w", encoding="utf-8", newline="\n") as stream:
+    known_candidates = {row[5] for row in rows}
+    counts = train_ngrams(args.sequences.resolve() if args.sequences else None, known_candidates)
+
+    with (out / "lexicon.tsv").open("w", encoding="utf-8", newline="\n") as stream:
         stream.write("# kana\tsurface\tlemma\tpos\treading_group\tcandidate_id\tword_cost\tconnection_cost\tleft_id\tright_id\n")
         for row in rows:
             stream.write("\t".join(row) + "\n")
-    counts = train_ngrams(args.sequences.resolve() if args.sequences else None)
     with (out / "ngram.tsv").open("w", encoding="utf-8", newline="\n") as stream:
         stream.write("# direction\tcontext_token\tcandidate_id\tcount\n")
         for (direction, context, candidate), count in sorted(counts.items()):
             stream.write(f"{direction}\t{context}\t{candidate}\t{count}\n")
-    if args.connections:
-        shutil.copyfile(args.connections.resolve(), out / "connections.tsv")
-    shutil.copyfile(args.license_file.resolve(), out / "LICENSE")
+
     payload_names = ["lexicon.tsv", "ngram.tsv"]
-    if (out / "connections.tsv").is_file():
+    if args.connections:
+        connection_source = args.connections.resolve()
+        if not connection_source.is_file():
+            raise ValueError("connections file does not exist")
+        shutil.copyfile(connection_source, out / "connections.tsv")
         payload_names.append("connections.tsv")
+    license_source = args.license_file.resolve()
+    if not license_source.is_file():
+        raise ValueError("license file does not exist")
+    shutil.copyfile(license_source, out / "LICENSE")
     payload_names.append("LICENSE")
+
     files = []
     for name in payload_names:
         data = (out / name).read_bytes()
@@ -128,7 +136,7 @@ def write_pack(args):
         "license": {"spdx": args.license_spdx, "file": "LICENSE", "upstream": args.upstream},
         "resource_limits": {"max_expanded_bytes": args.max_expanded_bytes, "max_candidates": 8, "max_edit_distance": 1},
         "files": files,
-        "status": "imported-pack-requires-accuracy-validation"
+        "status": "imported-pack-requires-accuracy-validation",
     }
     (out / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return {"pack_id": args.pack_id, "entries": len(rows), "trained_ngram_records": len(counts), "files": payload_names}
@@ -149,7 +157,7 @@ def main():
     parser.add_argument("--reading-encoding", default="utf8")
     parser.add_argument("--normalization-profile", default="none-declared")
     parser.add_argument("--orthography-profile", default="language-default")
-    parser.add_argument("--max-expanded-bytes", type=int, default=30*1024*1024)
+    parser.add_argument("--max-expanded-bytes", type=int, default=30 * 1024 * 1024)
     args = parser.parse_args()
     if args.max_expanded_bytes <= 0:
         parser.error("--max-expanded-bytes must be positive")
