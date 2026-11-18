@@ -7,7 +7,10 @@ std::size_t byte_offset_for_codepoints(const std::string&s,std::size_t count){au
 namespace kana_decoder {
 StreamingSession::StreamingSession(std::size_t limit):max_reading_codepoints_(limit?limit:1){}
 bool StreamingSession::append(const std::string& chunk,const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,StreamingSnapshot& snapshot,const DecoderOptions& options,const ConnectionModel* connections){
- if(chunk.empty()||!is_valid_utf8(chunk))return false;auto current=utf8_chars(reading_),incoming=utf8_chars(chunk);if(current.size()+incoming.size()>max_reading_codepoints_)return false;
+ if (chunk.empty() || !is_valid_utf8(chunk)) return false;
+ auto current = utf8_chars(reading_);
+ auto incoming = utf8_chars(chunk);
+ if (current.size() + incoming.size() > max_reading_codepoints_) return false;
  std::string candidate=reading_+chunk;auto paths=decode_reading(candidate,lexicon,scorer,options,connections);if(paths.empty())return false;
  reading_=std::move(candidate);++revision_;snapshot.revision=revision_;snapshot.reading=reading_;snapshot.paths=std::move(paths);snapshot.provisional=true;return true;
 }
