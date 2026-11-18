@@ -22,6 +22,61 @@ double MaskedNgramScorer::score(const std::string&c,const std::vector<std::strin
  if(!l.empty()){auto i=left_counts_.find(key(context_key(l),c));if(i==left_counts_.end())i=left_counts_.find(key(l.back(),c));s+=std::log(((i==left_counts_.end()?0.0:i->second)+a)/(uc+10*a));}
  if(!r.empty()){std::vector<std::string>b(r.begin(),r.begin()+static_cast<std::ptrdiff_t>(std::min<std::size_t>(2,r.size())));auto i=right_counts_.find(key(c,context_key(b)));if(i==right_counts_.end())i=right_counts_.find(key(c,r.front()));s+=std::log(((i==right_counts_.end()?0.0:i->second)+a)/(uc+10*a));}return s;
 }
+
+std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
+ const std::vector<LatticeEdge>& lattice,const MaskedNgramScorer& scorer,
+ const std::vector<std::string>& right_context,const DecoderOptions& opt) const {
+ if(length==0||opt.beam_width==0||opt.max_edges_per_position==0||
+    opt.max_candidates_per_edge==0||opt.max_paths==0)return {};
+ std::vector<std::vector<const LatticeEdge*>> at(length+1);
+ for(const auto& edge:lattice){
+  if(edge.start>=edge.end||edge.end>length||edge.candidates.empty())continue;
+  at[edge.start].push_back(&edge);
+ }
+ struct State { DecodedPath path; std::vector<std::string> history; };
+ std::vector<std::vector<State>> beams(length+1);
+ beams[0].push_back(State{});
+ auto prune=[&](std::vector<State>& states){
+  std::stable_sort(states.begin(),states.end(),[](const State&a,const State&b){return a.path.score>b.path.score;});
+  if(states.size()>opt.beam_width)states.resize(opt.beam_width);
+ };
+ for(std::size_t pos=0;pos<length;++pos){
+  if(beams[pos].empty())continue;
+  auto edges=at[pos];
+  std::stable_sort(edges.begin(),edges.end(),[](const LatticeEdge*a,const LatticeEdge*b){
+   if(a->end!=b->end)return a->end<b->end;
+   return a->candidates.size()<b->candidates.size();
+  });
+  if(edges.size()>opt.max_edges_per_position)edges.resize(opt.max_edges_per_position);
+  for(const auto* edge:edges){
+   auto candidates=edge->candidates;
+   std::stable_sort(candidates.begin(),candidates.end(),[](const LatticeCandidate&a,const LatticeCandidate&b){
+    return static_cast<std::int64_t>(a.word_cost)+a.connection_cost<
+           static_cast<std::int64_t>(b.word_cost)+b.connection_cost;
+   });
+   if(candidates.size()>opt.max_candidates_per_edge)candidates.resize(opt.max_candidates_per_edge);
+   for(const auto& state:beams[pos])for(const auto& candidate:candidates){
+    if(candidate.id.empty()||candidate.surface.empty())continue;
+    State next=state;
+    const double morph=-static_cast<double>(candidate.word_cost)-
+                       static_cast<double>(candidate.connection_cost);
+    const double ctx=scorer.score(candidate.id,state.history,right_context)*opt.context_weight;
+    next.path.score+=morph+ctx;
+    next.path.tokens.push_back(DecodedToken{edge->start,edge->end,
+      Candidate{candidate.id,candidate.surface},morph,ctx});
+    next.history.push_back(candidate.id);
+    if(next.history.size()>2)next.history.erase(next.history.begin());
+    beams[edge->end].push_back(std::move(next));
+   }
+   prune(beams[edge->end]);
+  }
+ }
+ std::vector<DecodedPath> out;
+ for(auto& state:beams[length])out.push_back(std::move(state.path));
+ std::stable_sort(out.begin(),out.end(),[](const DecodedPath&a,const DecodedPath&b){return a.score>b.score;});
+ if(out.size()>opt.max_paths)out.resize(opt.max_paths);
+ return out;
+}
 std::string render_ambiguity(const std::vector<Candidate>&c,bool other){std::ostringstream o;o<<'[';bool f=true;for(const auto&x:c){if(x.surface.empty())continue;if(!f)o<<'/';o<<x.surface;f=false;}if(other){if(!f)o<<'/';o<<"other";}o<<']';return o.str();}
 AmbiguityResult MaskedNgramScorer::resolve(const std::vector<Candidate>&c,const std::vector<std::string>&l,const std::vector<std::string>&r,OutputMode m,double ms,double mm,bool other,const std::string&original)const{
  AmbiguityResult x;x.ranked=c;if(x.ranked.size()>8)x.ranked.resize(8);std::stable_sort(x.ranked.begin(),x.ranked.end(),[&](const Candidate&a,const Candidate&b){return score(a.id,l,r)>score(b.id,l,r);});
