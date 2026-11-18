@@ -476,4 +476,11 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - gold token境界はdecode後のalignment計測にだけ利用し、sentence exact / CER / decode failure / over-limit / token alignment precision・recallを出力する。入力上限256 codepoints超の文は部分decodeせずover-limitとして明示。
 - CMakeに `kana_decoder_sequential_eval` とCTest統合テストを追加。合成2-token文「あめはし」で、morphology-onlyの「雨橋」からtrain-derived left contextにより「雨箸」へ選択が変わること、gold境界・未来文脈を使わないことを検証。
 - C++ CI run `44407712171`（commit `28befedc1f4c09d42ef9e0b09acb0af57c025491`）: completed / success。CTest 21/21 PASS、Python unittest 63件（58 PASS / 5 SKIP）、warning-as-error build、bounded benchmark、reference Pack verificationがPASS。
-- 実Sudachi Packでの全文逐次評価を行うworkflow run `44407712247` は、記録時点でPack構築・oracle/causal評価ステップを実行中。実測CER、token alignment、Peak RSSはrun完了後に追記する。これらの値が確定するまではC++実Packの全文精度改善を主張しない。
+- 実Sudachi Pack workflow run `44407712247`: completed / success。2,414 test sentences / 10,317 gold tokensで、gold token境界をデコード入力へ渡さず、future contextも使わずにC++全文デコードを実行。over-limit 0、decode failure 0。\n- Morphology-only: sentence exact 24.6479%、CER 48.6578%、token alignment precision 58.0839%、recall 56.2373%。train-derived unigram + predicted-left context: exact 24.8136%（+0.1657ポイント）、CER 48.4772%（0.1806ポイント低下）、alignment precision 58.2791%、recall 56.3924%。\n- Peak RSS 1,425,568 KiB（1,392.2 MiB）、1,792 MiB gate内。全文逐次評価のelapsed time 19.18秒（GitHub-hosted runner）。
+
+
+### v0.30 C++全文逐次評価の結論
+
+- 実Sudachi Packの全文reading-to-text pathでも、train-derived unigram + predicted-left contextはmorphology-onlyよりsentence exactを+0.1657ポイント、CERを0.1806ポイント改善した。Python token-aligned causal評価で見えた約+0.99ポイントより改善幅は小さく、token segmentation・path searchで候補/誤りが伝播する影響が表れている。
+- このC++ full-path評価にはSURGE evidence gateを組み込んでいない。SURGE gateの85.43% precision / 1.32% correct-resolution recallはPythonのgold-token-boundary causal diagnosticの値であり、全文デコード結果と混同しない。
+- 次の推奨課題はdev splitのみでcontext weight / smoothing / evidence thresholdを校正し、固定した設定をtest splitで再評価すること。test結果を見て閾値を調整するデータリークは避ける。
