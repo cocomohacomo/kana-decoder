@@ -166,6 +166,18 @@ int main(){
  std::string large_budget_error;assert(verify_pack_manifest(large_budget_pack.string(),&large_budget_error));
  std::filesystem::remove_all(large_budget_pack);
 
+ // Native verification must enforce the same nested resource limit as Python.
+ const auto undersized_budget_pack=std::filesystem::temp_directory_path()/"kana_decoder_undersized_budget_pack";
+ std::filesystem::remove_all(undersized_budget_pack);
+ std::filesystem::copy(std::filesystem::path(KANA_DECODER_SOURCE_DIR)/"packs"/"ja-lite",undersized_budget_pack,std::filesystem::copy_options::recursive);
+ const auto undersized_manifest=undersized_budget_pack/"manifest.json";
+ {std::ifstream in(undersized_manifest);std::string json((std::istreambuf_iterator<char>(in)),{});
+  const auto marker=json.find("31457280");assert(marker!=std::string::npos);json.replace(marker,8,"1");
+  std::ofstream out_file(undersized_manifest);out_file<<json;}
+ std::string undersized_error;assert(!verify_pack_manifest(undersized_budget_pack.string(),&undersized_error));
+ assert(undersized_error=="Pack expanded size exceeds declared limit");
+ std::filesystem::remove_all(undersized_budget_pack);
+
  // Integrated C ABI: load a local Language Pack and decode kana to a surface form.
  kd_engine* engine=kd_engine_create();assert(engine);
  assert(kd_engine_load_pack(engine,(std::string(KANA_DECODER_SOURCE_DIR)+"/packs/ja-lite").c_str())==0);
