@@ -60,7 +60,9 @@ def analyze(payload, context_margin_threshold=0.5):
             # evidence for at least two competing claims before resolution.
             evidence = [(surface, score) for surface, score in ranked_context
                         if score != 0.0]
-            has_context_evidence = len(evidence) >= 2
+            evidence_values = [score for _, score in evidence]
+            has_context_evidence = (len(evidence_values) >= 2
+                                    and max(evidence_values) - min(evidence_values) > 1e-9)
             margin = (ranked_context[0][1] - ranked_context[1][1]
                       if len(ranked_context) >= 2 else None)
             resolved = bool(has_context_evidence and margin is not None
