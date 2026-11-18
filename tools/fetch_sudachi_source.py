@@ -16,7 +16,7 @@ def load_sources(path):
  release=lock.get("release")
  if not isinstance(release,str) or not re.fullmatch(r"\d{8}",release):raise ValueError("source lock release must be YYYYMMDD")
  expected={
-  "sudachi-small-lex":("small_lex.csv",f"https://sudachi.s3.ap-northeast-1.amazonaws.com/sudachidict-raw/{release}/small_lex.zip"),
+  "sudachi-small-lex":("small_lex.csv",f"https://sudachi.s3.ap-northeast-1.amazonaws.com/sudachidict-raw/v1/{release}/small_lex.zip"),
   "unidic-2.1.2-matrix":("matrix.def","https://d2ej7fkh96fzlu.cloudfront.net/sudachidict-raw/matrix.def.zip")
  }
  out={}
