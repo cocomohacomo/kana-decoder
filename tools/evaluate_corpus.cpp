@@ -34,6 +34,7 @@ struct CaseResult {
     std::size_t edit_distance = 0;
     bool decode_failure = false;
     std::vector<kana_decoder::CandidateScoreTrace> trace;
+    std::vector<kana_decoder::LatticePositionTrace> lattice_trace;
 };
 
 bool split_tsv_row(const std::string& line, EvaluationCase& row) {
@@ -175,6 +176,37 @@ void print_case_result(const CaseResult& result) {
         }
         std::cout << ']';
     }
+    if (!result.lattice_trace.empty()) {
+        std::cout << ",\"candidate_generation\":[";
+        for (std::size_t i = 0; i < result.lattice_trace.size(); ++i) {
+            if (i) std::cout << ',';
+            const auto& position = result.lattice_trace[i];
+            std::cout << "{\"start\":" << position.start
+                      << ",\"dictionary_match_count\":" << position.dictionary_match_count
+                      << ",\"fallback_enabled\":" << (position.fallback_enabled ? "true" : "false")
+                      << ",\"fallback_generated\":" << (position.fallback_generated ? "true" : "false")
+                      << ",\"fallback_suppressed_by_dictionary\":"
+                      << (position.fallback_suppressed_by_dictionary ? "true" : "false")
+                      << ",\"matches\":[";
+            for (std::size_t j = 0; j < position.dictionary_matches.size(); ++j) {
+                if (j) std::cout << ',';
+                const auto& match = position.dictionary_matches[j];
+                std::cout << "{\"start\":" << match.start
+                          << ",\"end\":" << match.end
+                          << ",\"candidates\":[";
+                for (std::size_t k = 0; k < match.candidates.size(); ++k) {
+                    if (k) std::cout << ',';
+                    const auto& candidate = match.candidates[k];
+                    std::cout << "{\"candidate_id\":\"" << json_escape(candidate.id)
+                              << "\",\"surface\":\"" << json_escape(candidate.surface)
+                              << "\"}";
+                }
+                std::cout << "]}";
+            }
+            std::cout << "]}";
+        }
+        std::cout << ']';
+    }
     std::cout << "}";
 }
 
@@ -182,11 +214,12 @@ bool evaluate_case(const EvaluationCase& input,
                    const kana_decoder::LexiconTrie& lexicon,
                    const kana_decoder::MaskedNgramScorer& scorer,
                    const kana_decoder::ConnectionModel& connections,
-                   CaseResult& result, bool include_trace) {
+                   CaseResult& result, bool include_trace, bool include_lattice_trace) {
     result.input = input;
     const auto paths = kana_decoder::decode_reading(
         input.reading, lexicon, scorer, {}, &connections,
-        include_trace ? &result.trace : nullptr);
+        include_trace ? &result.trace : nullptr,
+        include_lattice_trace ? &result.lattice_trace : nullptr);
 
     if (!paths.empty()) {
         for (const auto& token : paths.front().tokens) {
@@ -200,7 +233,7 @@ bool evaluate_case(const EvaluationCase& input,
 }
 
 int usage() {
-    std::cerr << "usage: kana_decoder_eval PACK_DIR CORPUS_TSV [--details] [--trace]\n";
+    std::cerr << "usage: kana_decoder_eval PACK_DIR CORPUS_TSV [--details] [--trace] [--lattice-trace]\n";
     return 2;
 }
 
@@ -210,10 +243,12 @@ int main(int argc, char** argv) {
     if (argc < 3 || argc > 5) return usage();
     bool details = false;
     bool trace = false;
+    bool lattice_trace = false;
     for (int i = 3; i < argc; ++i) {
         const std::string option(argv[i]);
         if (option == "--details") details = true;
         else if (option == "--trace") { trace = true; details = true; }
+        else if (option == "--lattice-trace") { lattice_trace = true; details = true; }
         else return usage();
     }
 
@@ -254,7 +289,7 @@ int main(int argc, char** argv) {
         }
 
         CaseResult result;
-        evaluate_case(input, lexicon, scorer, connections, result, trace);
+        evaluate_case(input, lexicon, scorer, connections, result, trace, lattice_trace);
         accumulate(overall, result);
         accumulate(by_domain[input.domain], result);
         if (details) case_results.push_back(std::move(result));
