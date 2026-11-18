@@ -35,3 +35,22 @@ The validator rejects empty splits, malformed rows, empty fields and group IDs s
 - No production Sudachi archive has been locally verified or imported into this repository.
 - The reference ja-lite Pack is a smoke fixture, not a representative dictionary.
 - POS mapping, connection matrix compatibility and real held-out accuracy still require validation.
+
+
+## Reproducible Sudachi source acquisition and compatibility checks
+
+Fetch the two pinned source archives using the allowlisted HTTPS downloader:
+
+    python3 tools/fetch_sudachi_source.py --output-dir ./work/sudachi-archives
+
+The downloader reads the repository source lock, rejects unexpected URL hosts and redirects, enforces a 2 GiB per-archive safety cap, verifies SHA-256, and only then atomically publishes each file. It is a development-time acquisition tool; the runtime library remains offline.
+
+Extract the verified members:
+
+    python3 tools/verify_sudachi_source.py --small-zip ./work/sudachi-archives/small_lex.zip --matrix-zip ./work/sudachi-archives/matrix.def.zip --output ./work/sudachi-source
+
+Before normalization, validate that every lexicon context ID fits the connection matrix:
+
+    python3 tools/validate_sudachi_pack_inputs.py --lexicon ./work/sudachi-source/small_lex.csv --matrix ./work/sudachi-source/matrix.def --output ./work/sudachi-source/compatibility.json
+
+Then import V1 lexicon and matrix with \`tools/import_sudachi_v1.py\`. Do not call the resulting files a production Pack until the release-specific LEGAL/NOTICE texts are verified and included in the generated Pack.
