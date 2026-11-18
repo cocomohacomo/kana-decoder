@@ -38,10 +38,13 @@
 ## 実行時メモリとSURGE診断
 - v0.26で入力長・ラティス・候補・展開状態・trace量の決定的上限を導入。上限超過は不完全な候補を返さずfail-closed。
 - Sudachi実PackのCIは1,792 MiBのプロセスメモリ上限とPeak RSS検査を実施。
+- v0.27でunigram priorと隣接形態素のmasked n-gram証拠を分離。簡易SURGE probeは差別化された文脈証拠がある場合のみQuestionを解決し、証拠不足時はFocusへ残します。
 - `tools/evaluate_surge.py` は候補cluster・矛盾Question・Focus・gold候補coverageを測定する非変更型の簡易SURGE probeです。
 
 ## 仕様
 - Python API: docs/PYTHON_API.md
+- v0.27: docs/SPECIFICATION_v0.27.md
+- v0.26: docs/SPECIFICATION_v0.26.md
 - v0.15: docs/SPECIFICATION_v0.15.md
 - v0.14: docs/SPECIFICATION_v0.14.md
 - v0.13: docs/SPECIFICATION_v0.13.md
