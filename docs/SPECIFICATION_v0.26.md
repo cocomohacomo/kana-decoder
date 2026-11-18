@@ -18,8 +18,8 @@ Every decode is subject to deterministic structural ceilings. Defaults:
 | Score trace records | 4,096 |
 | Beam width / edges per position / candidates per edge / output paths | 8 / 16 / 8 / 8 |
 
-- `DecoderOptions` exposes these limits so a caller can choose stricter budgets.
-- The lattice builder bounds edge count and candidate copies while constructing the lattice. Candidate retention uses a bounded partial sort, avoiding a full copy of a high-ambiguity dictionary node.
+- `DecoderOptions` exposes these limits so a caller can choose stricter budgets. Caller-supplied values are clamped to the hard ceilings and cannot raise them.
+- The lattice builder bounds edge count and candidate copies while constructing the lattice. Its top-8 candidate retention uses stable bounded insertion, preserving deterministic tie order without copying the full dictionary value list. Candidate retention uses a bounded partial sort, avoiding a full copy of a high-ambiguity dictionary node.
 - The morphology decoder stops before exceeding the expansion budget.
 - Input, lattice, or expansion budget exhaustion fails closed with an empty result and sets the optional `resource_limit_exceeded` output flag. It never returns a silently truncated best path.
 - Trace output is capped by both the caller limit and the hard 4,096-record ceiling.
