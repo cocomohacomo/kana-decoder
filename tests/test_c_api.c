@@ -9,6 +9,17 @@ int main(void) {
     assert(kd_engine_decode(engine, "あめ", output, sizeof(output)) == 0);
     assert(strcmp(output, "雨") == 0);
     assert(kd_engine_decode(engine, "あめ", output, 1) == KD_ERR_BUFFER_TOO_SMALL);
+    kd_decode_result *nbest = kd_engine_decode_nbest(engine, "あめ", 8);
+    assert(nbest != NULL && kd_decode_result_path_count(nbest) >= 1);
+    assert(kd_decode_result_token_count(nbest, 0) >= 1);
+    kd_token_view token_view;
+    double path_score = 0.0;
+    assert(kd_decode_result_path_score(nbest, 0, &path_score) == 0);
+    assert(kd_decode_result_token(nbest, 0, 0, &token_view) == 0);
+    assert(token_view.end_codepoint > token_view.start_codepoint);
+    assert(token_view.candidate_id != NULL && token_view.surface != NULL);
+    assert(token_view.pos != NULL && token_view.inflection_type != NULL && token_view.inflection_form != NULL);
+    kd_decode_result_destroy(nbest);
     kd_streaming_session *session = kd_streaming_session_create(engine, 16);
     uint64_t revision = 0;
     char provisional[64] = {0};
