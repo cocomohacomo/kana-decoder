@@ -120,7 +120,8 @@ public:
  std::vector<LatticeEdge> build_lattice(const std::string& reading,
    std::size_t max_matches_per_start=16,bool kana_fallback=true,
    std::vector<LatticePositionTrace>* trace=nullptr, 
-   std::size_t max_total_edges=4096,std::size_t max_total_candidates=32768,\n   bool* resource_limit_exceeded=nullptr) const;
+   std::size_t max_total_edges=4096,std::size_t max_total_candidates=32768,
+   bool* resource_limit_exceeded=nullptr) const;
  std::size_t size() const { return entry_count_; }
 private:
  struct Node { std::unordered_map<std::string,std::size_t> next; std::vector<LatticeCandidate> values; };
