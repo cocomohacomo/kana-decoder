@@ -19,7 +19,7 @@ class SourcePipelineTests(unittest.TestCase):
    self.assertEqual(validate.validate(lex,mat)["status"],"valid")
    mat.write_text("2 2\n0 0 0\n",encoding="utf-8")
    with self.assertRaises(ValueError):validate.validate(lex,mat)
-   mat.write_text("3 4\\n0 0 0\\n0 0 1\\n",encoding="utf-8")
+   mat.write_text("3 4\n0 0 0\n0 0 1\n",encoding="utf-8")
    with self.assertRaises(ValueError):validate.validate(lex,mat)
  def test_sudachi_release_license_profile(self):
   profile=ROOT/"licenses"/"sudachi-small-20260723"/"license-profile.json"
