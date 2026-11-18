@@ -342,3 +342,15 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - 通常モードと `--details` モードで同じ集計関数を使用。詳細モードは個別 reading / expected / predicted / domain / edit_distance / decode_failure を追加出力。
 - `tests/test_evaluator_cli.py` を追加。両モードのJSON parse、集計値の一致、詳細件数、CRLF処理、不正行・空コーパスのfail-closed動作を検証。CTestに `evaluator_cli_contract_tests` を登録。
 - 仕様書 `docs/SPECIFICATION_v0.21.md` を追加。CI runは実行中のため、PASS確認後に検証結果を追記する。
+
+
+## 33. 実Sudachi Packのケース別誤変換診断
+- Detailed workflow run 44375182255: completed / success。Pack build、native runtime evaluation、Artifact uploadまで成功。Artifact ID 14460393351、ZIP 149,644,215 bytes、SHA-256 `3f4bb36d7f7ef12a9742fd99996eb3cfaf7b1ec5876c952307a7ce08fed8ed9e`。
+- Pack load: 13,525 ms。4件すべてdecode pathを生成（decode failure 0）。Peak RSS: 1,425,388 KiB。評価CLIのload_msと `/usr/bin/time` の全プロセスelapsedは計測区間が異なるため、同一指標として比較しない。
+- ケース別結果:
+  - `あめ` → 期待 `雨` / 実際 `アメ`（編集距離2）。辞書候補は存在して経路も生成されるが、現在のスコアでは表記候補の選択を誤る。
+  - `はし` → `橋` / `橋`（完全一致）。
+  - `きしゃ` → `汽車` / `記者`（編集距離2）。同音候補を文脈で解消する学習済みn-gramが存在しないため、候補選択が不適切。
+  - `ぴ` → `ぴ` / `日`（編集距離1）。未知語fallbackが発火せず、辞書側の候補が選ばれている可能性がある。候補生成と未知語優先順位の追加トレースが必要。
+- 集計は従来どおり4件中1件完全一致、CER 1.0。これは4件の診断用smoke corpusに限る結果であり、一般精度の推定値ではない。
+- 重要な判断: 現時点でconnection matrix全体の向きやimporter mappingの不具合と断定できる証拠はない。まず候補一覧・各候補のword cost / connection cost / transition cost / context scoreを可視化し、未知語fallbackの生成条件も追跡する。その後、学習データを用いた同音語選択の評価へ進む。
