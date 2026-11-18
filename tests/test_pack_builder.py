@@ -16,7 +16,8 @@ class PackBuilderTests(unittest.TestCase):
             subprocess.run([
                 sys.executable, str(BUILDER),
                 "--lexicon", str(ROOT / "packs" / "ja-lite" / "lexicon.tsv"),
-                "--sequences", str(ROOT / "tests" / "data" / "ja-training-sequences.tsv"),\n                "--connections", str(ROOT / "packs" / "ja-lite" / "connections.tsv"),
+                "--sequences", str(ROOT / "tests" / "data" / "ja-training-sequences.tsv"),
+                "--connections", str(ROOT / "packs" / "ja-lite" / "connections.tsv"),
                 "--license-file", str(ROOT / "packs" / "ja-lite" / "LICENSE"),
                 "--license-spdx", "MIT", "--upstream", "original test fixture",
                 "--pack-id", "ja-import-test", "--language-id", "ja-JP",
