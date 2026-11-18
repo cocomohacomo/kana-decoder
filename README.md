@@ -47,6 +47,7 @@
 - tools/evaluate_ablation.py は全読みを覆う単一span候補に限定し、形態素スコア・combined local score・SURGEの根拠付き解決を比較します。複数形態素文の正解token alignmentを推測しません。
 
 ## 仕様
+- v0.33: docs/SPECIFICATION_v0.33.md
 - v0.32: docs/SPECIFICATION_v0.32.md
 - Python API: docs/PYTHON_API.md
 - v0.32: docs/SPECIFICATION_v0.31.md（v0.32校正入力堅牢化を含む）\n- v0.31: docs/SPECIFICATION_v0.31.md\n- v0.30: docs/SPECIFICATION_v0.30.md\n- v0.29: docs/SPECIFICATION_v0.29.md
