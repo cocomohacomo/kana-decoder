@@ -147,3 +147,30 @@ BaseMorphScoreは単語コスト、接続コスト、局所形態素特徴から
 ### 10.8 初期実装方針
 
 初期版は辞書Trie、Viterbi、固定幅N-best、ルールベースの形態素・談話特徴、固定容量Context Core、線形再ランキングで構成する。大規模ニューラルモデルを必須にしない。将来モデルを交換する場合もCPU・オフライン・固定予算契約を維持する。
+
+
+## 11. 言語パックと多言語正文化
+
+### 11.1 最終出力
+
+最終出力は純かな入力から、漢字・ひらがな・カタカナ・アルファベット等、数字、単位、記号、句読点、空白・改行を含む対象言語の正文を生成すること。漢字かな交じり文に限定しない。
+
+### 11.2 Language Pack
+
+辞書モデルは言語ごとのLanguage Packとして換装する。PackはReading Normalizer、Lexicon Provider、Morphological Schema、Connection Model、Morphological Decoder Adapter、Language Scorer、Semantic Feature Mapper、Orthographic Policy、Number/Symbol Formatter、Punctuation Model、Unicode Policy、Manifestを提供する。
+
+### 11.3 Core / Pack分離
+
+共通CoreはStream、Branch、Context Cluster、Question、Focus、Commit、固定予算、差分出力を管理する。Language Packは読み解釈、辞書、品詞・活用・接続、言語固有特徴、表記・数字・記号・句読点規則を提供する。Coreへ日本語固有の品詞IDや漢字優先規則を埋め込まない。
+
+### 11.4 Pack選択と世代
+
+Pack Manifestはlanguage_id、pack_id/version、Core ABI version、dictionary/model version、reading encoding、normalization/orthography profile、license manifest、resource limitsを含む。PackはEngineまたはSession生成時に明示選択する。稼働中Sessionで暗黙切替しない。Pack変更はSessionのDrain/Resetを伴い、世代を更新する。
+
+### 11.5 数字・記号・句読点
+
+数詞、日付、時刻、金額、割合、単位、略語、数式等は意味を保ったままPackのFormatting Policyにより表記する。数字の値を変える正規化は禁止する。句読点・括弧・引用符は言語固有規則に従い、明示入力と推定挿入のprovenanceを区別する。
+
+### 11.6 言語選択
+
+初期版は明示language_idまたはEngineのdefault packを使用する。自動言語判定は必須とせず、将来追加時も曖昧な読みからの暗黙Pack切替は禁止する。
