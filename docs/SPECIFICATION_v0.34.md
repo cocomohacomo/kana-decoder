@@ -69,7 +69,7 @@ No v0.32 accuracy gain is claimed until the new CI and full Pack workflow comple
 - train splitの単語系列から、各語の前後2語以内の文脈プロファイルを作成する。
 - TF-IDF重み付き疎ベクトルのコサイン類似度から、決定論的Union-Findで語彙クラスターを生成する。語彙上限2,000、クラスター上限24語、共通文脈の過剰寄与を抑制する。
 - クラスターごとに文中の候補出現統計を保持し、推論時は過去に予測した候補のクラスターだけを活性化する。候補のクラスター証拠が不足する場合は形態素順位へフォールバックする。
-- beta / marginはdev splitのみで校正し、凍結した設定でtest splitを一度評価する。クラスター生成はtrain splitのみ。
+- 証拠スコア差の単一gap thresholdをdev splitのみで校正し、凍結した設定でtest splitを一度評価する。クラスター生成はtrain splitのみ。
 - tools/evaluate_surge_clusters.py は軽量なSURGEクラスター仮説の実現可能性プローブであり、SURGE Core本体や本番C++デコーダへの統合ではない。
 - 現段階の評価はgold token境界・読みを使う候補選択診断であり、未知の文節境界を含む完全なかな入力からのCERではない。
 - 成績が改善しない場合は本番統合しない。test結果でパラメータを再調整しない。
@@ -91,3 +91,10 @@ No v0.32 accuracy gain is claimed until the new CI and full Pack workflow comple
 - 表層候補が1種類しかないトークンはQuestionでもabstentionでもない。解決率・棄権率の分母から除外する。
 - 指標に question_tokens を追加し、resolved_tokens + abstained_tokens = question_tokens を不変条件とする。
 - この変更は評価カウントの意味を正すものであり、デコーダ出力や候補スコアを変更しない。
+
+
+### v0.34.2 校正パラメータの単純化
+
+- 旧beta × margin条件は gap >= margin / beta と等価で、独立パラメータではなかった。
+- 校正を単一の gap_threshold（0.0, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0）へ変更し、dev上で直接選択する。
+- testには選択済みthresholdを固定して適用する。重複した実質同一設定による校正グリッドの水増しを防止する。
