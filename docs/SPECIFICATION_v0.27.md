@@ -18,7 +18,7 @@ The candidate score is now exposed as three independent parts:
 
 - Candidate surfaces at the same reading span form a claim cluster.
 - Two or more competing surfaces form an unresolved Question.
-- The probe ranks contextual evidence separately from morphology/local costs.
+- The probe ranks contextual evidence separately from morphology/local costs. For each surface it keeps the context evidence attached to the same best-local-path observation, avoiding maxima taken from incompatible beam histories.
 - A Question is eligible for resolution only when at least two competing surfaces have differentiated, non-zero neighbor-context evidence and the best-vs-second context margin meets the configured threshold (default 0.5).
 - Morphology cost, word frequency prior, gold labels, and the baseline output cannot resolve a Question.
 - Unresolved Questions receive Focus, prioritized by smallest available context margin. If evidence is absent, the Question remains unresolved.
