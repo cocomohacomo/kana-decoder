@@ -114,15 +114,23 @@ def make_clusters(sequences, max_vocab=2000, window=2, min_similarity=0.32,
     for cluster_id, items in enumerate(groups):
         for token in items:
             token_cluster[token] = cluster_id
-    # Count candidate occurrences per cluster over training sentences.
+    # Directional, distance-preserving counts: a cluster at position i
+    # supports the candidate at i + distance. This avoids sentence-wide
+    # topic co-occurrence being mistaken for local decoding evidence.
     cluster_candidates = defaultdict(Counter)
     cluster_totals = Counter()
     for seq in sequences:
-        active = {token_cluster[x] for x in seq if x in token_cluster}
-        for cluster_id in active:
-            for token in seq:
-                cluster_candidates[cluster_id][token] += 1
-                cluster_totals[cluster_id] += 1
+        for index, context_token in enumerate(seq):
+            cluster_id = token_cluster.get(context_token)
+            if cluster_id is None:
+                continue
+            for distance in range(1, window + 1):
+                target_index = index + distance
+                if target_index >= len(seq):
+                    break
+                target = seq[target_index]
+                cluster_candidates[cluster_id][(target, distance)] += 1
+                cluster_totals[(cluster_id, distance)] += 1
     return token_cluster, cluster_candidates, cluster_totals, {
         "train_sequences": len(sequences), "vocabulary_considered": len(vocab),
         "cluster_count": len(groups), "clustered_tokens": len(token_cluster),
@@ -181,17 +189,22 @@ def evaluate(sentences, by_reading, token_cluster, cluster_candidates,
             chosen_surface = order[0]
             if chosen_surface == expected:
                 totals["morph_correct"] += 1
-            active = {token_cluster[x] for x in history if x in token_cluster}
             cluster_scores, evidence = {}, {}
             for candidate in candidates:
                 cid = candidate["candidate_id"]
                 values, support = [], 0
-                for cluster_id in active:
-                    count = cluster_candidates[cluster_id][cid]
+                # history is causal and bounded to the previous two predictions.
+                # Distance 1 is the immediately preceding predicted token.
+                for distance, context_candidate_id in enumerate(reversed(history), 1):
+                    cluster_id = token_cluster.get(context_candidate_id)
+                    if cluster_id is None:
+                        continue
+                    count = cluster_candidates[cluster_id][(cid, distance)]
+                    total = cluster_totals[(cluster_id, distance)]
                     if count:
                         support += count
                         values.append(math.log((count + alpha) /
-                            (cluster_totals[cluster_id] + alpha * vocab_size)))
+                            (total + alpha * vocab_size)))
                 if values:
                     cluster_scores[cid] = sum(values) / len(values)
                     evidence[cid] = support
