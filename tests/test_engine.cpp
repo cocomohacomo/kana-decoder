@@ -79,6 +79,12 @@ int main(){
  ConnectionModel pack_connections;CorrectionOptions pack_corrections;assert(load_language_pack(std::string(KANA_DECODER_SOURCE_DIR)+"/packs/ja-lite",pack_lexicon,pack_scorer,&pack_entries,&pack_connections,&pack_corrections));
  assert(pack_connections.cost(1,1)==0&&pack_connections.cost(1,2)==20);
  assert(pack_corrections.rules.size()==3&&pack_corrections.rules.front().rule_id=="ja-voicing-01");
+ LexiconTrie correction_pack_trie;
+ assert(correction_pack_trie.add("かんじん",LatticeCandidate{"kanjin","肝心",10,0}));
+ CorrectionOptions correction_pack_options=pack_corrections;
+ correction_pack_options.minimum_improvement=1.0;correction_pack_options.minimum_score=-1000000000.0;
+ auto pack_rule_decode=decode_with_corrections("かんしん",correction_pack_trie,pack_scorer,correction_pack_options,dop);
+ assert(pack_rule_decode.correction_applied&&pack_rule_decode.decoded_reading=="かんじん");
  std::string malformed;malformed.push_back(static_cast<char>(0xf0));malformed.push_back(static_cast<char>(0x28));malformed.push_back(static_cast<char>(0x8c));malformed.push_back(static_cast<char>(0x28));
  assert(is_valid_utf8("こんにちは🙂")&&!is_valid_utf8(malformed));
  std::string overlong;overlong.push_back(static_cast<char>(0xc0));overlong.push_back(static_cast<char>(0xaf));assert(!pack_lexicon.add(overlong,{"bad","bad",0,0}));
