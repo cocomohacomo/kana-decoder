@@ -32,6 +32,7 @@
 - 詳細: docs/PACK_IMPORT_AND_EVALUATION.md
 
 ## 仕様
+- v0.12: docs/SPECIFICATION_v0.12.md
 - v0.11: docs/SPECIFICATION_v0.11.md
 - v0.10: docs/SPECIFICATION_v0.10.md
 - v0.9以前: docs/
