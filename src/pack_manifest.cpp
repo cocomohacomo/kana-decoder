@@ -1,5 +1,7 @@
 #include "kana_decoder/pack_manifest.hpp"
 #include <array>
+#include <algorithm>
+#include <iterator>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
