@@ -51,7 +51,8 @@ def import_lexicon(source, output):
                 names = [norm(value) for value in raw]
                 expected = {norm(value): value for value in HEADER}
                 if len(set(names)) != len(names):
-                    raise ValueError("duplicate CSV header after case/underscore normalization")
+                    duplicates = sorted({name for name in names if names.count(name) > 1})
+                    raise ValueError(f"duplicate CSV header after case/underscore normalization: {duplicates}; raw={raw!r}")
                 missing = [value for value in HEADER if norm(value) not in names]
                 if missing:
                     raise ValueError("missing required Sudachi V1 columns: " + ",".join(missing))
