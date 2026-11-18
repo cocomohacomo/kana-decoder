@@ -8,7 +8,7 @@ class PythonPackageBuildTests(unittest.TestCase):
    result=subprocess.run(command,capture_output=True,text=True)
    self.assertEqual(result.returncode,0,result.stdout+result.stderr)
    env=os.environ.copy();env["PYTHONPATH"]=str(target)
-   probe=subprocess.run([sys.executable,"-c","import kana_decoder; assert kana_decoder.__version__ == '0.13.0'"],
+   probe=subprocess.run([sys.executable,"-c","import kana_decoder; assert kana_decoder.__version__ == '0.14.0'"],
     capture_output=True,text=True,env=env)
    self.assertEqual(probe.returncode,0,probe.stdout+probe.stderr)
 if __name__=="__main__":unittest.main()
