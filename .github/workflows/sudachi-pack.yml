@@ -11,6 +11,7 @@ on:
       - "tools/import_sudachi_v1.py"
       - "tools/validate_sudachi_pack_inputs.py"
       - "tools/build_sudachi_pack.py"
+      - "tools/evaluate_corpus.cpp"
   workflow_dispatch:
     inputs:
       max_expanded_gib:
@@ -74,7 +75,7 @@ jobs:
           cmake -S . -B "$RUNNER_TEMP/kana-runtime-build" -DCMAKE_BUILD_TYPE=Release
           cmake --build "$RUNNER_TEMP/kana-runtime-build" --target kana_decoder_eval --parallel 2
           /usr/bin/time -v "$RUNNER_TEMP/kana-runtime-build/kana_decoder_eval" \
-            "$RUNNER_TEMP/ja-jp-sudachi-small" tests/data/ja-smoke-gold.tsv \
+            "$RUNNER_TEMP/ja-jp-sudachi-small" tests/data/ja-smoke-gold.tsv --details \
             2>&1 | tee "$RUNNER_TEMP/sudachi-runtime-evaluation.log"
 
       - name: Upload verified Pack artifact
