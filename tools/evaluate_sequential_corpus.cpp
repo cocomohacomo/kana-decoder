@@ -222,6 +222,8 @@ bool write_calibration(const std::string& path, double weight, double margin, do
 bool read_calibration(const std::string& path, double& weight, double& margin, double& alpha) {
     std::ifstream in(path);
     if (!(in >> weight >> margin >> alpha)) return false;
+    std::string trailing;
+    if (in >> trailing) return false;
     return std::isfinite(weight) && weight >= 0.0
         && std::isfinite(margin) && margin >= 0.0
         && std::isfinite(alpha) && alpha > 0.0 && alpha <= 100.0;
