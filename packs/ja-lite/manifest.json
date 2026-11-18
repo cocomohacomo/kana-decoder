@@ -5,9 +5,9 @@
  "license":{"spdx":"MIT","file":"LICENSE","upstream":"original minimal fixture, no third-party dictionary"},
  "resource_limits":{"max_expanded_bytes":31457280,"max_candidates":8,"max_edit_distance":1},
  "files":[
-  {"path":"lexicon.tsv","size":300,"sha256":"70098fd63029bfbe0cb6b1cd021f429802107718a92ffa3ab1364dc0fc142411"},
-  {"path":"ngram.tsv","size":301,"sha256":"02191c27973288ece8611a6b0743ef94b969e06dfae2cb77ad1bd511cad1b638"},
-  {"path":"correction_rules.tsv","size":149,"sha256":"86cefe017cb40e6890d71bdfd8f5929533540ca54b4cdf76aca6f52335af39cc"},
+  {"path":"lexicon.tsv","size":268,"sha256":"2808ba887a10e9005fb0d508db7fab3b08d8e0013539d9d7f115b0116a164752"},
+  {"path":"ngram.tsv","size":268,"sha256":"191de4ea38e1fcb93b5588c5de2c4bd6f8ea8c2b04e971bc6a0770ce02a9853b"},
+  {"path":"correction_rules.tsv","size":133,"sha256":"bdb5f66f60a84adcaf79756a0a37bd70bf34bd9e7b8d10d0027f530b01981bdf"},
   {"path":"LICENSE","size":824,"sha256":"e51e8b1fef27afc5f147aa600a5225c1a14a77387f829de603d24c54af986fc7"}
  ],
  "status":"test-fixture-not-production-dictionary"
