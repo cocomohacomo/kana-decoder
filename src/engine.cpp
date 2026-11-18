@@ -127,7 +127,7 @@ bool StreamingSession::append(const std::string& chunk,const LexiconTrie& lexico
 }
 
 bool StreamingSession::commit_common_prefix(StreamingSnapshot& snapshot,std::string& output){
- if(reading_.empty()||snapshot.reading!=reading_||snapshot.paths.empty())return false;
+ if(reading_.empty()||snapshot.revision!=revision_||snapshot.reading!=reading_||snapshot.paths.empty())return false;
  std::size_t common=snapshot.paths.front().tokens.size();
  for(const auto& path:snapshot.paths)common=std::min(common,path.tokens.size());
  std::size_t matched=0;
@@ -152,13 +152,13 @@ bool StreamingSession::commit_common_prefix(StreamingSnapshot& snapshot,std::str
  return true;
 }
 bool StreamingSession::commit_best(StreamingSnapshot& snapshot,std::string& output){
- if(reading_.empty()||snapshot.paths.empty()||snapshot.reading!=reading_)return false;
+ if(reading_.empty()||snapshot.revision!=revision_||snapshot.paths.empty()||snapshot.reading!=reading_)return false;
  std::string committed;for(const auto&token:snapshot.paths.front().tokens)committed+=token.candidate.surface;
  if(committed.empty())return false;
  output=std::move(committed);snapshot.provisional=false;++revision_;snapshot.revision=revision_;
  reading_.clear();return true;
 }
-void StreamingSession::reset(){reading_.clear();revision_=0;}
+void StreamingSession::reset(){reading_.clear();++revision_;}
 std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  const std::vector<LatticeEdge>& lattice,const MaskedNgramScorer& scorer,
  const std::vector<std::string>& right_context,const DecoderOptions& opt,const ConnectionModel* connections) const {
