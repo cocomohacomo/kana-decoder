@@ -84,7 +84,7 @@ jobs:
 
       - name: Build base Pack and run held-out contextual ablation
         env:
-          MAX_EXPANDED_GIB: \${{ inputs.max_expanded_gib || '8' }}
+          MAX_EXPANDED_GIB: ${{ inputs.max_expanded_gib || '8' }}
         run: |
           set -euo pipefail
           python - <<'PY'
