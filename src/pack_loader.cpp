@@ -30,7 +30,9 @@ static bool load_correction_rules_file(const std::string& path,std::vector<Corre
   if(used!=cols[4].size()||!std::isfinite(cost)||cost<0.0)return false;
   parsed.push_back({cols[0],cols[1],cols[2],kind,cost});
  }
- if(!in.eof())return false;rules=std::move(parsed);return true;
+ if (!in.eof()) return false;
+ rules = std::move(parsed);
+ return true;
 }
 
 bool load_language_pack(const std::string& directory,LexiconTrie& lexicon,MaskedNgramScorer& scorer,std::size_t* loaded,ConnectionModel* connections,CorrectionOptions* corrections){
@@ -43,6 +45,8 @@ bool load_language_pack(const std::string& directory,LexiconTrie& lexicon,Masked
  CorrectionOptions parsed_corrections;std::ifstream correction_file(base+"correction_rules.tsv");
  if(correction_file&&!load_correction_rules_file(base+"correction_rules.tsv",parsed_corrections.rules))return false;
  lexicon=std::move(parsed_lexicon);scorer=std::move(parsed_scorer);if(connections)*connections=std::move(parsed_connections);
- if(corrections)*corrections=std::move(parsed_corrections);if(loaded)*loaded=count;return true;
+ if (corrections) *corrections = std::move(parsed_corrections);
+ if (loaded) *loaded = count;
+ return true;
 }
 }
