@@ -37,27 +37,32 @@ def import_lexicon(source,output):
   for row in rows:f.write("\t".join(row)+"\n")
  return {"entries":len(rows),"skipped":skipped,"extra_columns_ignored":len(raw)-len(mapping)}
 def import_matrix(source,output):
- rows=[];seen=set()
+ rows=[];keys=[];nonzero=0
  with source.open(encoding="utf-8") as f:
   first=f.readline().split()
   if len(first)!=2:raise ValueError("matrix.def must start with left_size right_size")
   left_size,right_size=map(int,first)
-  if min(left_size,right_size)<=0:raise ValueError("invalid matrix dimensions")
+  if min(left_size,right_size)<=0 or max(left_size,right_size)>2**31-1:raise ValueError("invalid matrix dimensions")
   for line_no,line in enumerate(f,2):
    if not line.strip():continue
    cols=line.split()
    if len(cols)!=3:raise ValueError(f"{source}:{line_no}: expected right_id left_id cost")
-   right,left,cost=map(int,cols)
+   try:right,left,cost=map(int,cols)
+   except ValueError as exc:raise ValueError(f"{source}:{line_no}: invalid integer") from exc
    if not(0<=right<right_size and 0<=left<left_size and -(2**31)<=cost<2**31):raise ValueError(f"{source}:{line_no}: matrix index or cost out of range")
-   key=(right,left)
-   if key in seen:raise ValueError(f"{source}:{line_no}: duplicate matrix cell")
-   seen.add(key)
-   if cost!=0:rows.append((right,left,cost))
+   key=(right<<32)|left;keys.append(key)
+   if cost!=0:rows.append((key,right,left,cost));nonzero+=1
+ keys.sort()
+ for index in range(1,len(keys)):
+  if keys[index-1]==keys[index]:raise ValueError("duplicate matrix cell")
+ rows.sort(key=lambda row:row[0])
  output.parent.mkdir(parents=True,exist_ok=True)
  with output.open("w",encoding="utf-8",newline="\n") as f:
+  f.write(f"# matrix {left_size} {right_size}\n")
   f.write("# right_id\tleft_id\tcost\n")
-  for right,left,cost in rows:f.write(f"{right}\t{left}\t{cost}\n")
- return {"left_size":left_size,"right_size":right_size,"nonzero_cells":len(rows),"representation":"sparse-tsv; absent cells resolve to zero"}
+  for _,right,left,cost in rows:f.write(f"{right}\t{left}\t{cost}\n")
+ return {"left_size":left_size,"right_size":right_size,"input_cells":len(keys),"nonzero_cells":nonzero,"representation":"sorted sparse TSV with explicit matrix dimensions"}
+
 def main():
  p=argparse.ArgumentParser();sub=p.add_subparsers(dest="command",required=True)
  for name in ("lexicon","matrix"):
