@@ -14,6 +14,10 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  const std::size_t edge_limit=std::min<std::size_t>(opt.max_edges_per_position,16);
  const std::size_t candidate_limit=std::min<std::size_t>(opt.max_candidates_per_edge,8);
  const std::size_t path_limit=std::min<std::size_t>(opt.max_paths,8);
+ const std::size_t expansion_limit=opt.max_expanded_states;
+ const std::size_t trace_limit=std::min<std::size_t>(opt.max_trace_records,4096);
+ if(expansion_limit==0)return {};
+ std::size_t expanded_states=0;
  std::vector<std::vector<const LatticeEdge*>> at(length+1);
  for(const auto& edge:lattice){
   if(edge.start>=edge.end||edge.end>length||edge.candidates.empty())continue;
@@ -43,6 +47,8 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
    if(candidates.size()>candidate_limit)candidates.resize(candidate_limit);
    for(const auto& state:beams[pos])for(const auto& candidate:candidates){
     if(candidate.id.empty()||candidate.surface.empty())continue;
+    if(expanded_states>=expansion_limit)return {};
+    ++expanded_states;
     State next=state;
     const std::int32_t transition=(connections&&state.has_last)?connections->cost(state.last_right_id,candidate.left_id):0;
     const double morph=-static_cast<double>(candidate.word_cost)-
@@ -50,7 +56,7 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     const double raw_context=scorer.score(candidate.id,state.history,right_context);
     const double ctx=raw_context*opt.context_weight;
     const double local=morph+ctx;
-    if(trace && trace->size()<4096) trace->push_back(CandidateScoreTrace{
+    if(trace && trace->size()<trace_limit) trace->push_back(CandidateScoreTrace{
       edge->start,edge->end,candidate.id,candidate.surface,
       candidate.word_cost,candidate.connection_cost,transition,
       raw_context,opt.context_weight,morph,ctx,local,
