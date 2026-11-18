@@ -35,13 +35,15 @@ The allowlist used by the current validator is intentionally narrow: MIT, BSD-2-
 
 ### SudachiDict Small: candidate, not yet imported
 
-The upstream SudachiDict LEGAL notice states that:
+The release-specific SudachiDict LEGAL notice for v20260723 states that:
 - the distribution is under Apache-2.0;
 - `small_lex.csv` contains part of UniDic;
 - `matrix.def.zip` is part of UniDic;
 - `core_lex.csv` and `notcore_lex.csv` contain part of NEologd.
 
-The Small dictionary is therefore the preferred Sudachi starting point because its documented composition is limited to the UniDic vocabulary subset rather than the additional NEologd-derived Core/Full entries. The candidate Pack license expression is `Apache-2.0 AND BSD-3-Clause`, retaining the UniDic BSD notice. The exact release, raw CSV archive, matrix, source hashes, and all release-specific notices must still be pinned and audited before import. No Sudachi dictionary data is bundled in this repository at this stage.
+The Small lexicon and matrix therefore each retain both the Apache-2.0 distribution terms and the UniDic BSD-3-Clause conditions. The exact release license texts and four-component profile are preserved under `licenses/sudachi-small-20260723/`. The profile does not replace the need to verify the downloaded archives and final Pack.
+
+The Small dictionary is therefore the preferred Sudachi starting point because its documented composition is limited to the UniDic vocabulary subset rather than the additional NEologd-derived Core/Full entries. The candidate Pack license expression is `Apache-2.0 AND BSD-3-Clause`, retaining the UniDic BSD notice. The exact release, raw CSV archive, matrix, source hashes, and all release-specific notices are pinned in the repository. The source archives have not yet been downloaded and verified here, and no production Sudachi dictionary Pack is bundled.
 
 ### SudachiDict Core and Full: excluded from initial import
 
