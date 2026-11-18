@@ -19,7 +19,8 @@ public:
  void add_unigram(const std::string&,std::uint32_t);
  bool load_tsv(const std::string& path);
  double score(const std::string&,const std::vector<std::string>&,const std::vector<std::string>&) const;
- double contextual_score(const std::string&,const std::vector<std::string>&,const std::vector<std::string>&) const;\n bool has_left_context_evidence(const std::string&,const std::vector<std::string>&) const;
+ double contextual_score(const std::string&,const std::vector<std::string>&,const std::vector<std::string>&) const;
+ bool has_left_context_evidence(const std::string&,const std::vector<std::string>&) const;
  AmbiguityResult resolve(const std::vector<Candidate>&,const std::vector<std::string>&,const std::vector<std::string>&,
   OutputMode,double minimum_score=-8.0,double minimum_margin=1.25,bool include_other=true,const std::string& original_reading={}) const;
 private:
@@ -104,7 +105,9 @@ struct DecoderOptions {
  std::size_t max_edges_per_position=16;
  std::size_t max_candidates_per_edge=8;
  std::size_t max_paths=8;
- double context_weight=1.0;\n bool surge_left_context_gate=false;\n double surge_context_margin=0.5;
+ double context_weight=1.0;
+ bool surge_left_context_gate=false;
+ double surge_context_margin=0.5;\n bool surge_left_context_gate=false;\n double surge_context_margin=0.5;
  // Deterministic per-decode resource ceilings. Exceeding a ceiling rejects
  // the decode rather than returning a silently truncated/low-quality result.
  std::size_t max_input_codepoints=256;
