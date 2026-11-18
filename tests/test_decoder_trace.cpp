@@ -106,6 +106,7 @@ int main() {
  assert(saw_fallback);
 
  // Invalid floating-point scoring controls fail closed instead of poisoning beam order.
+ bool exceeded=false;
  DecoderOptions invalid_scoring;
  invalid_scoring.context_weight=std::numeric_limits<double>::quiet_NaN();
  exceeded=false;
@@ -120,7 +121,7 @@ int main() {
  // Input, lattice, and search expansion limits fail closed instead of
  // returning a silently truncated hypothesis.
  DecoderOptions limited;
- bool exceeded=false;
+ exceeded=false;
  limited.max_input_codepoints=1;
  auto too_long=decode_reading("あめ",lexicon,scorer,limited,nullptr,nullptr,nullptr,&exceeded);
  assert(too_long.empty()&&exceeded);
