@@ -15,7 +15,7 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  const std::size_t edge_limit=std::min<std::size_t>(opt.max_edges_per_position,16);
  const std::size_t candidate_limit=std::min<std::size_t>(opt.max_candidates_per_edge,8);
  const std::size_t path_limit=std::min<std::size_t>(opt.max_paths,8);
- const std::size_t expansion_limit=opt.max_expanded_states;
+ const std::size_t expansion_limit=std::min<std::size_t>(opt.max_expanded_states,262144);
  const std::size_t trace_limit=std::min<std::size_t>(opt.max_trace_records,4096);
  if(expansion_limit==0)return {};
  std::size_t expanded_states=0;
