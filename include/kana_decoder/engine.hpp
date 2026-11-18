@@ -40,7 +40,17 @@ private: std::unordered_map<std::string,HypothesisNode> nodes_;
 struct LatticeCandidate {
  std::string id, surface;
  std::int32_t word_cost=0, connection_cost=0;
+ std::int32_t left_id=0, right_id=0;
 };
+class ConnectionModel {
+public:
+ void set_cost(std::int32_t right_id,std::int32_t left_id,std::int32_t cost);
+ std::int32_t cost(std::int32_t right_id,std::int32_t left_id) const;
+ bool load_tsv(const std::string& path);
+private:
+ std::unordered_map<std::string,std::int32_t> costs_;
+};
+bool is_valid_utf8(const std::string& text);
 struct LatticeEdge {
  std::size_t start=0, end=0; // Unicode code-point offsets in the reading
  std::vector<LatticeCandidate> candidates;
@@ -85,7 +95,7 @@ public:
  explicit StreamingSession(std::size_t max_reading_codepoints=256);
  bool append(const std::string& chunk,const LexiconTrie& lexicon,
    const MaskedNgramScorer& scorer,StreamingSnapshot& snapshot,
-   const DecoderOptions& options={});
+   const DecoderOptions& options={},const ConnectionModel* connections=nullptr);
  bool commit_best(StreamingSnapshot& snapshot,std::string& committed_output);
  void reset();
  const std::string& reading() const { return reading_; }
@@ -94,10 +104,10 @@ private:
  std::uint64_t revision_=0;
  std::string reading_;
 };
-bool load_language_pack(const std::string& directory,LexiconTrie& lexicon,MaskedNgramScorer& scorer,std::size_t* loaded_entries=nullptr);
+bool load_language_pack(const std::string& directory,LexiconTrie& lexicon,MaskedNgramScorer& scorer,std::size_t* loaded_entries=nullptr,ConnectionModel* connections=nullptr);
 std::vector<DecodedPath> decode_reading(const std::string& reading,
  const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,
- const DecoderOptions& options={});
+ const DecoderOptions& options={},const ConnectionModel* connections=nullptr);
 class MorphologyDecoder {
 public:
  std::vector<DecodedPath> decode(std::size_t reading_length,
