@@ -163,7 +163,8 @@ public:
   const std::vector<LatticeEdge>& lattice,const MaskedNgramScorer& scorer,
   const std::vector<std::string>& right_context={},
   const DecoderOptions& options={},const ConnectionModel* connections=nullptr,
-  std::vector<CandidateScoreTrace>* trace=nullptr) const;
+  std::vector<CandidateScoreTrace>* trace=nullptr,
+  bool* resource_limit_exceeded=nullptr) const;
 };
 std::string render_ambiguity(const std::vector<Candidate>&,bool);
 }
