@@ -82,9 +82,9 @@ jobs:
           set -euo pipefail
           cmake -S . -B "$RUNNER_TEMP/kana-runtime-build" -DCMAKE_BUILD_TYPE=Release
           cmake --build "$RUNNER_TEMP/kana-runtime-build" --target kana_decoder_eval --parallel 2
-          # RLIMIT_DATA bounds heap/data allocations; the post-run RSS check
+          # RLIMIT_DATA leaves room for allocator virtual arenas; the post-run RSS check
           # independently guards total resident memory including mapped pages.
-          ulimit -d $((1792 * 1024))
+          ulimit -d $((3072 * 1024))
           /usr/bin/time -v -o "$RUNNER_TEMP/sudachi-runtime-time.log" \
             "$RUNNER_TEMP/kana-runtime-build/kana_decoder_eval" \
             "$RUNNER_TEMP/ja-jp-sudachi-small" tests/data/ja-smoke-gold.tsv --trace --lattice-trace \
