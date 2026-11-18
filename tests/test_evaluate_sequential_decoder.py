@@ -62,8 +62,8 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
 
             # Calibration artifacts are strict three-number records. Reject trailing
             # fields and non-finite values rather than silently accepting corruption.
-            for payload in ("1.0\t0.5\t0.5\textra\\n",
-                            "nan\t0.5\t0.5\\n"):
+            for payload in ("1.0\t0.5\t0.5\textra\n",
+                            "nan\t0.5\t0.5\n"):
                 malformed = root / "malformed-calibration.tsv"
                 malformed.write_text(payload, encoding="utf-8")
                 rejected = subprocess.run(
