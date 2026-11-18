@@ -77,7 +77,7 @@ bool verify_pack_manifest(const std::string& directory,std::string* error){
   return fail(error,"invalid license metadata");
  std::string files_block;
  if(!capture(json,std::regex(R"("files"\s*:\s*\[([\s\S]*?)\])"),files_block))return fail(error,"manifest files list missing");
- const std::regex entry_re(R"(\{\s*"path"\s*:\s*"([^"]+)"\s*,\s*"size"\s*:\s*([0-9]+)\s*,\s*"sha256"\s*:\s*"([0-9a-fA-F]{64})"\s*\})");
+ const std::regex entry_re(R"rx(\{\s*"path"\s*:\s*"([^"]+)"\s*,\s*"size"\s*:\s*([0-9]+)\s*,\s*"sha256"\s*:\s*"([0-9a-fA-F]{64})"\s*\})rx");
  std::set<std::string> listed;std::uint64_t total=0;bool has_lex=false,has_ngram=false,has_license=false;
  for(std::sregex_iterator it(files_block.begin(),files_block.end(),entry_re),end;it!=end;++it){
   const std::string relative=(*it)[1].str(),hash=(*it)[3].str();
