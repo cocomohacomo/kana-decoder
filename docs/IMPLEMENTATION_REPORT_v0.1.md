@@ -172,3 +172,15 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - The 20261015 SudachiDict-small PyPI wheel is listed at 42.5 MB. This is not the eventual kana-decoder Pack size, but it exceeds the current 30 MiB lightweight target and must be measured after import/compaction.
 - No third-party dictionary payload was added. The exact raw CSV source archive and its SHA-256 still need to be independently pinned and verified before the first production import. The 20261015 release candidate's source archive was not available for verified retrieval during this implementation run.
 - The repository therefore now has a license-safe import/release path, but does not yet claim production dictionary coverage or production accuracy.
+
+
+## 18. Sudachi V1 source import pipeline
+- Added tools/import_sudachi_v1.py with a strict 18-column official V1 header check. It maps reading form, writing, lemma, POS1-6, conjugation fields, word cost, and left/right connection IDs into the normalized Pack TSV.
+- Kept V0 parsing as a separate legacy format; V0 and V1 are not auto-detected or conflated.
+- Added tools/import_sudachi_v1.py matrix to parse MeCab matrix.def dimensions and (right_id, left_id, cost) cells, validate bounds and duplicates, and emit sparse TSV by omitting zero-cost cells. ConnectionModel defines missing cells as zero.
+- Added tools/verify_sudachi_source.py to verify source ZIP SHA-256 before extracting only the required member. It rejects path traversal, Windows drive/path forms, symlinks and oversized members.
+- Added licenses/sudachidict-small-20260723-source-lock.json with published hashes for SudachiDict Small V1 small_lex.zip and the UniDic 2.1.2 matrix.def.zip. Hashes are sourced from the Lindera raw-source mirror; archives have not been downloaded or independently verified in this repository session.
+- Added V1 lexicon, matrix conversion, source hash mismatch and safe extraction fixture tests.
+- Added docs/SPECIFICATION_v0.9.md and updated the Pack import guide and third-party component register.
+- GitHub Actions run 44351954164 for commit ec0a16de065ddc02704b929e9505ec84c838915b: completed / success. CTest 6/6 passed; Python unittest 22/22 passed; Pack verification and bounded decode benchmark passed.
+- Production dictionary import remains pending: exact archive bytes must be acquired and checked against the lock, the exact release notices reviewed, then the generated Pack's installed size, load time, runtime RSS, unknown-word rate and held-out accuracy measured. The sparse unordered-map connection matrix is not yet approved for production memory budgets.
