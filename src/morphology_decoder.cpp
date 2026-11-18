@@ -72,7 +72,25 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
      candidates.pop_back();
     }
    }
-   for(const auto& state:beams[pos])for(const auto* candidate_ptr:candidates){
+   for(const auto& state:beams[pos]){
+    bool surge_resolved=false;
+    if(opt.surge_left_context_gate&&!state.history.empty()){
+     std::vector<std::pair<std::string,double>> surface_evidence;
+     for(const auto* candidate_ptr:candidates){
+      const auto& candidate=*candidate_ptr;
+      if(!scorer.has_left_context_evidence(candidate.id,state.history))continue;
+      const double evidence=scorer.contextual_score(candidate.id,state.history,{});
+      auto found=std::find_if(surface_evidence.begin(),surface_evidence.end(),
+       [&](const auto& item){return item.first==candidate.surface;});
+      if(found==surface_evidence.end())surface_evidence.emplace_back(candidate.surface,evidence);
+      else if(evidence>found->second)found->second=evidence;
+     }
+     std::stable_sort(surface_evidence.begin(),surface_evidence.end(),
+      [](const auto& a,const auto& b){return a.second>b.second;});
+     surge_resolved=surface_evidence.size()>=2&&
+      surface_evidence[0].second-surface_evidence[1].second>=opt.surge_context_margin;
+    }
+    for(const auto* candidate_ptr:candidates){
     const auto& candidate=*candidate_ptr;
     if(candidate.id.empty()||candidate.surface.empty())continue;
     if(expanded_states>=expansion_limit){
@@ -84,8 +102,12 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     const std::int32_t transition=(connections&&state.has_last)?connections->cost(state.last_right_id,candidate.left_id):0;
     const double morph=-static_cast<double>(candidate.word_cost)-
                        static_cast<double>(candidate.connection_cost)-static_cast<double>(transition);
-    const double raw_context=scorer.score(candidate.id,state.history,right_context);
-    const double context_evidence=scorer.contextual_score(candidate.id,state.history,right_context);
+    const double context_evidence=opt.surge_left_context_gate
+      ? (surge_resolved?scorer.contextual_score(candidate.id,state.history,{}):0.0)
+      : scorer.contextual_score(candidate.id,state.history,right_context);
+    const double raw_context=opt.surge_left_context_gate
+      ? context_evidence
+      : scorer.score(candidate.id,state.history,right_context);
     const double ctx=raw_context*opt.context_weight;
     const double local=morph+ctx;
     if(trace && trace->size()<trace_limit) trace->push_back(CandidateScoreTrace{
@@ -99,6 +121,7 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     next.history.push_back(candidate.id);next.last_right_id=candidate.right_id;next.has_last=true;
     if(next.history.size()>2)next.history.erase(next.history.begin());
     beams[edge->end].push_back(std::move(next));
+    }
    }
    prune(beams[edge->end]);
   }
