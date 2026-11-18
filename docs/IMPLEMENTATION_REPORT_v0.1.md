@@ -250,3 +250,9 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Added docs/PYTHON_API.md and docs/SPECIFICATION_v0.14.md. CTest now covers Python ctypes, the public Python wrapper, snapshot lifetime after engine close and pip installation.
 - GitHub Actions run 44359119067 for commit 243386680abc2684ac806a34842de37c2ece0cc3: completed / success. CTest 12/12 PASS; Python unittest 34 tests PASS; bounded decode microbenchmark PASS; Japanese reference Pack verification PASS; Pack/license policy validation PASS.
 - Remaining production gates: obtain and verify the pinned official Sudachi archives; build the real Pack; evaluate on disjoint train/dev/test corpora; measure target CPU latency and peak RSS; improve unknown-word handling and test long-running streaming stability.
+
+
+## 24. Manual production Pack acquisition workflow
+- Added .github/workflows/sudachi-pack.yml with workflow_dispatch. It downloads the two source archives from the pinned lock, verifies their SHA-256 values, builds the real Small Pack, runs final Pack/license verification and uploads the result as a 30-day Actions artifact.
+- Added README and Pack import guide instructions for selecting Actions → Build Sudachi Small Pack → Run workflow. The expanded Pack budget defaults to 8 GiB and is bounded to 0.25–64 GiB.
+- This manual workflow has been added but has not been dispatched in this session. No real dictionary archive or production Pack is claimed until the workflow completes successfully and the artifact is inspected.
