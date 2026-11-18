@@ -368,3 +368,12 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - 既知の観察点: 現行Trieは各読み位置に辞書一致がある場合、その位置のかなfallback edgeを生成しない。従って「ぴ→日」のケースではfallback候補が候補集合に存在しない可能性を、実データtraceで直接確認できる。今回の変更では候補選択規則自体は変更していない。
 - 仕様書 `docs/SPECIFICATION_v0.22.md` を追加。
 - GitHub Actions run `44377822634`（code commit `713eb22ec4712a43cccac47909b2ab1106d6c042`）: completed / success。Configure / Build / CTest / bounded decode benchmark / Pack verification / Python Pack・license testsすべてPASS。CTest 14/14 PASS。新規 `decoder_trace_tests` と拡張 `evaluator_cli_contract_tests` を含む。
+
+
+## 35. エンジン責務の一括分割（v0.23）
+- `src/engine.cpp` から以下の責務を独立翻訳単位へ抽出: `src/lexicon_trie.cpp`（Trie / TSV / Lattice）、`src/scoring.cpp`（ConnectionModel / MaskedNgramScorer / ambiguity）、`src/correction.cpp`（補正ルール読込 / 候補生成 / 適用）、`src/streaming_session.cpp`（append / commit / reset）、`src/pack_loader.cpp`（Manifest検証後のPackロード）。
+- 既存の公開宣言は `include/kana_decoder/engine.hpp` に維持し、C++利用側のAPIとC ABIを変更しない構成。
+- Static coreとshared runtimeの双方へ同じモジュール群を登録。Python ctypesが使用する共有ライブラリも新しい実装単位で構成。
+- Pack loaderは引き続き一時オブジェクトに読み込み、Manifest・辞書・ngram・任意のconnection/correctionファイル検証後に一括反映するtransactional semanticsを維持。
+- CI初回で分割ファイルに移した標準ライブラリ依存の不足を検出し、`<charconv>` / `<fstream>` を追加。StreamingのUTF-8検証は共通 `is_valid_utf8` APIへ統一。
+- 検証結果は最新CI完了後に追記する。
