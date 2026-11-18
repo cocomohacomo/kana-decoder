@@ -420,3 +420,12 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - C++テストでunigram/contextの分離、context score差、direct decoder zero-budget fail-closedを検証。Pythonテストで大きなmorphology marginだけでは解決しないこと、文脈証拠のmarginでQuestionが解決可能になることを検証。
 - v0.26実Pack run `44385008956`: completed/success。Peak RSS 1,425,500 KiB（1,792 MiB gate内）。smoke 4件は1/4 exact、CER 1.0、decode failure 0。SURGE baselineは13 clusters / 84 claims / 12 questions / 4 focus cases / candidate coverage 4/4。Packのneighbor-context evidenceは空で、解決件数0。
 - v0.27 code CI run `44388451549`: completed/success。warning-as-error build成功、CTest 16/16 PASS、Python unittest 50件PASS。実Pack再検証run `44388413830` はPack生成・実行評価中で、v0.27のPeak RSSとcontext evidence結果はまだ未確定。
+
+## 40. 文脈コーパス準備と候補アブレーション（v0.28）
+- tools/prepare_context_corpus.py を追加。文書ID・文ID・reading・surface・domainを含む形態素トークンTSVを、Pack builderが受け取るcandidate-ID sequenceへ変換する。辞書との対応は完全一致し、同一reading/surfaceに複数candidate IDがある場合はword cost最小、次いでID順で決定する。
+- train/dev/testを文書単位で分割。明示splitがあれば文書間の混在を拒否し、split指定がなければSHA-256による決定的順序で概ね80/10/10へ分割する。trainは --sequences 用ID列、dev/testはreading/expected/domainの評価TSVを生成する。辞書未登録tokenは行番号付きでfail-closedとし、黙って除外しない。
+- tools/evaluate_ablation.py を追加。candidate traceを用い、morphology-only、combined local score、SURGE context-evidence gated resolutionを比較する。SURGEは2候補以上の非ゼロかつ差別化された文脈証拠と閾値以上のmarginがある場合だけ解決し、それ以外は棄却する。
+- sentence-level goldとの誤ったtoken alignmentを避けるため、アブレーション精度は入力reading全体を覆うsingle-span候補のみを対象とする。複数span/複数形態素ケースは評価対象外として明示する。各候補surfaceのスコア要素は同じbest-local observationから取得し、異なるbeam履歴を混ぜない。
+- CTestにcorpus compiler / ablation testsを追加。回帰テストは文書split漏洩防止、明示split衝突拒否、辞書未登録token拒否、context evidenceが形態素順位と異なる候補を解決する合成例、証拠なし棄却、multi-span誤alignment防止を検証する。
+- Sudachi実Pack v0.27 run 44388413830: completed / success。754,602辞書entries、trained n-gram records 0、installed size 661.413 MiB、pack_load_ms 10,302、Peak RSS 1,425,444 KiB（1,792 MiB gate内）。4件smokeは1/4 exact、CER 1.0、decode failure 0。SURGEは13 span clusters / 84 claims / 12 Questions / 0 context-evidence spans / 0 resolved / 12 unresolved / 4 Focus / candidate coverage 4/4。学習コーパスがないため、文脈による実データ改善は未検証。
+- 重要な境界: v0.28は学習コーパスを安全に準備・分割・評価する道具を追加したものであり、トークナイザや外部コーパスを同梱しない。精度改善の確認には、ライセンス確認済みの文書単位で分離された形態素tokenized corpusが必要。
