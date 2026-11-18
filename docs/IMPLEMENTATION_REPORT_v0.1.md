@@ -311,3 +311,15 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Sudachi V1 documentation states that entries used only as components of split words may have Left_Id or Right_Id set to -1; such entries do not appear independently as analysis results. The importer now skips these rows as standalone candidates, while validation counts and reports them. Values below -1 and out-of-dimension positive IDs remain errors.
 - Added regression tests for validator acceptance, importer filtering and skip counts. The first test revision contained literal escaped newlines in fixture data; corrected in commit 62399cc20a0d2415c61824b0ef8bddb4e0d15b6f before final CI verification.
 - The V1 Pack Workflow has not yet succeeded. A new push-triggered run will verify the sentinel handling against the complete source.
+
+
+## 30. 初回Sudachi V1 Small Pack生成成功
+- GitHub Actions run 44373492197（commit f03c4048a60afb59f9d47c83cb9cdfbe2be10362）: completed / success。Sudachi V1 source取得、SHA-256照合、全件入力検証、正規化import、Pack生成、Manifest/hash/容量/ライセンス検証、Artifact uploadまで成功。
+- Artifact: \`kana-decoder-ja-jp-sudachi-small-20260723\`, ID \`14459966853\`, ZIP 149,644,217 bytes, SHA-256 \`de7512aa0c387e3ca44921794d9e64dfbcf218574e1326941462d88b7ecc7341\`. Retention expires 2026-12-18.
+- Source archives: V1 small lexicon 14,641,540 bytes / SHA-256 \`e49936daef64043657752eb9f4ada912cf0316e26dd158a6200c770e2f93e706\`; matrix 128,639,959 bytes / SHA-256 \`3ccaed582481b31be170c7200cf1cb2856f2d14c2fa601b3692d97dbad5a3bd1\`.
+- Source validation: lexicon rows 765,649; composition-only rows with -1 context IDs 10,213; matrix 5,981 x 5,981, 35,772,361 source cells, 35,759,450 nonzero.
+- Lexicon importer: 754,603 entries before normalized Pack builder duplicate elimination; 10,215 skipped, of which 10,213 were composition-only. Final Pack builder reports 754,602 entries.
+- Pack: payload 693,537,484 bytes; manifest 4,518 bytes; installed total 693,542,002 bytes = 661.413 MiB. connections.tsv 514,338,787 bytes; lexicon.tsv 179,160,409 bytes; ngram.tsv 45 bytes (no training corpus supplied, so no learned n-gram records).
+- Independent artifact ZIP download was materialized and inspected. Its SHA-256 matches the GitHub artifact digest. Manifest identifies pack \`ja-jp-sudachi-small\`, version \`20260723.1\`, license expression \`Apache-2.0 AND BSD-3-Clause\`.
+- CI run 44373791625 for commit b84de582766d1c184466404cc6394760001e4037: completed / success; CTest 12/12 PASS; Python unittest 45 discovered, 41 passed, 4 skipped (CTest-only native argument cases).
+- This proves Pack generation and static Pack verification, not yet runtime usability or quality. Native C++ runtime load, peak RSS, load time, decode smoke metrics and held-out corpus accuracy remain to be measured. The Sudachi Pack workflow now includes a native runtime build/evaluation step before artifact upload.
