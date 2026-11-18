@@ -31,4 +31,12 @@ class SudachiPackBuildTests(unittest.TestCase):
    report=json.loads(result.stdout);self.assertEqual(report["status"],"built-and-verified")
    self.assertTrue((output/"provenance.json").is_file());self.assertTrue((output/"UPSTREAM_LEGAL.txt").is_file())
    manifest=json.loads((output/"manifest.json").read_text());self.assertIn("connections.tsv",[x["path"] for x in manifest["files"]])
+
+ def test_subcommand_failure_includes_captured_diagnostics(self):
+  import importlib.util
+  spec=importlib.util.spec_from_file_location("build_sudachi_pack",TOOL)
+  module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+  with self.assertRaisesRegex(RuntimeError,"validator-detail-from-stderr"):
+   module.run_json([sys.executable,"-c","import sys; print('validator-detail-from-stderr', file=sys.stderr); sys.exit(1)"])
+
 if __name__=="__main__":unittest.main()
