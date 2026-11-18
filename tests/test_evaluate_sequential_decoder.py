@@ -37,6 +37,11 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
             self.assertEqual(result["trained_unigram_left_context"]["exact_matches"], 1)
             self.assertEqual(
                 result["trained_unigram_left_context"]["exact_token_alignment"], 2)
+            self.assertIn("surge_evidence_gated_left_context", result)
+            self.assertEqual(
+                result["surge_evidence_gated_left_context"]["cases"],
+                result["morphology_only"]["cases"])
+            self.assertIn("cer", result["surge_evidence_gated_left_context"])
 
 
 if __name__ == "__main__":
