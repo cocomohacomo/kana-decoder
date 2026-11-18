@@ -11,6 +11,7 @@ from pathlib import Path
 def validate(lexicon, matrix):
     matrix_rows = 0
     nonzero = 0
+    non_decodable_rows = 0
     with tempfile.TemporaryDirectory(prefix="kana-decoder-validate-") as tmp:
         db = sqlite3.connect(str(Path(tmp) / "validation.sqlite3"))
         db.execute("PRAGMA journal_mode=OFF")
@@ -70,17 +71,21 @@ def validate(lexicon, matrix):
                         right = int(row[mapping["rightid"]])
                     except Exception as exc:
                         raise ValueError(f"{lexicon}:{line_no}: invalid context ID or row width") from exc
-                    if not 0 <= left < left_size or not 0 <= right < right_size:
-                        raise ValueError(f"{lexicon}:{line_no}: context ID outside matrix dimensions")
-                    max_left = max(max_left, left)
-                    max_right = max(max_right, right)
+                    if left < -1 or right < -1 or left >= left_size or right >= right_size:
+                        raise ValueError(f"{lexicon}:{line_no}: context ID outside matrix dimensions (left_id={left}, right_id={right}, dimensions={left_size}x{right_size})")
+                    if left == -1 or right == -1:
+                        non_decodable_rows += 1
+                    if left >= 0:
+                        max_left = max(max_left, left)
+                    if right >= 0:
+                        max_right = max(max_right, right)
                     rows += 1
             if not rows:
                 raise ValueError("empty lexicon")
         finally:
             db.close()
     return {
-        "status": "valid", "lexicon_rows": rows, "matrix_rows": matrix_rows,
+        "status": "valid", "lexicon_rows": rows, "non_decodable_rows": non_decodable_rows, "matrix_rows": matrix_rows,
         "matrix_nonzero_cells": nonzero, "matrix_left_size": left_size,
         "matrix_right_size": right_size, "max_left_id": max_left,
         "max_right_id": max_right,
