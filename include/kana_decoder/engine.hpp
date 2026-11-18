@@ -66,6 +66,12 @@ struct DecodedPath {
  std::vector<DecodedToken> tokens;
  double score=0.0;
 };
+struct CorrectionDecodeResult {
+ std::string input_reading, decoded_reading;
+ bool correction_applied=false;
+ CorrectionCandidate correction{"", "", {CorrectionKind::Phonetic, 0, "", ""}, 0.0, false, ""};
+ std::vector<DecodedPath> paths;
+};
 struct DecoderOptions {
  std::size_t beam_width=8;
  std::size_t max_edges_per_position=16;
@@ -111,6 +117,10 @@ bool load_language_pack(const std::string& directory,LexiconTrie& lexicon,Masked
 std::vector<DecodedPath> decode_reading(const std::string& reading,
  const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,
  const DecoderOptions& options={},const ConnectionModel* connections=nullptr);
+CorrectionDecodeResult decode_with_corrections(const std::string& reading,
+ const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,
+ const CorrectionOptions& correction_options={},const DecoderOptions& decoder_options={},
+ const ConnectionModel* connections=nullptr);
 class MorphologyDecoder {
 public:
  std::vector<DecodedPath> decode(std::size_t reading_length,
