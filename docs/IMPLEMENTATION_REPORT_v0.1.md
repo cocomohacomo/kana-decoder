@@ -530,3 +530,11 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - 実Sudachi Packの数値はCI完了後に追記する。
 
 - Code CI: run `44417936909` passed. Warning-as-error build and CTest 21/21 PASS; Python 65 tests (60 PASS / 5 SKIP). Full Sudachi Pack cluster evaluation run `44417936824` is still running; no corpus accuracy conclusion yet.
+
+
+## 45. v0.34 距離保持型SURGEクラスター証拠
+
+- v0.33プローブの文単位共起統計を、先行候補のクラスターと後続候補IDを距離別に保持する方向付き統計へ変更。
+- 推論時は直近2件の予測履歴を使い、距離1と距離2の証拠を別々に参照する。文全体に同居しただけの語を局所的な変換根拠として扱わない。
+- 合成テストに距離混同の回帰ケースを追加。train/dev/testの分離方針は維持。
+- 本変更はプローブの証拠品質改善であり、精度改善は実Sudachi Pack test完了後に判定する。実測前の改善主張・本番統合は行わない。
