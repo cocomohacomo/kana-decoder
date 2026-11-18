@@ -356,3 +356,14 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - 重要な判断: 現時点でconnection matrix全体の向きやimporter mappingの不具合と断定できる証拠はない。まず候補一覧・各候補のword cost / connection cost / transition cost / context scoreを可視化し、未知語fallbackの生成条件も追跡する。その後、学習データを用いた同音語選択の評価へ進む。
 
 - Refactor CI verification: run 44376327575 for commit 25ec03e2870d527d41f38c62a60d3cc65e38fd07 completed / success. CTest 13/13 PASS, including the new evaluator CLI contract test; build, bounded decode microbenchmark, reference Pack verification and Python Pack/license tests also passed. Subsequent documentation-only commits have their own CI runs in progress.
+
+
+
+## 34. デコーダ責務分割・候補スコア診断（v0.22）
+- `MorphologyDecoder::decode` を `src/engine.cpp` から `src/morphology_decoder.cpp` へ抽出。ビーム幅・edge/candidate/path上限、候補評価式、経路順位は変更せず、翻訳単位の責務分割として実施。
+- `CandidateScoreTrace` を追加し、読み範囲、候補ID/表層、word cost、候補固有connection cost、遷移connection cost、raw context score、context weight、morphology score、weighted context score、local score、unknown fallback識別を記録。
+- `decode_reading` / `MorphologyDecoder::decode` に省略可能なtrace出力引数を追加。既存呼び出しはデフォルト引数により互換性を維持。1 decodeあたり最大4,096候補展開まで記録し、診断メモリを制限。
+- `kana_decoder_eval --trace` を追加。ケース別JSONへcandidate_traceを追加し、通常の集計値は変更しない。CLI回帰テストでJSON解析、集計同一性、fallback flag、score decompositionを検証。
+- `tests/test_decoder_trace.cpp` を追加。word cost、candidate connection cost、transition connection cost、context scoreの各項目と合計式を検証。
+- 既知の観察点: 現行Trieは各読み位置に辞書一致がある場合、その位置のかなfallback edgeを生成しない。従って「ぴ→日」のケースではfallback候補が候補集合に存在しない可能性を、実データtraceで直接確認できる。今回の変更では候補選択規則自体は変更していない。
+- 仕様書 `docs/SPECIFICATION_v0.22.md` を追加。CI runは確認中であり、成功を確認後にこの節へrun IDとテスト数を追記する。
