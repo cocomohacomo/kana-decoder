@@ -54,7 +54,8 @@ def validate(lexicon, matrix):
                 raw = reader.fieldnames or []
                 names = [value.strip().lower().replace("_", "") for value in raw]
                 if len(set(names)) != len(names):
-                    raise ValueError("duplicate lexicon header after normalization")
+                    duplicates = sorted({name for name in names if names.count(name) > 1})
+                    raise ValueError(f"duplicate lexicon header after normalization: {duplicates}; raw={raw!r}")
                 mapping = {name: raw[index] for index, name in enumerate(names)}
                 for required in ("leftid", "rightid"):
                     if required not in mapping:
