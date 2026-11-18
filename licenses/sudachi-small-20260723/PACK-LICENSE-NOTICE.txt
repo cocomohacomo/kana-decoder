@@ -1,0 +1,17 @@
+kana-decoder SudachiDict Small Pack notice
+===========================================
+
+Dictionary source: WorksApplications/SudachiDict, release 20260723, V1.
+Connection matrix: UniDic 2.1.2 matrix.def.
+
+Combined data license expression: Apache-2.0 AND BSD-3-Clause.
+
+The SudachiDict distribution is covered by Apache License 2.0. The upstream
+LEGAL notice identifies small_lex.csv and matrix.def as UniDic-derived data
+and includes the UniDic Consortium BSD conditions. Both complete license
+texts and component-level provenance are included in THIRD_PARTY_LICENSES/
+and license-profile.json. The complete upstream LEGAL notice is included as
+UPSTREAM_LEGAL.txt.
+
+The kana-decoder Core implementation is separately licensed under MIT. This
+Pack notice does not relicense the Core or any third-party data component.
