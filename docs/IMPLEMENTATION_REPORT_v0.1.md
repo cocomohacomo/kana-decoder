@@ -30,7 +30,9 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 
 - C++ Core / C API build: PASS
 - C++機能テスト: PASS（曖昧性解消・保持・かなフォールバック、masked trigram、重複削除、音韻置換、促音挿入削除、低確信時非採用、数字保護、無効化、依存再評価、C API）
-- Python Pack validation: PASS（7 tests）\n- Pack builder tests: PASS（2 tests）\n- Corpus quality smoke: PASS（4/4 exact match）
+- Python Pack validation: PASS（7 tests）
+- Pack builder tests: PASS（2 tests）
+- Corpus quality smoke: PASS（4/4 exact match）
 - CTest: 5/5 passed（C API integration / C++ engine / Pack validation / Japanese quality smoke / Pack builder）
 - C言語ソースからC ABIをリンクし、Packロード・かな変換・出力バッファ不足・未ロード/不正Packを実行確認: PASS
 
