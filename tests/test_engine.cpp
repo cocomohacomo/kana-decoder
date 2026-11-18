@@ -54,8 +54,9 @@ int main(){
  assert(pack_entries==7&&pack_lexicon.size()==7);
  ConnectionModel pack_connections;assert(load_language_pack(std::string(KANA_DECODER_SOURCE_DIR)+"/packs/ja-lite",pack_lexicon,pack_scorer,&pack_entries,&pack_connections));
  assert(pack_connections.cost(1,1)==0&&pack_connections.cost(1,2)==20);
- assert(is_valid_utf8("こんにちは🙂")&&!is_valid_utf8(std::string("\\xF0\\x28\\x8C\\x28",4)));
- assert(!pack_lexicon.add(std::string("\\xC0\\xAF",2),{"bad","bad",0,0}));
+ std::string malformed;malformed.push_back(static_cast<char>(0xf0));malformed.push_back(static_cast<char>(0x28));malformed.push_back(static_cast<char>(0x8c));malformed.push_back(static_cast<char>(0x28));
+ assert(is_valid_utf8("こんにちは🙂")&&!is_valid_utf8(malformed));
+ std::string overlong;overlong.push_back(static_cast<char>(0xc0));overlong.push_back(static_cast<char>(0xaf));assert(!pack_lexicon.add(overlong,{"bad","bad",0,0}));
  assert(pack_scorer.score("rain",{"あした"},{})>pack_scorer.score("candy",{"あした"},{}));
  LexiconTrie contextual_trie;
  assert(contextual_trie.add("あした",{"あした","明日",100,0}));
@@ -95,7 +96,7 @@ int main(){
  char converted[64]={};assert(kd_engine_decode(engine,"あめ",converted,sizeof(converted))==0);
  assert(std::string(converted)=="雨");
  assert(kd_engine_decode(engine,"あめ",converted,1)==-2);
- assert(kd_engine_decode(engine,std::string("\\xF0\\x28",2).c_str(),converted,sizeof(converted))==-1);
+ assert(kd_engine_decode(engine,malformed.c_str(),converted,sizeof(converted))==-1);
  kd_engine_destroy(engine);
 
  // Commit only the shared token prefix, retaining ambiguous suffix for later context.
