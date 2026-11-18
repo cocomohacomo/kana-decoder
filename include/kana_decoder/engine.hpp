@@ -35,5 +35,37 @@ class DependencyGraph {
 public: bool add(HypothesisNode); std::vector<std::string> invalidate_dependents(const std::string&); const HypothesisNode* find(const std::string&) const;
 private: std::unordered_map<std::string,HypothesisNode> nodes_;
 };
+
+struct LatticeCandidate {
+ std::string id, surface;
+ std::int32_t word_cost=0, connection_cost=0;
+};
+struct LatticeEdge {
+ std::size_t start=0, end=0; // Unicode code-point offsets in the reading
+ std::vector<LatticeCandidate> candidates;
+};
+struct DecodedToken {
+ std::size_t start=0, end=0;
+ Candidate candidate;
+ double morphology_score=0.0, context_score=0.0;
+};
+struct DecodedPath {
+ std::vector<DecodedToken> tokens;
+ double score=0.0;
+};
+struct DecoderOptions {
+ std::size_t beam_width=8;
+ std::size_t max_edges_per_position=16;
+ std::size_t max_candidates_per_edge=8;
+ std::size_t max_paths=8;
+ double context_weight=1.0;
+};
+class MorphologyDecoder {
+public:
+ std::vector<DecodedPath> decode(std::size_t reading_length,
+  const std::vector<LatticeEdge>& lattice,const MaskedNgramScorer& scorer,
+  const std::vector<std::string>& right_context={},
+  const DecoderOptions& options={}) const;
+};
 std::string render_ambiguity(const std::vector<Candidate>&,bool);
 }
