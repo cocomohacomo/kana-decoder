@@ -103,7 +103,8 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     const double morph=-static_cast<double>(candidate.word_cost)-
                        static_cast<double>(candidate.connection_cost)-static_cast<double>(transition);
     const double context_evidence=opt.surge_left_context_gate
-      ? (surge_resolved?scorer.contextual_score(candidate.id,state.history,{}):0.0)
+      ? (surge_resolved&&scorer.has_left_context_evidence(candidate.id,state.history)
+          ? scorer.contextual_score(candidate.id,state.history,{}) : 0.0)
       : scorer.contextual_score(candidate.id,state.history,right_context);
     const double raw_context=opt.surge_left_context_gate
       ? context_evidence
