@@ -596,6 +596,11 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
             ";inflection=" + token.candidate.inflection_type + "/" +
             token.candidate.inflection_form + "]",
         record.evidence_ids}});
+    if (!best_claims.empty() && item.first == best_claims.front()) {
+      delta.nodes.push_back({{record.dependency_id, ::surge::NodeKind::Dependency,
+          "CLAIM_TEMPORAL_STATE:VALID@" + timestamp,
+          {record.claim_id, record.entity_id}}});
+    }
     std::string interpretation_cluster;
     std::string cluster_error;
     if (!graph_->append_cluster_membership(delta, context_cluster_id_,
@@ -607,9 +612,11 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     }
 
     const std::string original_surface_id = record.claim_id + "/surface/original";
-    delta.nodes.push_back({{original_surface_id, ::surge::NodeKind::Entity,
+    delta.nodes.push_back({{original_surface_id, ::surge::NodeKind::Evidence,
         "CLASS=SOURCE_SURFACE;surface=" + token.candidate.surface +
-        ";reading=" + token_reading + ";source_digest=" + source_digest, {record.claim_id}}});
+        ";reading=" + token_reading + ";source_digest=" + source_digest, {}}});
+    delta.relations.push_back({{prefix + "/surface-source-support/" + id_component(original_surface_id),
+        ::surge::RelationKind::Supports, original_surface_id, record.claim_id}});
     std::string surface_cluster;
     if (!graph_->append_cluster_membership(delta, context_cluster_id_,
           "SURFACE_REALIZATION", source_digest + ":" + span_key,
@@ -621,10 +628,12 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     if (!record.normalized_surface.empty() &&
         record.normalized_surface != token.candidate.surface) {
       const std::string rendered_surface_id = record.claim_id + "/surface/rendered";
-      delta.nodes.push_back({{rendered_surface_id, ::surge::NodeKind::Entity,
+      delta.nodes.push_back({{rendered_surface_id, ::surge::NodeKind::Evidence,
           "CLASS=LANGUAGE_RENDERED_SURFACE;surface=" + record.normalized_surface +
           ";source_surface=" + token.candidate.surface +
-          ";source_digest=" + source_digest, {record.claim_id}}});
+          ";source_digest=" + source_digest, {}}});
+      delta.relations.push_back({{prefix + "/surface-rendered-support/" + id_component(rendered_surface_id),
+          ::surge::RelationKind::Supports, rendered_surface_id, record.claim_id}});
       std::string rendered_cluster;
       if (!graph_->append_cluster_membership(delta, context_cluster_id_,
             "SURFACE_REALIZATION", source_digest + ":" + span_key,
@@ -633,11 +642,6 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
         result.error = "SURGE_RENDERED_SURFACE_CLUSTER_CLASSIFICATION_FAILED:" + cluster_error;
         return result;
       }
-    }
-    if (!best_claims.empty() && item.first == best_claims.front()) {
-      delta.nodes.push_back({{record.dependency_id, ::surge::NodeKind::Dependency,
-          "CLAIM_TEMPORAL_STATE:VALID@" + timestamp,
-          {record.claim_id, record.entity_id}}});
     }
     delta.relations.push_back({{prefix + "/about-cluster/" + id_component(record.claim_id),
         ::surge::RelationKind::About, record.claim_id, interpretation_cluster}});
