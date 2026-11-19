@@ -137,6 +137,42 @@ int main() {
       EntityTarget::Identifier, {}, parsed_identifier));
   assert(ja_adapter.render_entity(parsed_identifier, NumericStyle::Arabic, rendered));
   assert(rendered == "0123");
+  Entity invalid_unit;
+  assert(!ja_adapter.make_entity("さんじゅうに", "missing-unit-1",
+      EntityTarget::Unit, {}, invalid_unit));
+
+  ::kana_decoder::DecodedPath date_path;
+  ::kana_decoder::DecodedToken date_token;
+  date_token.start = 0; date_token.end = 25;
+  date_token.candidate.id = "date-reading";
+  date_token.candidate.surface = "date-reading";
+  date_path.tokens.push_back(date_token);
+  SurfaceRenderOptions structured_options;
+  structured_options.normalize_numbers = true;
+  std::string structured_output;
+  const std::string date_reading = "にせんにじゅうろくねんじゅういちがつにじゅうににち";
+  assert(ja_adapter.render_path(date_path, date_reading, structured_options, structured_output));
+  assert(structured_output == "2026年11月22日");
+
+  ::kana_decoder::DecodedPath time_path;
+  ::kana_decoder::DecodedToken time_token;
+  time_token.start = 0; time_token.end = 11;
+  time_token.candidate.id = "time-reading";
+  time_token.candidate.surface = "time-reading";
+  time_path.tokens.push_back(time_token);
+  assert(ja_adapter.render_path(time_path, "ごごさんじにじゅっぷん",
+                                structured_options, structured_output));
+  assert(structured_output == "15時20分");
+
+  ::kana_decoder::DecodedPath range_path;
+  ::kana_decoder::DecodedToken range_token;
+  range_token.start = 0; range_token.end = 5;
+  range_token.candidate.id = "range-reading";
+  range_token.candidate.surface = "range-reading";
+  range_path.tokens.push_back(range_token);
+  assert(ja_adapter.render_path(range_path, "さんからご",
+                                structured_options, structured_output));
+  assert(structured_output == "3〜5");
 
   Entity date;
   assert(date.id.assign("date-1"));
