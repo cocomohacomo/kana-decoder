@@ -51,7 +51,7 @@ def main():
         + classification["wrong_output_outside_raw_nbest"]
     )
     assert wrong_partition == classification["candidate_available_surge_wrong"], classification
-    assert classification["candidate_available"] == round(recall10 * cases), classification
+    assert abs(classification["candidate_available"] / cases - recall10) <= 1e-6, classification
     assert payload["cases"] > 0
     sentence_only = payload["token_aligned_candidate_generation"]
     assert sentence_only["gold_tokens"] == 0, sentence_only
