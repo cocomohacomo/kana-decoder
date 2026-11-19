@@ -188,6 +188,7 @@ int main(int argc, char** argv) {
       << ",\"sentence_exact\":" << static_cast<double>(exact_surge) / cases.size()
       << ",\"overrides\":" << overrides
       << ",\"deferred\":" << deferred
+      << ",\"runtime_failures\":" << runtime_failures
       << ",\"decode_failures\":" << decode_failures << "}"
       << ",\"elapsed_seconds\":" << elapsed
       << ",\"sentences_per_second\":" << (elapsed > 0.0 ? cases.size() / elapsed : 0.0)
