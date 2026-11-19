@@ -12,7 +12,9 @@ int main() {
   std::error_code ignored;
   std::filesystem::remove(journal, ignored);
 
+  kana_decoder::surge::JapaneseLanguageAdapter numeric_adapter;
   kana_decoder::SurgeRuntimeConfig config;
+  config.language_adapter = &numeric_adapter;
   config.journal_path = journal;
   config.context_id = "runtime-conformance-test";
   config.remove_journal_on_destroy = false;
