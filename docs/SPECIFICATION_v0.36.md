@@ -121,3 +121,13 @@ No v0.32 accuracy gain is claimed until the new CI and full Pack workflow comple
 - sequential evaluatorはsidecarを指定した場合にSURGE Cluster単独とN-gram + SURGE Clusterを別々に出力する。test側のsidecarはtrain生成/dev校正済みで固定し、testで再校正しない。
 - sidecarはLanguage Packへ同梱せず、既定decoderでも無効。実データ全文評価のCER改善が確認されるまでは実験機能として扱う。
 - C++ loader/scorerの単体テスト、候補上位4から漏れたクラスタ支持候補の復帰テスト、Python/C++実データ比較をCIに追加。
+
+
+## 11. v0.37 SURGE経験記憶の多次数N-gram統合
+
+- N-gramをSURGEの経験Evidenceとして統合し、train系列からUnigram、Bigram、Trigram、Skip-Bigram（直前2位置の語と現在語の関係）を構築する。
+- 推論ではBeamごとの予測済み履歴のみを参照し、未来情報を利用しない。Trigram / Bigram / Skip-Bigramの観測Evidenceを個別評価し、観測された次数だけを重み付き平均する。初期重みはTrigram 0.60、Bigram 0.30、Skip-Bigram 0.10。
+- Unigramは基礎頻度として保持し、SURGE Cluster Evidenceと同時に利用できる。既存の形態素接続行列は品詞・接続情報の別Evidenceとして維持する。
+- Skip-Bigramは距離2関係を独立保持し、隣接Bigramと混同しない。未観測チャネルは平均の分母から除外し、0点の肯定証拠として扱わない。
+- 既定DecoderOptions、Language Pack形式、C ABIは変更しない。係数は初期値でありdevで校正し、testは凍結設定で一度評価する。
+- Character N-gramは同一読みスパンの候補間で入力文字列が共通となるため、候補スコアへ安易に加算しない。未知語候補生成・読み誤り検出の別タスクとして扱う。
