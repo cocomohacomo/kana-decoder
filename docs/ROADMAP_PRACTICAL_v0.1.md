@@ -33,7 +33,7 @@
 
 ### P1: 次のコード移管
 - [ ] `MorphologyDecoder` とlattice探索を `language_sets/ja-JP/` に物理移動する。
-- [ ] 日本語Language Setを独立したCMake targetとしてビルド可能にする。
+- [x] 日本語Language Setの形態素探索とPack providerを独立したCMake OBJECT targetとしてビルド可能にする。
 - [ ] 共通データ型とprovider interfaceを公開ヘッダーへ整理し、Hostから日本語実装ヘッダーを参照させない。
 - [ ] 辞書照合、未知語fallback、候補上限、beam/expansion上限をLanguage Set conformance testで固定する。
 - [ ] 既存の変換結果をgolden corpusで比較し、移管前後の差分をゼロにする。
