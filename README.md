@@ -87,4 +87,4 @@
 ## SURGE Core decision and evaluation
 
 - [SURGE migration implementation report v0.2](docs/IMPLEMENTATION_REPORT_v0.2.md): Core-owned recognition/normalization decisions and the real-corpus evaluation CLI.
-- Build `kana_decoder_surge_eval` and run `./build/kana_decoder_surge_eval packs/ja-lite /path/to/corpus.tsv test` to compare decoder top-1 with SURGE Core output.
+- Build `kana_decoder_surge_eval` and run `./build/kana_decoder_surge_eval /path/to/ja-pack /path/to/corpus.tsv test /path/to/train_sequences.tsv` to compare decoder top-1 with SURGE Core output.
