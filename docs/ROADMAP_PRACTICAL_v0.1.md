@@ -35,7 +35,8 @@
 - [x] `MorphologyDecoder` とlattice探索を `language_sets/ja-JP/` に物理移動する。
 - [x] 日本語Language Setの形態素探索とPack providerを独立したCMake OBJECT targetとしてビルド可能にする。
 - [ ] 共通データ型とprovider interfaceを公開ヘッダーへ整理し、Hostから日本語実装ヘッダーを参照させない。
-- [x] 辞書Trie、N-gram scorer、接続行列、訂正候補、Pack resource loaderの実装をLanguage Set targetへ移動。\n- [x] Pack decodeの決定性、入力上限、UTF-8拒否、チャンク連結、セッション分離をconformance testへ追加。\n- [ ] 辞書照合、未知語fallback、候補上限、beam/expansion上限をLanguage Set conformance testで固定する。
+- [x] 辞書Trie、N-gram scorer、接続行列、訂正候補、Pack resource loaderの実装をLanguage Set targetへ移動。
+- [x] Pack decodeの決定性、入力上限、UTF-8拒否、チャンク連結、セッション分離をconformance testへ追加。\n- [ ] 辞書照合、未知語fallback、候補上限、beam/expansion上限をLanguage Set conformance testで固定する。
 - [ ] 既存の変換結果をgolden corpusで比較し、移管前後の差分をゼロにする。
 
 ### P2: 証拠生成と判断品質
