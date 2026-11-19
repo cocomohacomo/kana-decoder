@@ -1,5 +1,6 @@
 #include "kana_decoder/c_api.h"
 #include "kana_decoder/engine.hpp"
+#include "kana_decoder/language_pack.hpp"
 #include "kana_decoder/surge_runtime.hpp"
 #include <algorithm>
 #include <atomic>
@@ -14,20 +15,16 @@
 
 struct kd_ngram_scorer { kana_decoder::MaskedNgramScorer impl; };
 struct kd_engine {
-    kana_decoder::LexiconTrie lexicon;
-    kana_decoder::MaskedNgramScorer scorer;
-    kana_decoder::ConnectionModel connections;
-    bool loaded = false;
+    std::shared_ptr<const kana_decoder::LanguagePack> pack;
     std::unique_ptr<kana_decoder::SurgeNormalizationRuntime> surge;
+    bool loaded = false;
 };
 struct kd_decode_result {
     std::vector<kana_decoder::DecodedPath> paths;
     std::vector<std::string> normalized_texts;
 };
 struct kd_streaming_session {
-    kana_decoder::LexiconTrie lexicon;
-    kana_decoder::MaskedNgramScorer scorer;
-    kana_decoder::ConnectionModel connections;
+    std::shared_ptr<const kana_decoder::LanguagePack> pack;
     kana_decoder::StreamingSession session;
     kana_decoder::StreamingSnapshot snapshot;
     std::unique_ptr<kana_decoder::SurgeNormalizationRuntime> surge;
@@ -86,14 +83,10 @@ int kd_engine_set_surge_journal(kd_engine* p, const char* path) {
 int kd_engine_load_pack(kd_engine* p, const char* dir) {
     if (!p || !dir || !*dir) return KD_ERR_INVALID_ARGUMENT;
     try {
-        kana_decoder::LexiconTrie lex;
-        kana_decoder::MaskedNgramScorer scorer;
-        kana_decoder::ConnectionModel connections;
-        if (!kana_decoder::load_language_pack(dir, lex, scorer, nullptr, &connections))
-            return KD_ERR_INVALID_ARGUMENT;
-        p->lexicon = std::move(lex);
-        p->scorer = std::move(scorer);
-        p->connections = std::move(connections);
+        std::string error;
+        auto pack = kana_decoder::load_language_pack_snapshot(dir, &error);
+        if (!pack) return KD_ERR_INVALID_ARGUMENT;
+        p->pack = std::move(pack);
         p->loaded = true;
         return 0;
     } catch (...) {
@@ -107,7 +100,7 @@ int kd_engine_decode(kd_engine* p, const char* reading, char* out, size_t cap) {
         kana_decoder::DecoderOptions options;
         options.max_paths = 8;
         options.beam_width = 8;
-        auto paths = kana_decoder::decode_reading(reading, p->lexicon, p->scorer, options, &p->connections);
+        auto paths = kana_decoder::decode_reading(reading, p->pack->lexicon(), p->pack->ngram_scorer(), options, &p->pack->connections());
         if (paths.empty() || paths.front().tokens.empty() || !p->surge) return KD_ERR_INVALID_ARGUMENT;
         const auto normalized = p->surge->normalize(reading, paths, false);
         if (!normalized.committed) return KD_ERR_INTERNAL;
@@ -131,7 +124,7 @@ kd_decode_result* kd_engine_decode_nbest(const kd_engine* engine,const char* rea
         kana_decoder::DecoderOptions options;
         options.max_paths=max_paths ? max_paths : 8;
         options.beam_width=std::max<std::size_t>(options.beam_width,options.max_paths);
-        auto paths=kana_decoder::decode_reading(reading,engine->lexicon,engine->scorer,options,&engine->connections);
+        auto paths=kana_decoder::decode_reading(reading,engine->pack->lexicon(),engine->pack->ngram_scorer(),options,&engine->pack->connections());
         if (paths.empty() || !engine->surge) return nullptr;
         const auto normalized = engine->surge->normalize(reading, paths, true);
         if (!normalized.committed) return nullptr;
@@ -188,9 +181,7 @@ kd_streaming_session* kd_streaming_session_create(const kd_engine* engine,size_t
     try {
         auto* result = new (std::nothrow) kd_streaming_session(max_reading_codepoints ? max_reading_codepoints : 256);
         if (!result) return nullptr;
-        result->lexicon = engine->lexicon;
-        result->scorer = engine->scorer;
-        result->connections = engine->connections;
+        result->pack = engine->pack;
         const auto path = temporary_surge_journal_path();
         result->surge = make_surge_runtime(path, path, true);
         if (!result->surge) { delete result; return nullptr; }
@@ -210,7 +201,7 @@ int kd_streaming_append(kd_streaming_session* p,const char* chunk,char* output,s
     try {
         auto trial_session=p->session;
         auto trial_snapshot=p->snapshot;
-        if (!trial_session.append(chunk,p->lexicon,p->scorer,trial_snapshot,{},&p->connections))
+        if (!trial_session.append(chunk,p->pack->lexicon(),p->pack->ngram_scorer(),trial_snapshot,{},&p->pack->connections()))
             return KD_ERR_INVALID_ARGUMENT;
         if (!p->surge) return KD_ERR_INTERNAL;
         const auto normalized = p->surge->normalize(trial_snapshot.reading, trial_snapshot.paths, false);
