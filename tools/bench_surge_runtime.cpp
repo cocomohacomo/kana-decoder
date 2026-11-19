@@ -46,14 +46,14 @@ int main(int argc, char** argv) {
     kana_decoder::SurgeNormalizationRuntime runtime(config);
     std::string error;
     if (!runtime.open(error)) {
-      std::cerr << error << "\\n";
+      std::cerr << error << "\n";
       return false;
     }
     const auto begin = std::chrono::steady_clock::now();
     for (int i = 0; i < iterations; ++i) {
       const auto result = runtime.normalize("さんじゅうに", paths, true);
       if (!result.committed) {
-        std::cerr << result.error << "\\n";
+        std::cerr << result.error << "\n";
         return false;
       }
     }
@@ -64,7 +64,7 @@ int main(int argc, char** argv) {
               << " total_ns=" << elapsed
               << " ns_per_normalize=" << (elapsed / iterations)
               << " graph_nodes=" << runtime.graph_node_count()
-              << " journal_state_version=" << runtime.state_version() << "\\n";
+              << " journal_state_version=" << runtime.state_version() << "\n";
     return true;
   };
 
