@@ -82,3 +82,6 @@ add_executable(kana_decoder_surge_runtime_tests tests/test_surge_runtime.cpp)
 target_link_libraries(kana_decoder_surge_runtime_tests PRIVATE kana_decoder_core)
 target_compile_definitions(kana_decoder_surge_runtime_tests PRIVATE KANA_DECODER_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 add_test(NAME surge_core_normalization_integration COMMAND kana_decoder_surge_runtime_tests)
+
+add_executable(kana_decoder_surge_bench tools/bench_surge_runtime.cpp)
+target_link_libraries(kana_decoder_surge_bench PRIVATE kana_decoder_core)
