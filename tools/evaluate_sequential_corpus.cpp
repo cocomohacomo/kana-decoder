@@ -395,7 +395,7 @@ int main(int argc, char** argv) {
         cluster_options.pos_context_weight = 0.0;
         evaluate(sentences, lexicon, trained_scorer, connections, cluster, cluster_options);
         kana_decoder::DecoderOptions combined_options;
-        combined_options.surge_cluster_model = &cluster_model;
+        combined_options.surge_cluster_model = selected_cluster_weight > 0.0 ? &cluster_model : nullptr;
         combined_options.context_weight = selected_weight;
         combined_options.pos_ngram_scorer = &trained_pos_scorer;
         combined_options.pos_context_weight = selected_pos_weight;
