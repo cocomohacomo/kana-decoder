@@ -2,7 +2,7 @@
 
 更新日: 2026-11-19
 対象ブランチ: `refactor/surge-core-as-runtime`
-対象仕様: `SPECIFICATION_v0.57.md`
+対象仕様: `SPECIFICATION_v0.58.md`
 
 ## 0. 製品ゴール
 
@@ -245,3 +245,18 @@ v0.56ではP0のCI・Pack・journal recoveryゲートが通過した。P1ではC
 - [ ] Extend typed entity extraction from full-reading to bounded partial spans inside longer sentences.
 - [ ] Add calibrated entity evidence to UnifiedDecision before candidate selection; validate with held-out CER and Candidate Recall@N.
 - [ ] Complete locale-specific calendar, relative-date and timezone policies; automatic identifier recognition remains intentionally disabled.
+
+
+## 18. v0.58 partial-span entities and pre-decision evidence
+
+- [x] Add provider-neutral bounded `EntitySpan` extraction contract with a default empty implementation.
+- [x] Implement Japanese partial-span Date, Time and Range extraction with 128-code-point per-span and 16-entity limits.
+- [x] Render a typed span inside longer text only when token boundaries exactly cover the span; preserve surrounding selected surfaces.
+- [x] Add span-aligned `typed_entity` evidence before SURGE UnifiedDecision when candidate surfaces match the normalized entity representation.
+- [x] Add metrics for extracted entities, evidence observations, selected evidence and persisted entities.
+- [x] Persist each extracted Entity/Evidence pair in ContextGraph and relate only Claims contained within its span.
+- [x] Add adapter tests for multiple partial entities and sentence rendering.
+- [x] Add runtime test proving typed entity evidence changes the pre-decision selection and persists two entities.
+- [ ] Verify latest branch head with complete static/shared CI and resolve all failures.
+- [ ] Calibrate `typed_entity` family weight on a held-out development corpus; evaluate CER and Candidate Recall@N on a separate fixed test corpus.
+- [ ] Extend typed extraction to context-bound units/currency, relative dates and locale-specific calendar policies only with explicit grammar and ambiguity tests.
