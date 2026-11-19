@@ -8,13 +8,16 @@ import json
 import subprocess
 from pathlib import Path
 
-FAMILIES = ("decoder_prior", "lexical", "morphology", "transition", "ngram", "pos_ngram", "context_cluster")
+FAMILIES = ("decoder_prior", "lexical", "morphology", "transition", "ngram", "pos_ngram", "context_cluster", "typed_entity")
 PRESETS = (
     ("baseline", {name: 1.0 for name in FAMILIES}, 1.0),
     ("lexical_morphology", {**{name: 1.0 for name in FAMILIES}, "decoder_prior": 0.5, "lexical": 1.5, "morphology": 1.25}, 0.5),
     ("ngram_context", {**{name: 1.0 for name in FAMILIES}, "decoder_prior": 0.5, "ngram": 1.5, "pos_ngram": 1.5, "context_cluster": 1.5}, 0.5),
     ("balanced_context", {**{name: 1.0 for name in FAMILIES}, "decoder_prior": 0.25, "lexical": 1.25, "ngram": 1.5, "pos_ngram": 1.25, "context_cluster": 1.5}, 0.25),
     ("renderer_conservative", {name: 1.0 for name in FAMILIES}, 0.0),
+    ("typed_entity_disabled", {**{name: 1.0 for name in FAMILIES}, "typed_entity": 0.0}, 1.0),
+    ("typed_entity_conservative", {**{name: 1.0 for name in FAMILIES}, "typed_entity": 0.5}, 1.0),
+    ("typed_entity_strong", {**{name: 1.0 for name in FAMILIES}, "ngram": 1.5, "pos_ngram": 1.5, "context_cluster": 1.5, "typed_entity": 1.5}, 0.5),
 )
 
 def sha256_file(path: Path) -> str:
