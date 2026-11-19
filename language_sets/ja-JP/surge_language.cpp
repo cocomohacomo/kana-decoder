@@ -663,6 +663,10 @@ bool JapaneseLanguageAdapter::render_path(
     value.assign(reading.substr(byte_start, byte_end - byte_start));
     return true;
   };
+  std::vector<EntitySpan> typed_entities;
+  if (options.normalize_numbers &&
+      !extract_entities(reading, kMaxEntities, typed_entities)) return false;
+
   const auto ascii_word = [](char c) {
     const auto value = static_cast<unsigned char>(c);
     return value < 0x80 && std::isalnum(value) != 0;
@@ -675,10 +679,43 @@ bool JapaneseLanguageAdapter::render_path(
   };
 
   std::string rendered;
-  std::size_t previous_end = 0;
-  for (const auto& token : path.tokens) {
+  const auto append_surface = [&](const std::string& surface) {
+    if (options.space_latin_boundaries && !rendered.empty() && !surface.empty()) {
+      const char previous = rendered.back(), current = surface.front();
+      const bool boundary = (ascii_word(previous) && static_cast<unsigned char>(current) >= 0x80 &&
+                             !punctuation_prefix(surface)) ||
+                            (static_cast<unsigned char>(previous) >= 0x80 && ascii_word(current));
+      if (boundary) rendered.push_back(' ');
+    }
+    rendered += surface;
+  };
+  std::size_t previous_end = 0, token_index = 0, entity_index = 0;
+  while (token_index < path.tokens.size()) {
+    const auto& token = path.tokens[token_index];
     if (token.start != previous_end || token.start >= token.end ||
         token.candidate.surface.empty()) return false;
+    while (entity_index < typed_entities.size() &&
+           typed_entities[entity_index].span.start < token.start) ++entity_index;
+    bool replaced = false;
+    if (entity_index < typed_entities.size() &&
+        typed_entities[entity_index].span.start == token.start) {
+      const auto& entity = typed_entities[entity_index];
+      std::size_t cursor = token_index, covered_end = token.start;
+      while (cursor < path.tokens.size() && covered_end < entity.span.end) {
+        const auto& part = path.tokens[cursor];
+        if (part.start != covered_end || part.end > entity.span.end) break;
+        covered_end = part.end;
+        ++cursor;
+      }
+      if (covered_end == entity.span.end) {
+        append_surface(entity.rendered_surface.str());
+        previous_end = entity.span.end;
+        token_index = cursor;
+        ++entity_index;
+        replaced = true;
+      }
+    }
+    if (replaced) continue;
     std::string token_reading;
     if (!slice(token.start, token.end, token_reading)) return false;
     std::string surface = token.candidate.surface;
@@ -687,36 +724,14 @@ bool JapaneseLanguageAdapter::render_path(
       std::string numeric_surface;
       if (make_numeric_entity(token_reading, "render-number-" +
               std::to_string(token.start), NumericEntityTarget::Number, {}, numeric) &&
-          render_entity(numeric, options.numeric_style, numeric_surface)) {
+          render_entity(numeric, options.numeric_style, numeric_surface))
         surface.swap(numeric_surface);
-      }
     }
-    if (options.space_latin_boundaries && !rendered.empty() && !surface.empty()) {
-      const char previous = rendered.back();
-      const char current = surface.front();
-      const bool boundary = (ascii_word(previous) && static_cast<unsigned char>(current) >= 0x80 &&
-                             !punctuation_prefix(surface)) ||
-                            (static_cast<unsigned char>(previous) >= 0x80 && ascii_word(current));
-      if (boundary) rendered.push_back(' ');
-    }
-    rendered += surface;
+    append_surface(surface);
     previous_end = token.end;
+    ++token_index;
   }
   if (previous_end != reading_codepoints) return false;
-  if (options.normalize_numbers) {
-    Entity structured;
-    std::string structured_surface;
-    if (make_entity(reading, "render-date", EntityTarget::Date, {}, structured) &&
-        render_entity(structured, options.numeric_style, structured_surface)) {
-      rendered.swap(structured_surface);
-    } else if (make_entity(reading, "render-time", EntityTarget::Time, {}, structured) &&
-               render_entity(structured, options.numeric_style, structured_surface)) {
-      rendered.swap(structured_surface);
-    } else if (make_entity(reading, "render-range", EntityTarget::Range, {}, structured) &&
-               render_entity(structured, options.numeric_style, structured_surface)) {
-      rendered.swap(structured_surface);
-    }
-  }
   if (options.append_terminal_punctuation) {
     const auto punctuation = terminal_punctuation(options.discourse_act, options.punctuation_style);
     if (!punctuation.empty()) {
