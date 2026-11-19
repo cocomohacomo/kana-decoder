@@ -189,3 +189,13 @@ No v0.32 accuracy gain is claimed until the new CI and full Pack workflow comple
 - POS Evidenceは直前の予測POS履歴に対する観測済み文脈Evidenceだけを加点し、履歴がない場合や未観測の場合は加点しない。
 - POS unigramが強くても前POSとの観測bigramが反対候補を支持する合成回帰テストを追加する。
 - 通常設定ではPOS scorer pointerがnullのため、既定の推論挙動とLanguage Packは変更しない。
+
+
+## v0.40.3 正解候補生存診断
+
+- C++逐次評価器に、gold tokenをデコード処理へ渡さず、デコード完了後の診断にのみ使う候補生存追跡を追加。
+- 各gold tokenについて、辞書ラティスに正解表層が存在するか、形態素コスト上位8候補に残るか、Beam展開時のCandidateScoreTraceに現れるか、最終best pathで正解tokenとして整列したかを集計する。
+- 脱落分類はラティス未収録、形態素top-8選抜、展開/Beam到達、最終選択の4段階。クラスタEvidenceによる候補追加はscored/expanded側へ現れるため、top-8より後段での救済も観測できる。
+- 診断はtest splitの凍結済みdev選択policyで一度だけ実行し、dev校正の各候補構成では実行しない。通常decoder API、候補選択、Language Pack形式は変更しない。
+- CandidateScoreTraceは既存の最大4096件/文の上限を使用。ラティス自体も既存のedge/candidate上限下で生成される。
+- この診断値は原因切り分け用であり、正解情報を用いた候補ランキング性能の値を通常推論精度と混同しない。
