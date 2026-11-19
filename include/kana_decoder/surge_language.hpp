@@ -244,7 +244,10 @@ bool rerank_paths(std::vector<::kana_decoder::DecodedPath>& paths,
                   PathRerankMetrics* metrics = nullptr);
 
 enum class NumericStyle : std::uint8_t { Arabic, GroupedArabic };
-enum class NumericEntityTarget : std::uint8_t { Number, Percent, Currency, Unit };
+enum class EntityTarget : std::uint8_t {
+  Number, Percent, Currency, Date, Time, Range, Unit, Identifier
+};
+using NumericEntityTarget = EntityTarget;
 
 struct SurfaceRenderOptions {
   NumericStyle numeric_style = NumericStyle::GroupedArabic;
@@ -262,9 +265,14 @@ class LanguageAdapter {
   virtual bool make_hypothesis(const ::kana_decoder::Candidate& candidate, double candidate_score,
                                Span span, std::string_view hypothesis_id,
                                Hypothesis& output) const = 0;
-  virtual bool make_numeric_entity(std::string_view reading, std::string_view entity_id,
-                                   NumericEntityTarget target, std::string_view unit,
-                                   Entity& output) const = 0;
+  virtual bool make_entity(std::string_view reading, std::string_view entity_id,
+                            EntityTarget target, std::string_view unit,
+                            Entity& output) const = 0;
+  bool make_numeric_entity(std::string_view reading, std::string_view entity_id,
+                           NumericEntityTarget target, std::string_view unit,
+                           Entity& output) const {
+    return make_entity(reading, entity_id, target, unit, output);
+  }
   virtual bool render_entity(const Entity& entity, NumericStyle style,
                              std::string& output) const = 0;
   virtual bool render_path(const ::kana_decoder::DecodedPath& path,
