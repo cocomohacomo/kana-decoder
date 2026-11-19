@@ -21,7 +21,7 @@
 #include <vector>
 
 namespace {
-struct Case { std::string reading, expected; };
+struct Case { std::string reading, expected; std::vector<std::pair<std::string, std::string>> gold_tokens; };
 std::vector<std::string> split_tabs(const std::string& line) {
   std::vector<std::string> out;
   std::size_t begin = 0;
@@ -151,6 +151,7 @@ bool load_cases(const std::string& path, const std::string& split,
       }
       cases[found->second].reading += fields[2];
       cases[found->second].expected += fields[3];
+      cases[found->second].gold_tokens.emplace_back(fields[2], fields[3]);
     } else {
       return false;
     }
@@ -211,6 +212,8 @@ int main(int argc, char** argv) {
   std::size_t surge_exact_when_candidate_available_at_10 = 0;
   std::size_t candidate_oracle_distance_at_5 = 0, candidate_oracle_distance_at_10 = 0;
   std::size_t candidate_paths_total = 0;
+  std::size_t gold_aligned_tokens = 0, token_covered_at_1 = 0;
+  std::size_t token_covered_at_5 = 0, token_covered_at_10 = 0;
   std::size_t candidate_missing_cases = 0, candidate_available_runtime_failures = 0;
   std::size_t candidate_available_deferred = 0, candidate_available_surge_exact = 0;
   std::size_t candidate_available_surge_wrong = 0;
@@ -227,6 +230,28 @@ int main(int argc, char** argv) {
     reference_points += codepoints(item.expected).size();
     const auto paths = kana_decoder::decode_reading(item.reading, lexicon, *active_scorer, decoder_options,
         &connections);
+    if (!item.gold_tokens.empty()) {
+      std::size_t offset = 0;
+      for (const auto& gold : item.gold_tokens) {
+        const auto width = codepoints(gold.first).size();
+        const auto end = offset + width;
+        ++gold_aligned_tokens;
+        const auto token_matches = [&](std::size_t path_limit) {
+          const auto limit = std::min(path_limit, paths.size());
+          for (std::size_t rank = 0; rank < limit; ++rank) {
+            for (const auto& token : paths[rank].tokens) {
+              if (token.start == offset && token.end == end && token.candidate.surface == gold.second)
+                return true;
+            }
+          }
+          return false;
+        };
+        if (token_matches(1)) ++token_covered_at_1;
+        if (token_matches(5)) ++token_covered_at_5;
+        if (token_matches(10)) ++token_covered_at_10;
+        offset = end;
+      }
+    }
     if (paths.empty()) {
       ++decode_failures;
       ++candidate_missing_cases;
@@ -348,6 +373,17 @@ int main(int argc, char** argv) {
       << ",\"surge_exact_given_candidate_at_10\":" << (candidate_exact_at_10 ? static_cast<double>(surge_exact_when_candidate_available_at_10) / candidate_exact_at_10 : 0.0)
       << ",\"oracle_cer_at_5\":" << (reference_points ? static_cast<double>(candidate_oracle_distance_at_5) / reference_points : 0.0)
       << ",\"oracle_cer_at_10\":" << (reference_points ? static_cast<double>(candidate_oracle_distance_at_10) / reference_points : 0.0) << "}"
+      << ",\"token_aligned_candidate_generation\":{\"gold_tokens\":" << gold_aligned_tokens
+      << ",\"recall_at_1\":";
+  if (gold_aligned_tokens) std::cout << static_cast<double>(token_covered_at_1) / gold_aligned_tokens;
+  else std::cout << "null";
+  std::cout << ",\"recall_at_5\":";
+  if (gold_aligned_tokens) std::cout << static_cast<double>(token_covered_at_5) / gold_aligned_tokens;
+  else std::cout << "null";
+  std::cout << ",\"recall_at_10\":";
+  if (gold_aligned_tokens) std::cout << static_cast<double>(token_covered_at_10) / gold_aligned_tokens;
+  else std::cout << "null";
+  std::cout << "}"
       << ",\"candidate_error_classification\":{\"missing_candidate\":" << candidate_missing_cases
       << ",\"candidate_available\":" << candidate_exact_at_10
       << ",\"candidate_available_runtime_failure\":" << candidate_available_runtime_failures
