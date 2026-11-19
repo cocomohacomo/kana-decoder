@@ -159,7 +159,7 @@ No v0.32 accuracy gain is claimed until the new CI and full Pack workflow comple
 - Word N-gramとPOS N-gramを別の経験記憶として学習し、候補ID履歴と品詞履歴をBeamごとに分離保持する。
 - POS系列は辞書候補IDから一意に解決できる品詞だけを採用する。候補IDの品詞が競合する場合はそのIDのPOS Evidenceを生成しない。
 - 候補ID→品詞索引は明示的なbuild_candidate_pos_index()呼び出し時だけ生成する。通常の辞書ロード・デコードでは索引を構築せず、追加メモリを消費しない。
-- POS N-gramの寄与はdev splitで0.0 / 0.15 / 0.30から校正し、SURGEの文脈ゲート・word N-gram smoothingと合わせて216構成を比較する。
+- POS N-gramの寄与はdev splitで0.0 / 0.15から校正し、SURGEの文脈ゲート・word N-gram smoothingと合わせて評価する。sidecarありの総数は144構成、なしは36構成。
 - Cluster-only評価ではword N-gramとPOS N-gramを無効化し、N-gram-only / cluster-only / combinedの寄与を分離する。
 - POS N-gramは接続行列と情報が相関する可能性がある。devで選ばれた重みを固定し、test結果を使った再調整は禁止する。
 - 現段階ではN-gram学習モデルはCI評価時にtrain splitから構築し、Language Packへ同梱しない。製品配布用モデルの圧縮・更新方式は別途検証する。
@@ -168,7 +168,7 @@ No v0.32 accuracy gain is claimed until the new CI and full Pack workflow comple
 ## 15. v0.40 Evidence競合制御と統合校正
 
 - dev校正時にWord N-gram / POS N-gram / SURGE Clusterの寄与を同時に探索し、Morphology・N-gram単独・Cluster単独・Combinedを同一dev splitで比較する。
-- 校正値はcontext weight {0,1,2}、margin {0,0.1,0.5}、alpha {0.1,0.5}、POS weight {0,0.15}、Cluster weight {0,0.5,1,2}の144構成。
+- 校正値はcontext weight {0,1,2}、margin {0,0.1,0.5}、alpha {0.1,0.5}、POS weight {0,0.15}、Cluster weight {0,0.5,1,2}の144構成（sidecarなしはCluster weight=0固定の36構成）。
 - Clusterモデルをdev-calibrateにも明示的に渡し、Cluster weight=0で無効化、>0で有効化する。test時は凍結した5値校正ファイルを使用。
 - devで形態素ベースラインを超えない場合は全Evidence weightを0に戻す。testは一切校正に使用しない。
 - testレポートはMorphology / N-gram / Cluster / dev選択Combinedを分離表示する。
@@ -180,3 +180,12 @@ No v0.32 accuracy gain is claimed until the new CI and full Pack workflow comple
 - sidecarがある場合は従来どおり144設定を評価し、Word N-gram / margin / smoothing / POS / cluster weightをdev split上で同時校正する。
 - これにより、クラスタ機能なしのCTestで同一デコードを4回繰り返す無駄を除き、評価件数を実際のユニーク設定数と一致させる。
 - 推論アルゴリズム、Language Pack、デフォルト動作、メモリ上限は変更しない。
+
+
+## 16. v0.40.2 POS Evidenceの純化
+
+- MorphologyDecoderのPOS候補スコアを `MaskedNgramScorer::score()` から `contextual_score()` に変更する。
+- `score()` はPOS unigram priorとcontextual scoreの和である。形態素候補はすでに辞書コストで語彙priorを持つため、POS unigramを追加すると同種の頻度priorを二重計上する可能性がある。
+- POS Evidenceは直前の予測POS履歴に対する観測済み文脈Evidenceだけを加点し、履歴がない場合や未観測の場合は加点しない。
+- POS unigramが強くても前POSとの観測bigramが反対候補を支持する合成回帰テストを追加する。
+- 通常設定ではPOS scorer pointerがnullのため、既定の推論挙動とLanguage Packは変更しない。
