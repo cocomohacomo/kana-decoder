@@ -354,3 +354,19 @@ CMake compiles these Japanese sources with the Japanese Pack provider in the `ka
 - [ ] Edge PC Peak RSS / CPU / p95 latency measured
 
 The migration is not yet the final Language Set boundary: public/common types remain in `engine.hpp`, some host-facing code still passes Japanese resources directly, and the external ABI/second language Pack are not implemented.
+
+
+## 16. Language Pack conformance hardening (v0.46)
+
+Expanded tests in tests/test_language_pack.cpp now cover:
+- immutable shared Pack snapshot identity;
+- deterministic best-path surface sequence for repeated identical decode calls;
+- rejection when the configured input code-point ceiling is exceeded, without accepting a truncated prefix;
+- invalid UTF-8 rejection;
+- two-chunk streaming accumulation and parity with one-shot best-path surfaces;
+- isolation of reading state across two sessions sharing the same immutable Pack;
+- Japanese numeric entity creation and rendering through the Pack's Language Adapter.
+
+This stage adds conformance checks only. It does not alter candidate generation, ranking, morphology, scoring, or rendering policy. The following remain open: trie ordering fixtures, unknown-kana fallback policy, explicit lattice edge/candidate cap tests, expansion-budget exhaustion, Pack-load failure atomicity, golden corpus parity and full edge-device resource measurements.
+
+The GitHub Actions run triggered by this change must complete before build/test success is reported. No accuracy, latency, RSS or package-size improvement is claimed.
