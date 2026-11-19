@@ -59,7 +59,10 @@ def main() -> int:
                      "sentence_exact": metrics["surge_core"]["sentence_exact"],
                      "overrides": metrics["surge_core"]["overrides"],
                      "deferred": metrics["surge_core"]["deferred"],
-                     "runtime_failures": metrics["surge_core"]["runtime_failures"]})
+                     "runtime_failures": metrics["surge_core"]["runtime_failures"],
+                     "decode_failures": metrics["surge_core"]["decode_failures"],
+                     "elapsed_seconds": metrics["elapsed_seconds"],
+                     "peak_rss_kib": metrics["peak_rss_kib"]})
         candidate.unlink(missing_ok=True)
     best_index = min(range(len(rows)), key=lambda i: (rows[i]["cer"], -rows[i]["sentence_exact"], i))
     best = rows[best_index]
