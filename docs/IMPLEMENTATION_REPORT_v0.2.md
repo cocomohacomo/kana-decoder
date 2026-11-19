@@ -8,9 +8,8 @@
 
 ### SURGE Core
 
-- `include/surge/decision.hpp` / `src/decision.cpp` を追加。
-- `RecognitionDecision` を実装し、候補群の最終選択をCoreの責務として実行可能にした。
-- `NormalizationDecision` を実装し、語彙・意味解釈の選択と表記候補の選択を別の決定として扱う。
+- vendored SURGE Coreの `UnifiedDecision` を利用し、語彙解釈と表層候補を単一の決定境界で選択する。
+- RecognitionとNormalizationに独立したDecision APIを設けず、同一policy・provenance・budget・trace・commit境界に統合した。
 - 候補数、候補あたり証拠数の上限を設定可能にした。
 - 無効証拠を得点対象から除外し、有効証拠がない候補は選択しない。
 - 同一のEvidence IDの重複を拒否する。
@@ -261,3 +260,28 @@ retrieved Claims, dependency triggers/impacts and bounded relation scanning.
 ### Verification status
 - [x] Adapter implementation and regression test committed.
 - [ ] Latest C++/Python CI and real-data evaluation are pending.
+
+
+## 12. 目的再確認と正文化経路のリファクタ
+
+本リポジトリの製品目的は、純かな入力を、文脈に適合した漢字・かな・カナ・英字・数字・記号・句読点を含む正文へ変換することである。SURGE Core自体の機能拡張やグラフ構築を成果目標に置き換えてはならない。評価の最終指標は、同一条件で測定したCER、文完全一致率、ストリーミング確定品質、処理時間、Peak RSSおよび配布サイズとする。
+
+この目的に照らして、今回以下をリファクタした。
+
+- Focusからの関連Cluster探索で16 Cluster上限に達した後も、上限超過となる隣接Clusterを検出し、`retrieval_truncated` を正しく立てるよう修正。従来の `cluster_queue.size() > 16` 判定は、enqueue上限と同じ値でqueueを制限していたため成立せず、Cluster上限による探索打ち切りを見逃していた。
+- CI workflow内で重複していたpolicy calibratorのPython構文検査を1回に整理。
+- 本レポート冒頭のDecision API説明を、現行のUnifiedDecision統合仕様に整合させた。
+
+### 製品目的に対する未完了ギャップ
+
+現時点で、候補生成・形態素解析・辞書/N-gram参照・日本語数詞解析などの一部はkana-decoder側のC++実装に残っている。また、C APIは従来のLexiconTrie / Scorer / ConnectionModelを直接保持し、SURGE Runtimeへ候補を渡す構造である。したがって、v0.43仕様が掲げる「Language AdapterとNormalization AdapterのSURGE Language Runtime / replaceable Language Setへの完全移管」は未完了であり、現状を完全移管済みと扱わない。
+
+次のリファクタは、SURGE本体をこのリポジトリから変更せず、kana-decoder側で次の順に進める。
+
+1. 日本語Packの全資源をLanguage Set単位でロードできる境界を確立し、辞書・形態素・接続・N-gram・表記規則を単一のPack契約に束ねる。
+2. 数詞・日付・時刻・単位・句読点・表記変換を含む日本語レンダラーをPack側へ集約し、Runtimeはrendererの結果を候補EvidenceとしてUnifiedDecisionへ渡すだけにする。
+3. C/Python APIは入力・出力・互換性に限定し、Host側に第二の候補選択・表記選択ロジックを残さない。
+4. 第二言語PackでABI交換試験を行い、言語固有処理がCoreやHostへ漏れていないことを検証する。
+5. 大規模正解付きコーパスでDecoder基準値とSURGE統合後を同一分割・同一正規化規則で比較し、精度改善とメモリ/遅延予算の両立を確認する。
+
+この段階の変更はkana-decoderブランチ内に限定し、SURGE本体リポジトリおよび別セッションのSURGE開発ブランチには変更を加えていない。
