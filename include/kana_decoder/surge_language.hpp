@@ -259,7 +259,7 @@ class LanguageAdapter {
  public:
   virtual ~LanguageAdapter() = default;
   virtual std::string_view language_tag() const = 0;
-  virtual bool make_hypothesis(const ::kana_decoder::Candidate& candidate,
+  virtual bool make_hypothesis(const ::kana_decoder::Candidate& candidate, double candidate_score,
                                Span span, std::string_view hypothesis_id,
                                Hypothesis& output) const = 0;
   virtual bool make_numeric_entity(std::string_view reading, std::string_view entity_id,
