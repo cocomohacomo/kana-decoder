@@ -126,6 +126,10 @@ bool load_training_sequences(const std::string& path,
             if (token.empty()) continue;
             scorer.add_unigram(token, 1);
             if (!previous.empty()) scorer.add_left_bigram(previous, token, 1);
+            if (tokens.size() >= 3) {
+                scorer.add_left_ngram({tokens[tokens.size()-2], tokens.back()}, token, 1);
+                scorer.add_left_skipgram(tokens[tokens.size()-2], token, 1);
+            }
             previous = token;
         }
     }
