@@ -57,6 +57,8 @@ struct SemanticDelta {
   std::optional<SetFocus> focus;
   std::vector<ClaimValidity> claim_validity_updates;
   std::vector<EvidenceValidity> evidence_validity_updates;
+  // Adapter-owned journal events committed atomically with this semantic delta.
+  std::vector<JournalEvent> journal_events;
 };
 struct DependencyTrigger { std::string dependency_id, prerequisite_id, dependent_id; };
 struct DependencyEvaluationRecord {
