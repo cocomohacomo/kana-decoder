@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -22,6 +23,8 @@ struct SurgeRuntimeConfig {
   std::size_t max_journal_payload_bytes{32U * 1024U * 1024U};
   std::size_t max_journal_identity_bytes{16U * 1024U * 1024U};
   std::size_t max_candidates_per_decode{64};
+  std::map<std::string, double> recognition_family_weights;
+  double normalization_renderer_score{1.0};
   bool remove_journal_on_destroy{false};
 };
 
