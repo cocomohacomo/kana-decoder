@@ -499,10 +499,10 @@ bool JapaneseLanguageAdapter::render_path(
   for (const auto& token : path.tokens) {
     if (token.start < previous_end || token.start >= token.end ||
         token.candidate.surface.empty()) return false;
+    std::string token_reading;
+    if (!slice(token.start, token.end, token_reading)) return false;
     std::string surface = token.candidate.surface;
     if (options.normalize_numbers) {
-      std::string token_reading;
-      if (!slice(token.start, token.end, token_reading)) return false;
       Entity numeric;
       std::string numeric_surface;
       if (make_numeric_entity(token_reading, "render-number-" +
