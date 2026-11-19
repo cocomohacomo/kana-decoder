@@ -616,3 +616,12 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - test時はdevで凍結した5値（N-gram weight、margin、smoothing alpha、POS weight、Cluster weight）を適用。固定Cluster単独、固定N-gram単独、dev選択方式を別々に出力。
 - 旧4値校正TSVは新形式では拒否する。POS索引は評価時のみ構築。Language Pack・通常API既定値は変更しない。
 - このコミット時点では新しい実Pack CIの完了前であり、精度改善は未確定。
+
+
+## 54. 校正グリッドの重複排除（v0.40.1）
+
+- SURGE cluster sidecarが存在しない場合、cluster weightだけが異なる設定は同じデコードになるため、cluster weight=0に固定し36構成（3×3×2×2）のみ評価する。
+- sidecarが存在する場合は144構成（3×3×2×2×4）を維持し、dev split上で全Evidence重みを同時校正する。
+- C++ evaluatorとCTest期待値を同期し、sidecarなしで144件と報告していた重複評価を除去。
+- 仕様書の旧72構成記述を修正し、sidecar有無による36 / 144構成を明記。
+- 推論スコア、Language Pack、デフォルト設定、Resource Guardは変更していない。精度への影響は実Pack workflowの完了後に判定する。
