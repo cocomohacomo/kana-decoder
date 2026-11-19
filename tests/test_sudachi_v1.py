@@ -12,6 +12,7 @@ class SudachiV1Tests(unittest.TestCase):
    self.assertEqual(r.returncode,0,r.stderr)
    cols=out.read_text(encoding="utf-8").splitlines()[1].split("\t")
    self.assertEqual(cols[0],"あめ");self.assertEqual(cols[1],"雨");self.assertEqual(cols[8:10],["1","2"])
+   self.assertEqual(cols[10:12],["",""])
  def test_headerless_v0_data_is_not_misclassified_as_v1(self):
   with tempfile.TemporaryDirectory() as tmp:
    root=pathlib.Path(tmp);src=root/"legacy.csv";out=root/"out.tsv"
@@ -30,18 +31,6 @@ class SudachiV1Tests(unittest.TestCase):
    r=subprocess.run([sys.executable,str(IMPORTER),"lexicon","--input",str(src),"--output",str(out)],capture_output=True,text=True)
    self.assertEqual(r.returncode,0,r.stderr);cols=out.read_text().splitlines()[1].split("\t")
    self.assertEqual(cols[0],"たべる");self.assertEqual(cols[8:10],["100","200"])
- def test_pos5_pos6_are_not_misread_as_conjugation(self):
-  with tempfile.TemporaryDirectory() as tmp:
-   root=pathlib.Path(tmp);src=root/"lex.csv";out=root/"out.tsv"
-   header=["Index_Form","Left_Id","Right_Id","Cost","Headword","POS1","POS2","POS3","POS4","POS5","POS6","Reading_Form","Normalized_Form","Dictionary_Form","Mode","Split_A","Split_B","Word_Structure","Synonym_Groups","Split_C","User_Data","POS_Id","Reference_Id"]
-   row=["猫","1","2","-5","猫","名詞","普通名詞","一般","*","形状詞可能","*","ネコ","猫","猫","A","","","","","","","",""]
-   with src.open("w",encoding="utf-8",newline="") as f:
-    w=csv.writer(f);w.writerow(header);w.writerow(row)
-   r=subprocess.run([sys.executable,str(IMPORTER),"lexicon","--input",str(src),"--output",str(out)],capture_output=True,text=True)
-   self.assertEqual(r.returncode,0,r.stderr)
-   cols=out.read_text(encoding="utf-8").splitlines()[1].split("\\t")
-   self.assertEqual(cols[10:12],["",""])
-
  def test_explicit_conjugation_columns_are_preserved(self):
   with tempfile.TemporaryDirectory() as tmp:
    root=pathlib.Path(tmp);src=root/"lex.csv";out=root/"out.tsv"
