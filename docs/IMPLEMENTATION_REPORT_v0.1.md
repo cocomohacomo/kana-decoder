@@ -571,3 +571,14 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - バージョン付きTSV、決定的なrecord order、SHA-256 manifest、明示的なresource capsを実装。
 - CI workflowで実データからsidecarを生成し、manifestを検査対象に含める。
 - これはC++ loader/scorer実装前のデータ契約固定であり、本番統合・Pack同梱は未実施。
+
+
+## 49. v0.36 C++ SURGEクラスタ統合と評価経路修正
+
+- `src/surge_cluster.cpp` を追加。sidecar v1を容量・件数・ID・距離・重複・metadata・参照整合性を検査して読み込む。既存モデルは読み込み失敗時に変更しない。
+- `SurgeClusterModel::evidence_score` は直近2つの予測候補IDを距離1/2として別々に参照し、sidecarのalphaとPython側と同じ平滑化・平均化を適用。
+- MorphologyDecoderはBeamごとにクラスタEvidenceを計算し、形態素上位4候補にクラスタ支持候補を追加して最大8候補に制限。クラスタ勝者は局所形態素最良候補との差を補う相対bonusで再評価される。履歴は予測済み候補のみで、未来情報・gold candidate IDを使用しない。
+- N-gram gateのスコア符号問題を修正。従来は負のlog probabilityをそのまま加算し、未観測候補の0点が有利になる可能性があった。現在は支持表層間のgapを計算し、解決した勝者に正のbonusを付ける。
+- sequential evaluatorにcluster-only / N-gram+clusterの出力を追加。Sudachi workflowはsidecarを別Artifactとして保存し、Packには含めない。
+- native testではloader/scorerの順位、invalid schema拒否、失敗時の既存モデル保持、形態素上位4候補から外れた候補のクラスタ復帰を検証する。
+- 重要: 本変更はデコーダ接続とスコアリング上の構造欠陥の修正であり、実コーパスのCER改善をまだ意味しない。CIと実Pack workflowの完了後に、morphology / N-gram / cluster / combinedを同一test splitで比較し、RSSも確認する。
