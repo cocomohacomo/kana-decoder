@@ -12,7 +12,7 @@ The product is a kana-to-Japanese-text decoder. It accepts pure kana and emits a
 
 - Added provider-neutral `LanguageDecodeOptions` for path count, beam width and bounded input/lattice/search budgets.
 - Changed the Japanese Language Pack provider to translate the neutral execution policy into its private Japanese decoder options.
-- Kept a temporary C++ compatibility overload for existing callers using `DecoderOptions`. Only generic execution limits are forwarded; Japanese scoring-policy pointers are not part of the provider-neutral contract.
+- Removed the former `DecoderOptions` overload from the Language Pack contract; the C API and conformance tests now use `LanguageDecodeOptions`.
 - Expanded Language Pack conformance coverage for path limits, input limits, invalid UTF-8, legacy forwarding, deterministic decoding and streaming transactional behavior.
 - Added specification v0.49.
 
