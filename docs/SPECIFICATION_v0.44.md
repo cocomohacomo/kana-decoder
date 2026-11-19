@@ -18,11 +18,11 @@ This stage is an incremental migration. It does not claim that all Japanese reco
 The internal C++ contract is `kana_decoder::LanguagePack`:
 
 - immutable identity: pack ID, language tag, version and manifest digest;
-- read-only lexicon provider;
-- read-only n-gram scorer;
-- read-only connection model;
-- correction policy/resources;
+- candidate decoding provider;
+- incremental streaming append provider;
 - language adapter for candidate interpretation and entity realization.
+
+The concrete Japanese Pack privately owns its lexicon, n-gram scorer, connection matrix and correction resources. The host receives decoding/append operations, not direct access to these language-specific tables.
 
 The contract is deliberately read-only after loading. A decoder engine owns a `shared_ptr<const LanguagePack>`; each streaming session pins the same snapshot. Session creation therefore shares the large dictionary and model resources rather than copying them.
 
@@ -44,12 +44,12 @@ Japanese numeric parsing and rendering remain implemented by `JapaneseLanguageAd
 
 ## 6. Host responsibilities
 
-The C API remains a compatibility facade. It holds a shared immutable pack reference and passes its providers into the existing decoder. It does not copy lexicon, n-gram or connection resources into every streaming session.
+The C API remains a compatibility facade. It holds a shared immutable pack reference and invokes only the Pack's decode/append contract. It does not access lexicon, n-gram or connection resources directly and does not copy them into every streaming session.
 
 The following are still migration work and must not be considered complete:
 
-- moving lattice construction and morphology decoding behind the Language Pack provider contract;
-- moving all candidate scoring and POS/ngram evidence generation into the language pack;
+- moving the current Japanese lattice/morphology implementation out of the host source tree into an independently packaged Language Set module; 
+- completing POS/ngram and correction evidence generation inside the Pack provider rather than retaining transitional decoder implementation code;
 - moving orthographic variants, kana/kanji/katakana/Latin selection, punctuation, spacing, okurigana and inflection realization behind the adapter;
 - providing a stable cross-language runtime ABI and a second independently implemented language pack;
 - eliminating remaining language-specific code from the host-side decoder implementation.
