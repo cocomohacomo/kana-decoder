@@ -67,9 +67,9 @@ class SurgeNormalizationRuntime {
   struct CandidateRecord;
   bool ensure_context_cluster(std::string& error);
   SurgeRuntimeConfig config_;
-  std::unique_ptr<surge::EventJournal> journal_;
-  std::unique_ptr<surge::ContextGraph> graph_;
-  std::unique_ptr<surge::ChaosClusterLedger> chaos_;
+  std::unique_ptr<::surge::EventJournal> journal_;
+  std::unique_ptr<::surge::ContextGraph> graph_;
+  std::unique_ptr<::surge::ChaosClusterLedger> chaos_;
   mutable std::mutex mutex_;
   std::uint64_t sequence_{1};
   std::string context_cluster_id_;
