@@ -6,7 +6,7 @@ concurrency:
 
 on:
   push:
-    branches: [main]
+    branches: [main, refactor/surge-core-as-runtime]
     paths:
       - ".github/workflows/sudachi-pack.yml"
       - "licenses/sudachidict-small-20260723-source-lock.json"
@@ -37,6 +37,11 @@ on:
       - "tests/data/ja-smoke-gold.tsv"
       - "tools/evaluate_corpus.cpp"
       - "tools/evaluate_sequential_corpus.cpp"
+      - "tools/evaluate_surge_runtime.cpp"
+      - "tools/calibrate_surge_policy.py"
+      - "language_sets/**"
+      - "src/surge_runtime.cpp"
+      - "src/language_pack.cpp"
       - "tests/test_evaluate_sequential_decoder.py"
       - "CMakeLists.txt"
       - "include/kana_decoder/engine.hpp"
@@ -195,6 +200,40 @@ jobs:
           cat "$RUNNER_TEMP/sequential-decoder-evaluation.json"
           cat "$RUNNER_TEMP/sequential-runtime-time.log"
           python tools/check_memory_budget.py --log "$RUNNER_TEMP/sequential-runtime-time.log" --max-rss-mib 1792
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          temp = Path(os.environ["RUNNER_TEMP"])
+          source_lock = {
+              "sudachi": json.loads(Path("licenses/sudachidict-small-20260723-source-lock.json").read_text(encoding="utf-8")),
+              "ud_japanese_gsd": json.loads(Path("licenses/ud-japanese-gsd-source-lock.json").read_text(encoding="utf-8")),
+              "ud_gsd_manifest": json.loads((temp / "context-corpus/ud_gsd_manifest.json").read_text(encoding="utf-8")),
+              "corpus_manifest": json.loads((temp / "context-corpus/compiled/corpus_manifest.json").read_text(encoding="utf-8")),
+          }
+          (temp / "surge-evaluation-source-lock.json").write_text(
+              json.dumps(source_lock, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+          PY
+          python tools/calibrate_surge_policy.py \
+            --evaluator "$RUNNER_TEMP/kana-runtime-build/kana_decoder_surge_eval" \
+            --pack "$RUNNER_TEMP/ja-jp-sudachi-small" \
+            --corpus "$RUNNER_TEMP/context-corpus/tokenized.tsv" \
+            --train-sequences "$RUNNER_TEMP/context-corpus/compiled/train_sequences.tsv" \
+            --source-lock "$RUNNER_TEMP/surge-evaluation-source-lock.json" \
+            --max-rss-mib 1792 \
+            --output-policy "$RUNNER_TEMP/surge-runtime-policy.tsv" \
+            --output-report "$RUNNER_TEMP/surge-runtime-dev-calibration.json"
+          cat "$RUNNER_TEMP/surge-runtime-dev-calibration.json"
+          /usr/bin/time -v -o "$RUNNER_TEMP/surge-runtime-test-time.log" \
+            "$RUNNER_TEMP/kana-runtime-build/kana_decoder_surge_eval" \
+            "$RUNNER_TEMP/ja-jp-sudachi-small" \
+            "$RUNNER_TEMP/context-corpus/tokenized.tsv" test \
+            "$RUNNER_TEMP/context-corpus/compiled/train_sequences.tsv" \
+            "$RUNNER_TEMP/surge-runtime-policy.tsv" \
+            > "$RUNNER_TEMP/surge-runtime-test-evaluation.json"
+          cat "$RUNNER_TEMP/surge-runtime-test-evaluation.json"
+          cat "$RUNNER_TEMP/surge-runtime-test-time.log"
+          python tools/check_memory_budget.py --log "$RUNNER_TEMP/surge-runtime-test-time.log" --max-rss-mib 1792
           python -m py_compile tools/calibrate_surge_policy.py
           python tools/calibrate_surge_policy.py \
             --evaluator "$RUNNER_TEMP/kana-runtime-build/kana_decoder_surge_eval" \
