@@ -29,19 +29,29 @@ int main() {
   // Immutable snapshot identity and deterministic decoding.
   const auto second_reference = pack;
   assert(second_reference.get() == pack.get());
-  const auto paths = pack->decode("あめ", {});
-  const auto repeated_paths = pack->decode("あめ", {});
+  const auto paths = pack->decode("あめ", kana_decoder::LanguageDecodeOptions{});
+  const auto repeated_paths = pack->decode("あめ", kana_decoder::LanguageDecodeOptions{});
   assert(!paths.empty());
   assert(!paths.front().tokens.empty());
   assert(paths.size() == repeated_paths.size());
   assert(surfaces(paths.front()) == surfaces(repeated_paths.front()));
 
-  // Hard input ceilings reject over-budget input instead of silently
-  // decoding a truncated prefix.
-  kana_decoder::DecoderOptions bounded;
+  // Provider-neutral path and resource policies are enforced by the pack.
+  kana_decoder::LanguageDecodeOptions bounded;
+  bounded.max_paths = 1;
+  bounded.beam_width = 1;
   bounded.max_input_codepoints = 1;
   assert(pack->decode("あめ", bounded).empty());
-  assert(pack->decode(std::string("\xff", 1), {}).empty());
+  bounded.max_input_codepoints = 256;
+  const auto single_path = pack->decode("あめ", bounded);
+  assert(single_path.size() <= 1);
+  assert(pack->decode(std::string("\xff", 1),
+                      kana_decoder::LanguageDecodeOptions{}).empty());
+
+  // The legacy C++ options bridge remains source-compatible during migration.
+  kana_decoder::DecoderOptions legacy_bounded;
+  legacy_bounded.max_input_codepoints = 1;
+  assert(pack->decode("あめ", legacy_bounded).empty());
 
   // Incremental chunks must retain the full reading and converge to the
   // same best path as a one-shot decode.
