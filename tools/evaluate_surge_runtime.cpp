@@ -192,6 +192,8 @@ int main(int argc, char** argv) {
 
     const auto journal = (std::filesystem::temp_directory_path() /
         ("kana-decoder-surge-real-data-eval-" + std::to_string(case_index) + ".journal")).string();
+    std::error_code ignored;
+    std::filesystem::remove(journal, ignored);
     kana_decoder::SurgeRuntimeConfig config;
     config.journal_path = journal;
     config.context_id = "real-data-evaluation-" + std::to_string(case_index);
