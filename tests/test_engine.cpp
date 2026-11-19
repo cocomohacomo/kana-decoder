@@ -1,4 +1,5 @@
 #include "kana_decoder/engine.hpp"
+#include "kana_decoder/japanese_decoder.hpp"
 #include "kana_decoder/c_api.h"
 #include "kana_decoder/pack_manifest.hpp"
 #include <cassert>
@@ -6,6 +7,7 @@
 #include <fstream>
 #include <iostream>
 #include <limits>
+#include <utility>
 using namespace kana_decoder;
 int main(){
  MaskedNgramScorer smoothing_test;
@@ -147,9 +149,10 @@ int main(){
  LexiconTrie morphology_trie;assert(morphology_trie.load_tsv(morphology_tsv.string()));std::filesystem::remove(morphology_tsv);
  auto morphology_path=decode_reading("たべる",morphology_trie,pack_scorer,dop);
  assert(!morphology_path.empty());
- assert(morphology_path.front().tokens.front().candidate.pos=="動詞/一般");
- assert(morphology_path.front().tokens.front().candidate.inflection_type=="下一段-バ行");
- assert(morphology_path.front().tokens.front().candidate.inflection_form=="終止形-一般");
+ assert(morphology_path.front().tokens.front().candidate.morphology.language_tag=="ja-JP");
+ assert(morphology_path.front().tokens.front().candidate.morphology.part_of_speech=="動詞/一般");
+ assert(morphology_path.front().tokens.front().candidate.morphology.inflection_class=="下一段-バ行");
+ assert(morphology_path.front().tokens.front().candidate.morphology.inflection_form=="終止形-一般");
 
  // SURGE evidence gate resolves only when at least two distinct candidate surfaces
  // have observed left-context evidence and the evidence margin clears threshold.
@@ -182,7 +185,8 @@ int main(){
  const std::string pack_path=std::string(KANA_DECODER_SOURCE_DIR)+"/packs/ja-lite/lexicon.tsv";
  assert(trie.load_tsv(pack_path,&loaded));assert(loaded>=7&&trie.size()==loaded);
  auto generated=trie.build_lattice("あめ",16,true);
- assert(generated.size()==1&&generated[0].start==0&&generated[0].end==2);
+ assert(generated.size()==2&&generated[0].start==0&&generated[0].end==2);
+ assert(generated[1].start==1&&generated[1].end==2&&generated[1].candidates[0].surface=="め");
  assert(generated[0].candidates.size()==2);
  auto generated_paths=decode_reading("あめ",trie,lattice_scorer,dop);
  assert(!generated_paths.empty()&&generated_paths[0].tokens.size()==1);
@@ -194,19 +198,31 @@ int main(){
  assert(!protected_decode.correction_applied&&protected_decode.decoded_reading=="12333");
  auto unknown=trie.build_lattice("ぴ",16,true);
  assert(unknown.size()==1&&unknown[0].candidates[0].surface=="ぴ");
+ // The host StreamingSession accepts provider-decoded paths only. Keep
+ // this unit test explicit about using the Japanese decoder as its provider.
+ auto append_stream = [](StreamingSession& target, const std::string& chunk,
+                         const LexiconTrie& source_lexicon,
+                         const MaskedNgramScorer& source_scorer,
+                         StreamingSnapshot& target_snapshot,
+                         const DecoderOptions& options) {
+  const auto combined = target.reading() + chunk;
+  auto decoded = decode_reading(combined, source_lexicon, source_scorer, options);
+  return target.append_decoded(chunk, std::move(decoded), target_snapshot,
+                               options.max_input_codepoints);
+ };
  StreamingSession session(4);StreamingSnapshot snapshot;
- assert(session.append("あ",trie,lattice_scorer,snapshot,dop));
+ assert(append_stream(session,"あ",trie,lattice_scorer,snapshot,dop));
  assert(snapshot.revision==1&&snapshot.provisional&&snapshot.reading=="あ");
  StreamingSnapshot stale_after_append=snapshot;std::string stale_commit;
- assert(session.append("め",trie,lattice_scorer,snapshot,dop));
+ assert(append_stream(session,"め",trie,lattice_scorer,snapshot,dop));
  assert(!session.commit_best(stale_after_append,stale_commit));
  assert(snapshot.revision==2&&snapshot.reading=="あめ"&&!snapshot.paths.empty());
- assert(!session.append("がふる",trie,lattice_scorer,snapshot,dop));
- assert(!session.append(malformed,trie,lattice_scorer,snapshot,dop));
+ assert(!append_stream(session,"がふる",trie,lattice_scorer,snapshot,dop));
+ assert(!append_stream(session,malformed,trie,lattice_scorer,snapshot,dop));
  assert(session.reading()=="あめ"&&snapshot.revision==2);
  StreamingSnapshot stale_snapshot=snapshot;session.reset();assert(session.reading().empty());
  std::string stale_output;assert(!session.commit_best(stale_snapshot,stale_output));
- assert(session.append("あめ",trie,lattice_scorer,snapshot,dop));
+ assert(append_stream(session,"あめ",trie,lattice_scorer,snapshot,dop));
  std::string committed;assert(session.commit_best(snapshot,committed));
  assert(committed=="雨"&&!snapshot.provisional&&snapshot.revision==5);
  assert(session.reading().empty());
@@ -265,7 +281,7 @@ int main(){
  assert(partial_lexicon.add("し",{"shi1","詩",10,0}));
  assert(partial_lexicon.add("し",{"shi2","市",10,0}));
  StreamingSession partial(16);StreamingSnapshot partial_snapshot;
- assert(partial.append("きょうはし",partial_lexicon,lattice_scorer,partial_snapshot,dop));
+ assert(append_stream(partial,"きょうはし",partial_lexicon,lattice_scorer,partial_snapshot,dop));
  assert(partial_snapshot.paths.size()>=2);
  std::string prefix;assert(partial.commit_common_prefix(partial_snapshot,prefix));
  assert(prefix=="今日は"&&partial.reading()=="し"&&partial_snapshot.reading=="し");

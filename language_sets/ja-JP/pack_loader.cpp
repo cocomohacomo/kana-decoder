@@ -1,4 +1,4 @@
-#include "kana_decoder/engine.hpp"
+#include "kana_decoder/japanese_decoder.hpp"
 #include "kana_decoder/pack_manifest.hpp"
 #include <charconv>
 #include <cmath>
@@ -35,18 +35,21 @@ static bool load_correction_rules_file(const std::string& path,std::vector<Corre
  return true;
 }
 
-bool load_language_pack(const std::string& directory,LexiconTrie& lexicon,MaskedNgramScorer& scorer,std::size_t* loaded,ConnectionModel* connections,CorrectionOptions* corrections){
+bool load_language_pack(const std::string& directory,LexiconTrie& lexicon,MaskedNgramScorer& scorer,std::size_t* loaded,ConnectionModel* connections,CorrectionOptions* corrections,std::string* error){
+ auto fail=[&](const char* reason){if(error)*error=reason;return false;};
  std::string base=directory.empty()?std::string("."):directory;
- if(!verify_pack_manifest(base))return false;
+ if(!verify_pack_manifest(base,error))return false;
  if(base.back()!='/')base+='/';
  LexiconTrie parsed_lexicon;MaskedNgramScorer parsed_scorer;std::size_t count=0;
- if(!parsed_lexicon.load_tsv(base+"lexicon.tsv",&count)||!parsed_scorer.load_tsv(base+"ngram.tsv"))return false;
- ConnectionModel parsed_connections;std::ifstream conn_file(base+"connections.tsv");if(conn_file&&!parsed_connections.load_tsv(base+"connections.tsv"))return false;
+ if(!parsed_lexicon.load_tsv(base+"lexicon.tsv",&count))return fail("LANGUAGE_PACK_LEXICON_PARSE_FAILED");
+ if(!parsed_scorer.load_tsv(base+"ngram.tsv"))return fail("LANGUAGE_PACK_NGRAM_PARSE_FAILED");
+ ConnectionModel parsed_connections;std::ifstream conn_file(base+"connections.tsv");if(conn_file&&!parsed_connections.load_tsv(base+"connections.tsv"))return fail("LANGUAGE_PACK_CONNECTIONS_PARSE_FAILED");
  CorrectionOptions parsed_corrections;std::ifstream correction_file(base+"correction_rules.tsv");
- if(correction_file&&!load_correction_rules_file(base+"correction_rules.tsv",parsed_corrections.rules))return false;
+ if(correction_file&&!load_correction_rules_file(base+"correction_rules.tsv",parsed_corrections.rules))return fail("LANGUAGE_PACK_CORRECTION_RULES_PARSE_FAILED");
  lexicon=std::move(parsed_lexicon);scorer=std::move(parsed_scorer);if(connections)*connections=std::move(parsed_connections);
  if (corrections) *corrections = std::move(parsed_corrections);
  if (loaded) *loaded = count;
+ if(error)error->clear();
  return true;
 }
 }

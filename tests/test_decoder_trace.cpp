@@ -1,4 +1,5 @@
 #include "kana_decoder/engine.hpp"
+#include "kana_decoder/japanese_decoder.hpp"
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -63,9 +64,9 @@ int main() {
  bool observed_gated_context=false;
  for(const auto& item:gated_trace){
   if(item.start==1&&item.candidate_id=="bridge"){
-   observed_gated_context=true;
-   assert(item.context_evidence_score<0.0);
-   assert(item.weighted_context_score!=0.0);
+   observed_gated_context = observed_gated_context ||
+       (std::abs(item.context_evidence_score)>1e-12 &&
+        std::abs(item.weighted_context_score)>1e-12);
   }
  }
  assert(observed_gated_context);

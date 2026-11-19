@@ -44,7 +44,7 @@ A streaming session owns a native snapshot and remains usable if the original Ka
 
 ## Structured values and errors
 
-decode_nbest returns immutable DecodedPath values containing a raw ranking score and immutable DecodedToken values. Token spans are Unicode code-point offsets in the original reading. Scores are not calibrated probabilities.
+decode_nbest returns immutable DecodedPath values containing a raw ranking score and immutable DecodedToken values. The first path's `text` is the SURGE-normalized output; its token surfaces remain the raw recognition hypotheses for diagnostics. Token spans are Unicode code-point offsets in the original reading. Scores are not calibrated probabilities.
 
 The wrapper raises:
 - KanaDecoderError for native API failures;
@@ -53,3 +53,22 @@ The wrapper raises:
 - ValueError or TypeError for invalid Python arguments.
 
 Set KANA_DECODER_LIBRARY or pass library_path when the library is not discoverable. Pack loading is local and offline.
+
+
+## SURGE journal persistence
+
+The default engine creates an isolated temporary SURGE journal and removes it when
+the engine closes. To retain context and decision history across engine restarts,
+pass a caller-managed path:
+
+```python
+with KanaDecoder(
+    "packs/ja-lite",
+    surge_journal_path="state/normalization.surge-journal",
+) as decoder:
+    print(decoder.decode("きょうと"))
+```
+
+The journal is local and offline. The application owns its backup, retention and
+deletion policy. Do not share one writable journal concurrently across independent
+engine instances; EventJournal enforces a single writer.

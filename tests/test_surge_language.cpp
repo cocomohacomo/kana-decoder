@@ -1,4 +1,4 @@
-#include "kana_decoder/surge_language.hpp"
+#include "kana_decoder/japanese_language.hpp"
 
 #include <cassert>
 #include <cmath>
@@ -58,17 +58,21 @@ int main() {
 
   JapaneseLanguageAdapter ja_adapter;
   assert(ja_adapter.language_tag() == "ja-JP");
-  ::kana_decoder::LatticeCandidate adapter_candidate;
+  ::kana_decoder::Candidate adapter_candidate;
   adapter_candidate.id = "candidate-adapter";
   adapter_candidate.surface = "京都";
-  adapter_candidate.pos = "名詞/固有名詞";
-  adapter_candidate.word_cost = -12;
-  adapter_candidate.connection_cost = 4;
+  adapter_candidate.morphology.language_tag = "ja-JP";
+  adapter_candidate.morphology.part_of_speech = "名詞/固有名詞";
   Hypothesis adapted_hypothesis;
-  assert(ja_adapter.make_hypothesis(adapter_candidate, {0, 3}, "adapted-1", adapted_hypothesis));
+  assert(ja_adapter.make_hypothesis(adapter_candidate, 8.0, {0, 3}, "adapted-1", adapted_hypothesis));
   assert(adapted_hypothesis.candidate_id.equals("candidate-adapter"));
   assert(adapted_hypothesis.interpretation.equals("名詞/固有名詞"));
   assert(adapted_hypothesis.score == 8.0);
+  auto foreign_candidate = adapter_candidate;
+  foreign_candidate.morphology.language_tag = "en-US";
+  Hypothesis foreign_hypothesis;
+  assert(!ja_adapter.make_hypothesis(foreign_candidate, 8.0, {0, 3},
+                                     "foreign-1", foreign_hypothesis));
 
   ParsedNumber parsed;
   assert(parse_japanese_number("さんじゅうに", parsed));
@@ -97,6 +101,152 @@ int main() {
       NumericEntityTarget::Unit, "歳", adapted_number));
   assert(adapted_number.value == 32 && adapted_number.unit.equals("歳"));
 
+  Entity parsed_date;
+  assert(ja_adapter.make_entity("にせんにじゅうろくねんじゅういちがつにじゅうににち",
+      "parsed-date-1", EntityTarget::Date, {}, parsed_date));
+  assert(parsed_date.kind == EntityKind::Date && parsed_date.value == 2026 &&
+         parsed_date.secondary == 11 && parsed_date.tertiary == 22);
+  assert(ja_adapter.render_entity(parsed_date, NumericStyle::Arabic, rendered));
+  assert(rendered == "2026年11月22日");
+  Entity special_day;
+  assert(ja_adapter.make_entity("にせんにじゅうろくねんじゅういちがつはつか",
+      "special-day-1", EntityTarget::Date, {}, special_day));
+  assert(special_day.tertiary == 20);
+  Entity invalid_parsed_date;
+  assert(!ja_adapter.make_entity("にせんにじゅうごねんにがつさんじゅうににち",
+      "invalid-date-1", EntityTarget::Date, {}, invalid_parsed_date));
+
+  Entity parsed_time;
+  assert(ja_adapter.make_entity("ごごさんじにじゅっぷん",
+      "parsed-time-1", EntityTarget::Time, {}, parsed_time));
+  assert(parsed_time.value == 15 && parsed_time.secondary == 20);
+  assert(ja_adapter.render_entity(parsed_time, NumericStyle::Arabic, rendered));
+  assert(rendered == "15時20分");
+  Entity parsed_time_seconds;
+  assert(ja_adapter.make_entity("ごごさんじにじゅっぷんごびょう",
+      "parsed-time-seconds-1", EntityTarget::Time, {}, parsed_time_seconds));
+  assert(parsed_time_seconds.value == 15 && parsed_time_seconds.secondary == 20 &&
+         parsed_time_seconds.tertiary == 5);
+  assert(ja_adapter.render_entity(parsed_time_seconds, NumericStyle::Arabic, rendered));
+  assert(rendered == "15時20分05秒");
+  Entity invalid_parsed_time;
+  assert(!ja_adapter.make_entity("にじゅうごじ",
+      "invalid-time-1", EntityTarget::Time, {}, invalid_parsed_time));
+
+  Entity parsed_range;
+  assert(ja_adapter.make_entity("さんからご", "range-1",
+      EntityTarget::Range, "歳", parsed_range));
+  assert(parsed_range.value == 3 && parsed_range.secondary == 5);
+  assert(ja_adapter.render_entity(parsed_range, NumericStyle::Arabic, rendered));
+  assert(rendered == "3〜5歳");
+  Entity decimal_range;
+  assert(ja_adapter.make_entity("にてんごからさん", "decimal-range-1",
+      EntityTarget::Range, {}, decimal_range));
+  assert(ja_adapter.render_entity(decimal_range, NumericStyle::Arabic, rendered));
+  assert(rendered == "2.5〜3.0");
+  Entity invalid_range;
+  assert(!ja_adapter.make_entity("ごからさん", "invalid-range-1",
+      EntityTarget::Range, {}, invalid_range));
+
+  Entity parsed_identifier;
+  assert(ja_adapter.make_entity("ぜろいちにさん", "identifier-1",
+      EntityTarget::Identifier, {}, parsed_identifier));
+  assert(ja_adapter.render_entity(parsed_identifier, NumericStyle::Arabic, rendered));
+  assert(rendered == "0123");
+  Entity invalid_unit;
+  assert(!ja_adapter.make_entity("さんじゅうに", "missing-unit-1",
+      EntityTarget::Unit, {}, invalid_unit));
+
+  ::kana_decoder::DecodedPath date_path;
+  ::kana_decoder::DecodedToken date_token;
+  date_token.start = 0; date_token.end = 25;
+  date_token.candidate.id = "date-reading";
+  date_token.candidate.surface = "date-reading";
+  date_path.tokens.push_back(date_token);
+  SurfaceRenderOptions structured_options;
+  structured_options.normalize_numbers = true;
+  std::string structured_output;
+  const std::string date_reading = "にせんにじゅうろくねんじゅういちがつにじゅうににち";
+  assert(ja_adapter.render_path(date_path, date_reading, structured_options, structured_output));
+  assert(structured_output == "2026年11月22日");
+
+  ::kana_decoder::DecodedPath time_path;
+  ::kana_decoder::DecodedToken time_token;
+  time_token.start = 0; time_token.end = 11;
+  time_token.candidate.id = "time-reading";
+  time_token.candidate.surface = "time-reading";
+  time_path.tokens.push_back(time_token);
+  assert(ja_adapter.render_path(time_path, "ごごさんじにじゅっぷん",
+                                structured_options, structured_output));
+  assert(structured_output == "15時20分");
+
+  ::kana_decoder::DecodedPath range_path;
+  ::kana_decoder::DecodedToken range_token;
+  range_token.start = 0; range_token.end = 5;
+  range_token.candidate.id = "range-reading";
+  range_token.candidate.surface = "range-reading";
+  range_path.tokens.push_back(range_token);
+  assert(ja_adapter.render_path(range_path, "さんからご",
+                                structured_options, structured_output));
+  assert(structured_output == "3〜5");
+
+  const std::string partial_date = "にせんにじゅうろくねんじゅういちがつにじゅうににち";
+  const std::string partial_reading = "きょうは" + partial_date +
+      "のごごさんじにじゅっぷんです";
+  std::vector<EntitySpan> extracted_entities;
+  assert(ja_adapter.extract_entities(partial_reading, kMaxEntities, extracted_entities));
+  assert(extracted_entities.size() == 2);
+  assert(extracted_entities[0].span.start == 4 && extracted_entities[0].span.end == 29);
+  assert(extracted_entities[0].entity.kind == EntityKind::Date);
+  assert(extracted_entities[1].span.start == 30 && extracted_entities[1].span.end == 41);
+  assert(extracted_entities[1].entity.kind == EntityKind::Time);
+  std::vector<EntitySpan> ambiguous_number_entities;
+  assert(ja_adapter.extract_entities("さんじゅうに", kMaxEntities,
+                                     ambiguous_number_entities));
+  assert(ambiguous_number_entities.empty());
+  assert(ja_adapter.extract_entities("さんじゅっぷん", kMaxEntities,
+                                     ambiguous_number_entities));
+  assert(ambiguous_number_entities.empty());
+
+  ::kana_decoder::DecodedPath partial_path;
+  const auto add_token = [&](std::size_t start, std::size_t end,
+                             const std::string& id, const std::string& surface) {
+    ::kana_decoder::DecodedToken token;
+    token.start = start;
+    token.end = end;
+    token.candidate.id = id;
+    token.candidate.surface = surface;
+    partial_path.tokens.push_back(token);
+  };
+  add_token(0, 4, "partial-prefix", "今日は");
+  add_token(4, 29, "partial-date", "日付");
+  add_token(29, 30, "partial-particle", "の");
+  add_token(30, 41, "partial-time", "時刻");
+  add_token(41, 43, "partial-suffix", "です");
+  assert(ja_adapter.render_path(partial_path, partial_reading,
+                                structured_options, structured_output));
+  assert(structured_output == "今日は2026年11月22日の15時20分です");
+
+  ::kana_decoder::DecodedPath partial_range_path;
+  ::kana_decoder::DecodedToken range_prefix;
+  range_prefix.start = 0; range_prefix.end = 4;
+  range_prefix.candidate.id = "range-prefix";
+  range_prefix.candidate.surface = "価格は";
+  partial_range_path.tokens.push_back(range_prefix);
+  ::kana_decoder::DecodedToken range_value;
+  range_value.start = 4; range_value.end = 9;
+  range_value.candidate.id = "range-value";
+  range_value.candidate.surface = "範囲";
+  partial_range_path.tokens.push_back(range_value);
+  ::kana_decoder::DecodedToken range_suffix;
+  range_suffix.start = 9; range_suffix.end = 11;
+  range_suffix.candidate.id = "range-suffix";
+  range_suffix.candidate.surface = "です";
+  partial_range_path.tokens.push_back(range_suffix);
+  assert(ja_adapter.render_path(partial_range_path, "ねだんはさんからごです",
+                                structured_options, structured_output));
+  assert(structured_output == "価格は3〜5です");
+
   Entity date;
   assert(date.id.assign("date-1"));
   date.kind = EntityKind::Date;
@@ -122,6 +272,13 @@ int main() {
   assert(state.add_entity(time));
   assert(render_entity(time, NumericStyle::Arabic, rendered));
   assert(rendered == "9時05分");
+  Entity time_seconds;
+  assert(time_seconds.id.assign("time-seconds-1"));
+  time_seconds.kind = EntityKind::Time;
+  time_seconds.value = 9; time_seconds.secondary = 5; time_seconds.tertiary = 8;
+  time_seconds.valid = true;
+  assert(ja_adapter.render_entity(time_seconds, NumericStyle::Arabic, rendered));
+  assert(rendered == "9時05分08秒");
 
   Evidence lexical;
   assert(lexical.id.assign("ev-lexical"));
@@ -229,6 +386,12 @@ int main() {
   invalid_date.value = 2025; invalid_date.secondary = 2; invalid_date.tertiary = 29;
   invalid_date.valid = true;
   assert(!state.add_entity(invalid_date));
+  Entity invalid_time_seconds;
+  assert(invalid_time_seconds.id.assign("invalid-time-seconds"));
+  invalid_time_seconds.kind = EntityKind::Time;
+  invalid_time_seconds.value = 9; invalid_time_seconds.tertiary = 60;
+  invalid_time_seconds.valid = true;
+  assert(!state.add_entity(invalid_time_seconds));
 
   Hypothesis invalid;
   assert(invalid.id.assign("bad-h"));
@@ -240,6 +403,37 @@ int main() {
   assert(terminal_punctuation(DiscourseAct::Statement, PunctuationStyle::Japanese) == "。");
   assert(terminal_punctuation(DiscourseAct::Question, PunctuationStyle::ASCII) == "?");
   assert(terminal_punctuation(DiscourseAct::Question, PunctuationStyle::Minimal).empty());
+
+  ::kana_decoder::DecodedPath numeric_path;
+  ::kana_decoder::DecodedToken numeric_token;
+  numeric_token.start = 0;
+  numeric_token.end = 6;
+  numeric_token.candidate.id = "numeric-32";
+  numeric_token.candidate.surface = "三十二";
+  numeric_path.tokens.push_back(numeric_token);
+  SurfaceRenderOptions render_options;
+  render_options.normalize_numbers = true;
+  render_options.append_terminal_punctuation = true;
+  std::string normalized_sentence;
+  assert(ja_adapter.render_path(numeric_path, "さんじゅうに",
+                                render_options, normalized_sentence));
+  assert(normalized_sentence == "32。");
+  render_options.discourse_act = DiscourseAct::Question;
+  assert(ja_adapter.render_path(numeric_path, "さんじゅうに",
+                                render_options, normalized_sentence));
+  assert(normalized_sentence == "32？");
+  render_options.normalize_numbers = false;
+  render_options.append_terminal_punctuation = false;
+  assert(ja_adapter.render_path(numeric_path, "さんじゅうに",
+                                render_options, normalized_sentence));
+  assert(normalized_sentence == "三十二");
+  const auto prior_render = normalized_sentence;
+  numeric_token.start = 0;
+  numeric_token.end = 7;
+  numeric_path.tokens.front() = numeric_token;
+  assert(!ja_adapter.render_path(numeric_path, "さんじゅうに",
+                                 render_options, normalized_sentence));
+  assert(normalized_sentence == prior_render);
 
   LanguageState bounded;
   for (std::size_t i = 0; i < kMaxHypotheses; ++i) {

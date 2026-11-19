@@ -35,10 +35,13 @@ class DecodedToken:
 class DecodedPath:
     score: float
     tokens: Tuple[DecodedToken, ...]
+    normalized_text: Optional[str] = None
 
     @property
     def text(self) -> str:
-        return "".join(token.surface for token in self.tokens)
+        return self.normalized_text if self.normalized_text is not None else "".join(
+            token.surface for token in self.tokens
+        )
 
 class _TokenView(ctypes.Structure):
     _fields_ = [
@@ -93,7 +96,8 @@ class KanaDecoder:
     """Owns a native engine loaded from a local Language Pack."""
 
     def __init__(self, pack_path: str, library_path: Optional[str] = None,
-                 max_buffer_bytes: int = 16 * 1024 * 1024):
+                 max_buffer_bytes: int = 16 * 1024 * 1024,
+                 surge_journal_path: Optional[str] = None):
         if max_buffer_bytes < 256:
             raise ValueError("max_buffer_bytes must be at least 256")
         self._lib = ctypes.CDLL(_find_library(library_path))
@@ -110,6 +114,11 @@ class KanaDecoder:
             raise MemoryError("could not allocate kana-decoder engine")
         self._engine = engine
         try:
+            if surge_journal_path is not None:
+                journal = str(Path(surge_journal_path).expanduser().resolve()).encode("utf-8")
+                rc = self._lib.kd_engine_set_surge_journal(self._engine, journal)
+                if rc != 0:
+                    raise KanaDecoderError("kd_engine_set_surge_journal", rc)
             pack = str(Path(pack_path).expanduser().resolve()).encode("utf-8")
             rc = self._lib.kd_engine_load_pack(self._engine, pack)
             if rc != 0:
@@ -126,6 +135,8 @@ class KanaDecoder:
         lib.kd_engine_create.restype = ctypes.c_void_p
         lib.kd_engine_destroy.argtypes = [ctypes.c_void_p]
         lib.kd_engine_destroy.restype = None
+        lib.kd_engine_set_surge_journal.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+        lib.kd_engine_set_surge_journal.restype = ctypes.c_int
         lib.kd_engine_load_pack.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
         lib.kd_engine_load_pack.restype = ctypes.c_int
         lib.kd_engine_decode.argtypes = [ctypes.c_void_p, ctypes.c_char_p,
@@ -136,6 +147,9 @@ class KanaDecoder:
         lib.kd_decode_result_destroy.argtypes = [ctypes.c_void_p]
         lib.kd_decode_result_path_count.argtypes = [ctypes.c_void_p]
         lib.kd_decode_result_path_count.restype = ctypes.c_size_t
+        lib.kd_decode_result_text.argtypes = [ctypes.c_void_p, ctypes.c_size_t,
+                                               ctypes.c_char_p, ctypes.c_size_t]
+        lib.kd_decode_result_text.restype = ctypes.c_int
         lib.kd_decode_result_path_score.argtypes = [ctypes.c_void_p, ctypes.c_size_t,
                                                     ctypes.POINTER(ctypes.c_double)]
         lib.kd_decode_result_path_score.restype = ctypes.c_int
@@ -221,7 +235,13 @@ class KanaDecoder:
                         _decode(view.inflection_form), view.morphology_score,
                         view.context_score,
                     ))
-                paths.append(DecodedPath(score.value, tuple(tokens)))
+                text_buffer = ctypes.create_string_buffer(4096)
+                rc = self._lib.kd_decode_result_text(
+                    result, path_index, text_buffer, len(text_buffer)
+                )
+                if rc != 0:
+                    raise KanaDecoderError("kd_decode_result_text", rc)
+                paths.append(DecodedPath(score.value, tuple(tokens), _decode(text_buffer.value)))
             return tuple(paths)
         finally:
             self._lib.kd_decode_result_destroy(result)

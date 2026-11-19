@@ -28,6 +28,8 @@ uint32_t kd_c_api_version(void);
 kd_ngram_scorer* kd_ngram_scorer_create(void);
 kd_engine* kd_engine_create(void);
 void kd_engine_destroy(kd_engine*);
+// Override the default ephemeral journal with a caller-managed persistent SURGE journal.
+int kd_engine_set_surge_journal(kd_engine*,const char* journal_path);
 // Loads local lexicon.tsv, ngram.tsv and optional connections.tsv. Pack hashes should be verified offline first.
 int kd_engine_load_pack(kd_engine*,const char* pack_directory);
 // Returns best-path surface text. 0 success; negative values are KD_ERR_* codes.
@@ -36,6 +38,7 @@ int kd_engine_decode(kd_engine*,const char* reading,char* output,size_t output_c
 kd_decode_result* kd_engine_decode_nbest(const kd_engine*,const char* reading,size_t max_paths);
 void kd_decode_result_destroy(kd_decode_result*);
 size_t kd_decode_result_path_count(const kd_decode_result*);
+int kd_decode_result_text(const kd_decode_result*,size_t path_index,char* output,size_t capacity);
 int kd_decode_result_path_score(const kd_decode_result*,size_t path_index,double* score);
 size_t kd_decode_result_token_count(const kd_decode_result*,size_t path_index);
 int kd_decode_result_token(const kd_decode_result*,size_t path_index,size_t token_index,kd_token_view* view);

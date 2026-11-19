@@ -5,13 +5,16 @@
 ## 実装状況
 - C++17 Core / C API、Trie辞書、形態素候補ラティス、N-bestデコード
 - Context-masked n-gram候補順位付け、曖昧性保持、かなフォールバック
-- 接続行列、品詞・活用情報を含む候補デコード
+- 接続行列、日本語固有の品詞・活用情報をLanguage Set内で解釈し、汎用CandidateではMorphologyDescriptorとして保持
 - C++ / C APIストリーミングセッション、暫定出力、共通接頭辞commit、best-path commit
+- 不変Language Pack snapshot、Manifest digest、Pack-mediated decode/stream append、Engine/Session間の共有参照による辞書・モデル複製の抑制
+- Japanese recognition sources (lattice decoder, morphology, lexicon trie, n-gram/connection scorer, correction and Pack loader) are built in a dedicated Language Set object target\n- SURGE正文化Runtimeの数詞・部分範囲日付・時刻・範囲Entity解析をLanguage Adapterへ委譲し、Entity EvidenceをUnifiedDecision前に評価。構造化Entity/EvidenceとProposal/Prefix Commit/Final CommitをContextGraphの再生可能なSemanticDeltaとして永続化
 - pip install可能なPython ctypesパッケージ、N-best構造化結果、ストリーミングAPI
 - 出力バッファ不足時に入力・revision・commit状態を変更しないトランザクション動作
 - 軽度誤り補正、UTF-8検証、Pack Manifest / SHA-256 / license検証（C++側は容量上限を共有しSHA-256をストリーミング検証）
 - Sudachi V0/V1 import adapter、Pack builder、文書単位のtrain/dev/test分割
-- GitHub ActionsによるC++ / Pythonテストとベンチマーク\n- 実コーパスを使ったC++全文デコード評価（予測左履歴、未来文脈なし）
+- GitHub ActionsによるC++ / Pythonテストとベンチマーク
+- pinned Sudachi Small + UD Japanese-GSDのdev校正、test固定評価、token Candidate Recall / miss attributionを含むSURGE Runtime評価\n- 実コーパスを使ったC++全文デコード評価（予測左履歴、未来文脈なし）
 
 ## ビルドとテスト
     cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -48,6 +51,16 @@
 - tools/evaluate_ablation.py は全読みを覆う単一span候補に限定し、形態素スコア・combined local score・SURGEの根拠付き解決を比較します。複数形態素文の正解token alignmentを推測しません。
 
 ## 仕様
+- v0.64: [Pinned real-corpus SURGE runtime evaluation](docs/SPECIFICATION_v0.64.md)
+- v0.63: [Token candidate miss attribution](docs/SPECIFICATION_v0.63.md)
+- v0.62: [Gold-token-aligned candidate recall](docs/SPECIFICATION_v0.62.md)
+- v0.61: [Candidate error attribution diagnostics](docs/SPECIFICATION_v0.61.md)
+- v0.60: [N-best candidate recall and SURGE selection diagnostics](docs/SPECIFICATION_v0.60.md)
+- v0.59: [Typed-entity evidence calibration](docs/SPECIFICATION_v0.59.md)
+- v0.58: [Partial-span typed entities and SURGE pre-decision evidence](docs/SPECIFICATION_v0.58.md)
+- v0.57: [Typed Japanese entities and SURGE graph integration](docs/SPECIFICATION_v0.57.md)
+- v0.56: [Provider-neutral Candidate morphology and replayable normalization commits](docs/SPECIFICATION_v0.56.md)
+- v0.55: [Immutable Language Pack and Japanese Language Set migration](docs/SPECIFICATION_v0.55.md)
 - v0.39: docs/SPECIFICATION_v0.39.md
 - v0.36: docs/SPECIFICATION_v0.36.md
 - v0.34: docs/SPECIFICATION_v0.34.md
@@ -73,5 +86,35 @@
 - v0.36: C++ sidecar loader/scorerを追加し、SURGE Cluster単独・N-gram併用の全文評価を実装。既定無効・Pack非同梱の実験機能。
 - v0.37-v0.38: SURGE経験記憶へword Unigram / Bigram / Trigram / 4-gram / Skip-Bigramを統合し、Beamごとの履歴を最大3候補へ拡張。
 - v0.39: POS N-gramを別Evidenceとして統合。POS索引は評価時のみ明示構築し、通常の辞書ロードでは追加メモリを使わない。
+- v0.42: [SURGE Core統合](docs/SPECIFICATION_v0.42.md)。独立SURGE Core v0.9.11をMITライセンスでvendoringし、EventJournal / ContextGraph / DependencyEngine / QuestionRouter / ChaosClusterLedgerを正文化の実行経路へ接続。N-best候補をEntity / Claimとして登録し、辞書語彙・接続遷移・Word N-gram・POS N-gram・SURGE Clusterを独立Evidenceとして記録。矛盾からQuestion・Interest・Focusを生成。未解決候補はChaos PatternHypothesisへ保持。時間的有効性、再評価、StreamingのProposal / Prefix Commit / Final CommitをSURGE Journalへ記録。C/Python APIから永続Journalを指定可能。  
 - v0.41: [SURGE正文化基盤](docs/SPECIFICATION_v0.41.md)。固定容量Hypothesis / CandidateSet / SemanticFrame / SyntaxRelation / OrthographicHypothesis / Entity / Constraint / Decision / Revision / CommitSpanを追加。Evidenceの出所・信頼度・有効期間・依存関係と重複抑制集約、最大8経路の任意N-best再ランキング、日本語数詞の整数/小数解析、数値・日付・時刻・単位・通貨・範囲の型付き表記生成、句読点ポリシーを実装。既存Decoder既定動作とPack互換性は維持。
 - v0.40: [統合校正仕様](docs/SPECIFICATION_v0.40.md)。Word/POS N-gramとSURGE Clusterを同じdev splitで144構成校正し、最良方式をtestで凍結評価。
+
+
+## SURGE Language / Normalization Runtime migration
+
+- v0.44: [Immutable Language Pack Runtime](docs/SPECIFICATION_v0.45.md). Immutable Pack identity/digest, Pack-mediated decode and streaming providers, shared snapshot pinning across engines/sessions, and Language Adapter-owned numeric realization. This is an incremental boundary; morphology and complete surface rendering migration remain in progress.
+- v0.43: [SURGE Language and Normalization Runtime Migration](docs/SPECIFICATION_v0.43.md). Language Adapter and Normalization Adapter are both owned by SURGE. Language-specific recognition and rendering resources live in replaceable SURGE Language Sets; kana-decoder remains a thin input/output, compatibility and evaluation host.
+- Framework contract: [SURGE Language Runtime and Replaceable Language Packs v0.1](https://github.com/cocomohacomo/surge/blob/feat/language-runtime-core/docs/surge/LANGUAGE_RUNTIME_AND_REPLACEABLE_LANGUAGE_PACKS_v0.1.md).
+
+
+## SURGE Core decision and evaluation
+
+- [SURGE migration implementation report v0.2](docs/IMPLEMENTATION_REPORT_v0.2.md): Core-owned recognition/normalization decisions the real-corpus evaluation CLI, and dev-only evidence-weight calibration.
+- Build `kana_decoder_surge_eval` and run `./build/kana_decoder_surge_eval /path/to/ja-pack /path/to/corpus.tsv test /path/to/train_sequences.tsv` to compare decoder top-1 with SURGE Core output.
+
+
+Dev-only SURGE policy calibration (uses the dev split; test remains held out):
+
+```bash
+python tools/calibrate_surge_policy.py \
+  --evaluator ./build/kana_decoder_surge_eval \
+  --pack /path/to/ja-pack \
+  --corpus /path/to/corpus.tsv \
+  --train-sequences /path/to/train_sequences.tsv \
+  --output-policy ./surge-decision-policy.tsv \
+  --output-report ./surge-policy-calibration.json
+
+./build/kana_decoder_surge_eval /path/to/ja-pack /path/to/corpus.tsv test \
+  /path/to/train_sequences.tsv ./surge-decision-policy.tsv
+```

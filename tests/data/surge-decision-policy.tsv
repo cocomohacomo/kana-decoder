@@ -1,0 +1,9 @@
+decoder_prior	1.0
+lexical	1.0
+morphology	1.0
+transition	1.0
+ngram	1.0
+pos_ngram	1.0
+context_cluster	1.0
+typed_entity	1.0
+normalization_renderer	1.0

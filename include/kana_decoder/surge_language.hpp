@@ -127,6 +127,12 @@ struct Entity {
   bool valid = false;
 };
 
+struct EntitySpan {
+  Span span;
+  Entity entity;
+  Text rendered_surface;
+};
+
 struct Evidence {
   Id id;
   Id hypothesis_id;
@@ -244,36 +250,50 @@ bool rerank_paths(std::vector<::kana_decoder::DecodedPath>& paths,
                   PathRerankMetrics* metrics = nullptr);
 
 enum class NumericStyle : std::uint8_t { Arabic, GroupedArabic };
-enum class NumericEntityTarget : std::uint8_t { Number, Percent, Currency, Unit };
+enum class EntityTarget : std::uint8_t {
+  Number, Percent, Currency, Date, Time, Range, Unit, Identifier
+};
+using NumericEntityTarget = EntityTarget;
+
+struct SurfaceRenderOptions {
+  NumericStyle numeric_style = NumericStyle::GroupedArabic;
+  DiscourseAct discourse_act = DiscourseAct::Statement;
+  PunctuationStyle punctuation_style = PunctuationStyle::Japanese;
+  bool normalize_numbers = false;
+  bool append_terminal_punctuation = false;
+  bool space_latin_boundaries = false;
+};
 
 class LanguageAdapter {
  public:
   virtual ~LanguageAdapter() = default;
   virtual std::string_view language_tag() const = 0;
-  virtual bool make_hypothesis(const ::kana_decoder::LatticeCandidate& candidate,
+  virtual bool make_hypothesis(const ::kana_decoder::Candidate& candidate, double candidate_score,
                                Span span, std::string_view hypothesis_id,
                                Hypothesis& output) const = 0;
-  virtual bool make_numeric_entity(std::string_view reading, std::string_view entity_id,
-                                   NumericEntityTarget target, std::string_view unit,
-                                   Entity& output) const = 0;
-};
-
-class JapaneseLanguageAdapter final : public LanguageAdapter {
- public:
-  std::string_view language_tag() const override { return "ja-JP"; }
-  bool make_hypothesis(const ::kana_decoder::LatticeCandidate& candidate,
-                       Span span, std::string_view hypothesis_id,
-                       Hypothesis& output) const override;
+  virtual bool make_entity(std::string_view reading, std::string_view entity_id,
+                            EntityTarget target, std::string_view unit,
+                            Entity& output) const = 0;
   bool make_numeric_entity(std::string_view reading, std::string_view entity_id,
                            NumericEntityTarget target, std::string_view unit,
-                           Entity& output) const override;
+                           Entity& output) const {
+    return make_entity(reading, entity_id, target, unit, output);
+  }
+  virtual bool render_entity(const Entity& entity, NumericStyle style,
+                             std::string& output) const = 0;
+  // Returns bounded, non-overlapping typed entities whose spans are measured
+  // in UTF-8 code points. Empty output is a valid "no entities" result.
+  virtual bool extract_entities(std::string_view reading, std::size_t max_entities,
+                                std::vector<EntitySpan>& output) const {
+    (void)reading;
+    (void)max_entities;
+    output.clear();
+    return true;
+  }
+  virtual bool render_path(const ::kana_decoder::DecodedPath& path,
+                           std::string_view reading,
+                           const SurfaceRenderOptions& options,
+                           std::string& output) const = 0;
 };
-struct ParsedNumber {
-  std::int64_t mantissa = 0;
-  std::uint8_t decimal_places = 0;
-};
-bool parse_japanese_number(std::string_view reading, ParsedNumber& result);
-bool render_entity(const Entity& entity, NumericStyle style, std::string& output);
-std::string terminal_punctuation(DiscourseAct act, PunctuationStyle style);
 
 }  // namespace kana_decoder::surge

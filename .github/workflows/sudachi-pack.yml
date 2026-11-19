@@ -6,7 +6,7 @@ concurrency:
 
 on:
   push:
-    branches: [main]
+    branches: [main, refactor/surge-core-as-runtime]
     paths:
       - ".github/workflows/sudachi-pack.yml"
       - "licenses/sudachidict-small-20260723-source-lock.json"
@@ -24,8 +24,24 @@ on:
       - "tests/test_evaluate_surge_clusters.py"
       - "tests/test_compile_surge_clusters.py"
       - "licenses/ud-japanese-gsd-source-lock.json"
+      - "tools/evaluate_surge_runtime.cpp"
+      - "tools/calibrate_surge_policy.py"
+      - "tests/test_calibrate_surge_policy.py"
+      - "src/surge_runtime.cpp"
+      - "include/kana_decoder/surge_runtime.hpp"
+      - "third_party/surge/include/surge/decision.hpp"
+      - "third_party/surge/src/decision.cpp"
+      - "tests/test_surge_runtime.cpp"
+      - "tests/data/empty-train-sequences.tsv"
+      - "tests/data/surge-decision-policy.tsv"
+      - "tests/data/ja-smoke-gold.tsv"
       - "tools/evaluate_corpus.cpp"
       - "tools/evaluate_sequential_corpus.cpp"
+      - "tools/evaluate_surge_runtime.cpp"
+      - "tools/calibrate_surge_policy.py"
+      - "language_sets/**"
+      - "src/surge_runtime.cpp"
+      - "src/language_pack.cpp"
       - "tests/test_evaluate_sequential_decoder.py"
       - "CMakeLists.txt"
       - "include/kana_decoder/engine.hpp"
@@ -57,7 +73,7 @@ permissions:
 jobs:
   build-sudachi-small:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -150,7 +166,7 @@ jobs:
         run: |
           set -euo pipefail
           cmake -S . -B "$RUNNER_TEMP/kana-runtime-build" -DCMAKE_BUILD_TYPE=Release
-          cmake --build "$RUNNER_TEMP/kana-runtime-build" --target kana_decoder_eval kana_decoder_sequential_eval --parallel 2
+          cmake --build "$RUNNER_TEMP/kana-runtime-build" --target kana_decoder_eval kana_decoder_sequential_eval kana_decoder_surge_eval --parallel 2
           # RLIMIT_DATA leaves room for allocator virtual arenas; the post-run RSS check
           # independently guards total resident memory including mapped pages.
           ulimit -d $((3072 * 1024))
@@ -184,6 +200,72 @@ jobs:
           cat "$RUNNER_TEMP/sequential-decoder-evaluation.json"
           cat "$RUNNER_TEMP/sequential-runtime-time.log"
           python tools/check_memory_budget.py --log "$RUNNER_TEMP/sequential-runtime-time.log" --max-rss-mib 1792
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          temp = Path(os.environ["RUNNER_TEMP"])
+          source_lock = {
+              "sudachi": json.loads(Path("licenses/sudachidict-small-20260723-source-lock.json").read_text(encoding="utf-8")),
+              "ud_japanese_gsd": json.loads(Path("licenses/ud-japanese-gsd-source-lock.json").read_text(encoding="utf-8")),
+              "ud_gsd_manifest": json.loads((temp / "context-corpus/ud_gsd_manifest.json").read_text(encoding="utf-8")),
+              "corpus_manifest": json.loads((temp / "context-corpus/compiled/corpus_manifest.json").read_text(encoding="utf-8")),
+          }
+          (temp / "surge-evaluation-source-lock.json").write_text(
+              json.dumps(source_lock, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          PY
+          python tools/calibrate_surge_policy.py \
+            --evaluator "$RUNNER_TEMP/kana-runtime-build/kana_decoder_surge_eval" \
+            --pack "$RUNNER_TEMP/ja-jp-sudachi-small" \
+            --corpus "$RUNNER_TEMP/context-corpus/tokenized.tsv" \
+            --train-sequences "$RUNNER_TEMP/context-corpus/compiled/train_sequences.tsv" \
+            --source-lock "$RUNNER_TEMP/surge-evaluation-source-lock.json" \
+            --max-rss-mib 1792 \
+            --output-policy "$RUNNER_TEMP/surge-runtime-policy.tsv" \
+            --output-report "$RUNNER_TEMP/surge-runtime-dev-calibration.json"
+          cat "$RUNNER_TEMP/surge-runtime-dev-calibration.json"
+          /usr/bin/time -v -o "$RUNNER_TEMP/surge-runtime-test-time.log" \
+            "$RUNNER_TEMP/kana-runtime-build/kana_decoder_surge_eval" \
+            "$RUNNER_TEMP/ja-jp-sudachi-small" \
+            "$RUNNER_TEMP/context-corpus/tokenized.tsv" test \
+            "$RUNNER_TEMP/context-corpus/compiled/train_sequences.tsv" \
+            "$RUNNER_TEMP/surge-runtime-policy.tsv" \
+            > "$RUNNER_TEMP/surge-runtime-test-evaluation.json"
+          cat "$RUNNER_TEMP/surge-runtime-test-evaluation.json"
+          cat "$RUNNER_TEMP/surge-runtime-test-time.log"
+          python tools/check_memory_budget.py --log "$RUNNER_TEMP/surge-runtime-test-time.log" --max-rss-mib 1792
+          python -m py_compile tools/calibrate_surge_policy.py
+          python tools/calibrate_surge_policy.py \
+            --evaluator "$RUNNER_TEMP/kana-runtime-build/kana_decoder_surge_eval" \
+            --pack "$RUNNER_TEMP/ja-jp-sudachi-small" \
+            --corpus "$RUNNER_TEMP/context-corpus/tokenized.tsv" \
+            --train-sequences "$RUNNER_TEMP/context-corpus/compiled/train_sequences.tsv" \
+            --source-lock "licenses/ud-japanese-gsd-source-lock.json" \
+            --max-rss-mib 1792 \
+            --output-policy "$RUNNER_TEMP/surge-core-decision-policy.tsv" \
+            --output-report "$RUNNER_TEMP/surge-core-policy-calibration.json"
+          /usr/bin/time -v -o "$RUNNER_TEMP/surge-core-runtime-time.log" \
+            "$RUNNER_TEMP/kana-runtime-build/kana_decoder_surge_eval" \
+            "$RUNNER_TEMP/ja-jp-sudachi-small" \
+            "$RUNNER_TEMP/context-corpus/tokenized.tsv" \
+            test "$RUNNER_TEMP/context-corpus/compiled/train_sequences.tsv" \
+            "$RUNNER_TEMP/surge-core-decision-policy.tsv" \
+            > "$RUNNER_TEMP/surge-core-runtime-evaluation.json"
+          cat "$RUNNER_TEMP/surge-core-runtime-evaluation.json"
+          cat "$RUNNER_TEMP/surge-core-runtime-time.log"
+          python tools/check_memory_budget.py --log "$RUNNER_TEMP/surge-core-runtime-time.log" --max-rss-mib 1792
+
+      - name: Upload SURGE Core real-data evaluation
+        uses: actions/upload-artifact@v4
+        with:
+          name: surge-core-real-data-evaluation
+          path: |
+            ${{ runner.temp }}/surge-core-runtime-evaluation.json
+            ${{ runner.temp }}/surge-core-runtime-time.log
+            ${{ runner.temp }}/surge-core-decision-policy.tsv
+            ${{ runner.temp }}/surge-core-policy-calibration.json
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Upload verified Pack artifact
         uses: actions/upload-artifact@v4
@@ -200,5 +282,18 @@ jobs:
           path: |
             ${{ runner.temp }}/surge-cluster-model.tsv
             ${{ runner.temp }}/surge-cluster-model.tsv.manifest.json
+          if-no-files-found: error
+          retention-days: 30
+ 
+      - name: Upload SURGE runtime evaluation reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: surge-runtime-real-corpus-evaluation
+          path: |
+            ${{ runner.temp }}/surge-evaluation-source-lock.json
+            ${{ runner.temp }}/surge-runtime-policy.tsv
+            ${{ runner.temp }}/surge-runtime-dev-calibration.json
+            ${{ runner.temp }}/surge-runtime-test-evaluation.json
+            ${{ runner.temp }}/surge-runtime-test-time.log
           if-no-files-found: error
           retention-days: 30

@@ -21,41 +21,9 @@ bool valid_utf8_impl(const std::string& s) {
  }
  return true;
 }
-std::vector<std::string> utf8_chars(const std::string&s){std::vector<std::string>o;if(!valid_utf8_impl(s))return o;for(std::size_t i=0;i<s.size();){unsigned char c=static_cast<unsigned char>(s[i]);std::size_t n=c<0x80?1:(c&0xe0)==0xc0?2:(c&0xf0)==0xe0?3:4;o.push_back(s.substr(i,n));i+=n;}return o;}
 }
 namespace kana_decoder {
 bool is_valid_utf8(const std::string& text){return valid_utf8_impl(text);}
-std::vector<DecodedPath> decode_reading(const std::string& reading,const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,const DecoderOptions& options,const ConnectionModel* connections,std::vector<CandidateScoreTrace>* trace,std::vector<LatticePositionTrace>* lattice_trace,bool* resource_limit_exceeded){
- if(resource_limit_exceeded)*resource_limit_exceeded=false;
- if (!valid_utf8_impl(reading)) return {};
- const std::size_t input_limit=std::min<std::size_t>(options.max_input_codepoints,256);
- const std::size_t edge_limit=std::min<std::size_t>(options.max_lattice_edges,4096);
- const std::size_t candidate_limit=std::min<std::size_t>(options.max_lattice_candidates,32768);
- const std::size_t expansion_limit=std::min<std::size_t>(options.max_expanded_states,262144);
- if(input_limit==0||reading.size()>input_limit*4||
-    edge_limit==0||candidate_limit==0||expansion_limit==0){
-  if(resource_limit_exceeded)*resource_limit_exceeded=true;
-  return {};
- }
- auto chars = utf8_chars(reading);
- if (chars.empty()) return {};
- if(chars.size()>input_limit){
-  if(resource_limit_exceeded)*resource_limit_exceeded=true;
-  return {};
- }
- bool lattice_limit=false;
- auto lattice = lexicon.build_lattice(reading, options.max_edges_per_position, true,
-  lattice_trace,edge_limit,candidate_limit,&lattice_limit);
- if(lattice_limit){
-  if(resource_limit_exceeded)*resource_limit_exceeded=true;
-  return {};
- }
- MorphologyDecoder decoder;
- DecoderOptions bounded_options=options;
- bounded_options.max_expanded_states=expansion_limit;
- return decoder.decode(chars.size(), lattice, scorer, {}, bounded_options, connections, trace,
-  resource_limit_exceeded);
-}
 std::string render_ambiguity(const std::vector<Candidate>&c,bool other){std::ostringstream o;o<<'[';bool f=true;for(const auto&x:c){if(x.surface.empty())continue;if(!f)o<<'/';o<<x.surface;f=false;}if(other){if(!f)o<<'/';o<<"other";}o<<']';return o.str();}
 bool DependencyGraph::add(HypothesisNode n){if(n.id.empty()||nodes_.count(n.id))return false;for(const auto&d:n.dependencies){auto i=nodes_.find(d);if(i==nodes_.end()||static_cast<int>(i->second.layer)>static_cast<int>(n.layer))return false;}nodes_.emplace(n.id,std::move(n));return true;}
 std::vector<std::string> DependencyGraph::invalidate_dependents(const std::string&id){if(!nodes_.count(id))return{};std::set<std::string>a;bool changed=true;while(changed){changed=false;for(auto&e:nodes_){if(e.first==id||a.count(e.first))continue;for(const auto&d:e.second.dependencies)if(d==id||a.count(d)){a.insert(e.first);changed=true;break;}}}std::vector<std::string>v(a.begin(),a.end());for(const auto&k:v){auto&n=nodes_.at(k);n.valid=false;++n.revision;}return v;}
