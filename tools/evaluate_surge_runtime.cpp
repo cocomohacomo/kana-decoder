@@ -15,6 +15,7 @@
 #include <limits>
 #include <set>
 #include <string>
+#include <utility>
 #if !defined(_WIN32)
 #include <sys/resource.h>
 #endif
