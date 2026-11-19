@@ -92,7 +92,7 @@
 - [x] kana-decoderの最終経路選択をCore決定へ接続
 - [x] top-1覆しの回帰テストを追加
 - [x] 実データ評価CLIを追加
-- [ ] CIの最新headでビルド・テスト成功を確認
+- [x] CIビルド・テスト成功を確認（コード変更head `79046d8`、後続head `a4fef5b` はUPSTREAM.mdのみの文書変更）
 - [ ] 大規模実データコーパスで比較評価を実行（UD Japanese-GSD workflowへ接続済み、実行結果待ち）
 - [ ] 性能・メモリ・精度ゲートを確定
 - [ ] Language Set完全移管と2言語交換試験
@@ -126,3 +126,21 @@ train/dev/testへ分割して整形する。今回このworkflowに以下を追�
 元データの再配布は行わず、従来workflowと同じ取得・ライセンス管理を維持する。
 
 このworkflowの変更はPRブランチに追加済みだが、mainへのマージやworkflow_dispatchは実行していない。
+
+
+## 8. CI検証結果
+
+kana-decoder PR #1 のコード変更head `79046d8ddaa1d1d2e44920dd629f27d2c972ae21` でGitHub Actionsが成功した。
+
+- C++ build: success
+- CTest: 26/26 passed（`surge_core_normalization_integration` と `surge_core_real_data_eval_smoke` を含む）
+- Python tests: 71件、66 passed / 5 skipped
+- bounded decode microbenchmark: success
+- bounded SURGE runtime microbenchmark: success
+- Japanese reference Pack verification: success
+
+Run: https://github.com/cocomohacomo/kana-decoder/actions/runs/44502736958
+
+SURGE PR #139 のCore Decision API側も、head `7e8ba7c80df8bcc4c487ccf14d7b99abbe1200b3` でCI成功を確認した。
+
+この結果は実装・統合・スモーク評価の合格を示す。UD Japanese-GSD全量を使った大規模test評価は、既存のSudachi Pack workflowに接続済みだが、workflow自体はまだ実行していない。
