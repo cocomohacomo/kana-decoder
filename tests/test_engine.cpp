@@ -149,9 +149,10 @@ int main(){
  LexiconTrie morphology_trie;assert(morphology_trie.load_tsv(morphology_tsv.string()));std::filesystem::remove(morphology_tsv);
  auto morphology_path=decode_reading("たべる",morphology_trie,pack_scorer,dop);
  assert(!morphology_path.empty());
- assert(morphology_path.front().tokens.front().candidate.pos=="動詞/一般");
- assert(morphology_path.front().tokens.front().candidate.inflection_type=="下一段-バ行");
- assert(morphology_path.front().tokens.front().candidate.inflection_form=="終止形-一般");
+ assert(morphology_path.front().tokens.front().candidate.morphology.language_tag=="ja-JP");
+ assert(morphology_path.front().tokens.front().candidate.morphology.part_of_speech=="動詞/一般");
+ assert(morphology_path.front().tokens.front().candidate.morphology.inflection_class=="下一段-バ行");
+ assert(morphology_path.front().tokens.front().candidate.morphology.inflection_form=="終止形-一般");
 
  // SURGE evidence gate resolves only when at least two distinct candidate surfaces
  // have observed left-context evidence and the evidence margin clears threshold.
