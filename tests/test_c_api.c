@@ -49,6 +49,9 @@ int main(void) {
     assert(revision == 3 && strcmp(committed, "雨") == 0);
     assert(kd_streaming_commit_best(session, committed, sizeof(committed), &revision) == KD_ERR_INVALID_ARGUMENT);
     assert(kd_streaming_reset(session) == 0);
+    memset(provisional, 0, sizeof(provisional));
+    assert(kd_streaming_append(session, "あ", provisional, sizeof(provisional), &revision) == 0);
+    assert(revision == 5 && strcmp(provisional, "あ") == 0);
     kd_streaming_session_destroy(session);
     remove(journal);
     return 0;
