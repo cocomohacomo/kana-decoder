@@ -108,6 +108,10 @@ int main() {
          parsed_date.secondary == 11 && parsed_date.tertiary == 22);
   assert(ja_adapter.render_entity(parsed_date, NumericStyle::Arabic, rendered));
   assert(rendered == "2026年11月22日");
+  Entity special_day;
+  assert(ja_adapter.make_entity("にせんにじゅうろくねんじゅういちがつはつか",
+      "special-day-1", EntityTarget::Date, {}, special_day));
+  assert(special_day.tertiary == 20);
   Entity invalid_parsed_date;
   assert(!ja_adapter.make_entity("にせんにじゅうごねんにがつさんじゅうににち",
       "invalid-date-1", EntityTarget::Date, {}, invalid_parsed_date));
@@ -128,6 +132,11 @@ int main() {
   assert(parsed_range.value == 3 && parsed_range.secondary == 5);
   assert(ja_adapter.render_entity(parsed_range, NumericStyle::Arabic, rendered));
   assert(rendered == "3〜5歳");
+  Entity decimal_range;
+  assert(ja_adapter.make_entity("にてんごからさん", "decimal-range-1",
+      EntityTarget::Range, {}, decimal_range));
+  assert(ja_adapter.render_entity(decimal_range, NumericStyle::Arabic, rendered));
+  assert(rendered == "2.5〜3.0");
   Entity invalid_range;
   assert(!ja_adapter.make_entity("ごからさん", "invalid-range-1",
       EntityTarget::Range, {}, invalid_range));
@@ -313,6 +322,12 @@ int main() {
   invalid_date.value = 2025; invalid_date.secondary = 2; invalid_date.tertiary = 29;
   invalid_date.valid = true;
   assert(!state.add_entity(invalid_date));
+  Entity invalid_time_seconds;
+  assert(invalid_time_seconds.id.assign("invalid-time-seconds"));
+  invalid_time_seconds.kind = EntityKind::Time;
+  invalid_time_seconds.value = 9; invalid_time_seconds.tertiary = 60;
+  invalid_time_seconds.valid = true;
+  assert(!state.add_entity(invalid_time_seconds));
 
   Hypothesis invalid;
   assert(invalid.id.assign("bad-h"));
