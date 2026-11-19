@@ -244,9 +244,12 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     delta.nodes.push_back({{record.claim_id, surge::NodeKind::Claim,
         "candidate interpretation: " + token.candidate.surface + " [" + token.candidate.pos + "]",
         {record.evidence_id}}});
-    delta.nodes.push_back({{record.dependency_id, surge::NodeKind::Dependency,
-        "CLAIM_TEMPORAL_STATE:VALID@" + timestamp,
-        {record.claim_id, record.entity_id}}});
+    if (!path_candidate_keys.front().empty() &&
+        item.first == path_candidate_keys.front().front()) {
+      delta.nodes.push_back({{record.dependency_id, surge::NodeKind::Dependency,
+          "CLAIM_TEMPORAL_STATE:VALID@" + timestamp,
+          {record.claim_id, record.entity_id}}});
+    }
     delta.relations.push_back({{prefix + "/supports/" + id_component(record.claim_id),
         surge::RelationKind::Supports, record.evidence_id, record.claim_id}});
     delta.relations.push_back({{prefix + "/about-cluster/" + id_component(record.claim_id),
@@ -335,7 +338,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   if (alternatives.size() > 16) alternatives.resize(16);
 
   surge::ChaosProvenance provenance{"kana-decoder", "1", "normalization-v1", timestamp};
-  if (!alternatives.empty() || !contradictions.empty()) {
+  if (!alternatives.empty()) {
     surge::ChaosCluster existing_chaos;
     if (!chaos_->get(chaos_cluster_id_, existing_chaos)) {
       const auto created = chaos_->create(prefix + "/chaos-create",
@@ -345,59 +348,56 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
         return result;
       }
     }
-    // Keep both the selected and unresolved alternatives in the same open-world
-    // exploration space so provisional contradiction edges have two members.
-    for (const auto& item : candidates) {
-      surge::ChaosMember member;
-      member.member_ref = item.second.claim_id;
-      member.event_ref = item.second.evidence_id;
-      member.admission_reason = "retained N-best normalization hypothesis";
-      member.admitted_at = timestamp;
-      member.source_digest = source_digest;
-      member.provenance = provenance;
-      const auto admitted = chaos_->admit_member(prefix + "/chaos-admit/" +
-          id_component(item.second.claim_id), prefix + "/chaos-admit-key/" +
-          id_component(item.second.claim_id), journal_->state_version(),
-          chaos_cluster_id_, member);
-      if (!admitted.committed) {
-        result.error = "SURGE_CHAOS_MEMBER_ADMISSION_FAILED:" + admitted.error;
-        return result;
-      }
-      ++result.metrics.chaos_members;
-    }
-  }
-
-  for (const auto& conflict : contradictions) {
-    const auto association_id = prefix + "/chaos-association/" +
-        id_component(conflict.first + conflict.second);
-    surge::ChaosAssociation association;
-    association.association_id = association_id;
-    association.from_ref = conflict.first;
-    association.to_ref = conflict.second;
-    association.type = surge::ChaosAssociationType::Contradiction;
-    association.status = surge::ChaosAssociationStatus::Provisional;
-    association.provenance = provenance;
-    const auto proposed = chaos_->propose_association(association_id + "/op",
-        association_id + "/key", journal_->state_version(), chaos_cluster_id_, association);
-    if (!proposed.committed && proposed.error != "CHAOS_MEMBER_NOT_FOUND") {
-      result.error = "SURGE_CHAOS_ASSOCIATION_FAILED:" + proposed.error;
+    const auto member_ref = prefix + "/candidate-set";
+    surge::ChaosMember member;
+    member.member_ref = member_ref;
+    member.event_ref = candidates.begin()->second.evidence_id;
+    member.admission_reason = "open-world unresolved N-best candidate set";
+    member.admitted_at = timestamp;
+    member.source_digest = source_digest;
+    member.provenance = provenance;
+    const auto admitted = chaos_->admit_member(prefix + "/chaos-admit",
+        prefix + "/chaos-admit-key", journal_->state_version(), chaos_cluster_id_, member);
+    if (!admitted.committed) {
+      result.error = "SURGE_CHAOS_MEMBER_ADMISSION_FAILED:" + admitted.error;
       return result;
     }
+    surge::ChaosPatternHypothesis pattern;
+    pattern.hypothesis_id = prefix + "/candidate-pattern";
+    pattern.statement = "Competing normalization hypotheses for source digest " + source_digest;
+    pattern.epistemic_state = "HYPOTHETICAL";
+    pattern.status = "PROVISIONAL";
+    pattern.member_refs.push_back(member_ref);
+    for (const auto* alternative : alternatives)
+      pattern.alternative_hypothesis_refs.push_back(alternative->claim_id);
+    pattern.provenance = provenance;
+    const auto recorded = chaos_->add_pattern_hypothesis(prefix + "/chaos-pattern",
+        prefix + "/chaos-pattern-key", journal_->state_version(), chaos_cluster_id_, pattern);
+    if (!recorded.committed) {
+      result.error = "SURGE_CHAOS_PATTERN_FAILED:" + recorded.error;
+      return result;
+    }
+    result.metrics.chaos_members = 1;
   }
 
   const auto best_claims = path_candidate_keys.front();
-  for (const auto& key : best_claims) {
+  for (std::size_t selected_index = 0; selected_index < best_claims.size(); ++selected_index) {
+    const auto& key = best_claims[selected_index];
     const auto found = candidates.find(key);
     if (found == candidates.end() || graph_->claim_status(found->second.claim_id) != surge::ClaimStatus::Active) {
       result.error = "SURGE_SELECTED_CLAIM_NOT_ACTIVE";
       return result;
     }
-    surge::TemporalReassessmentRecord reassessment;
-    std::string reassessment_error;
-    if (!graph_->reassess_claim(found->second.claim_id, timestamp,
-                                journal_->state_version(), reassessment, reassessment_error)) {
-      result.error = "SURGE_TEMPORAL_REASSESSMENT_FAILED:" + reassessment_error;
-      return result;
+    // Reassess one representative claim per streaming packet. Every candidate
+    // still carries revisioned validity; full re-evaluation is demand-driven.
+    if (selected_index == 0) {
+      surge::TemporalReassessmentRecord reassessment;
+      std::string reassessment_error;
+      if (!graph_->reassess_claim(found->second.claim_id, timestamp,
+                                  journal_->state_version(), reassessment, reassessment_error)) {
+        result.error = "SURGE_TEMPORAL_REASSESSMENT_FAILED:" + reassessment_error;
+        return result;
+      }
     }
   }
 
