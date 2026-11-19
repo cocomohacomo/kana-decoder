@@ -33,11 +33,21 @@ target_compile_options(kana_decoder_shared PRIVATE -Wall -Wextra -Wpedantic -Wer
 set_target_properties(kana_decoder_shared PROPERTIES OUTPUT_NAME kana_decoder)
 add_executable(kana_decoder_tests tests/test_engine.cpp)
 target_link_libraries(kana_decoder_tests PRIVATE kana_decoder_core)
+kana_decoder_enable_test_assertions(kana_decoder_tests)
 target_compile_definitions(kana_decoder_tests PRIVATE KANA_DECODER_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 enable_testing()
 
+# Release builds define NDEBUG. Keep C/C++ conformance assertions active so
+# CTest does not silently compile away the test conditions.
+function(kana_decoder_enable_test_assertions target)
+  if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(${target} PRIVATE -UNDEBUG)
+  endif()
+endfunction()
+
 add_executable(kana_decoder_c_api_tests tests/test_c_api.c)
 target_link_libraries(kana_decoder_c_api_tests PRIVATE kana_decoder_core)
+kana_decoder_enable_test_assertions(kana_decoder_c_api_tests)
 target_include_directories(kana_decoder_c_api_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_definitions(kana_decoder_c_api_tests PRIVATE KANA_DECODER_PACK_DIR="${CMAKE_CURRENT_SOURCE_DIR}/packs/ja-lite")
 add_test(NAME c_api_integration_tests COMMAND kana_decoder_c_api_tests)
@@ -83,31 +93,38 @@ endif()
 
 add_executable(kana_decoder_trace_tests tests/test_decoder_trace.cpp)
 target_link_libraries(kana_decoder_trace_tests PRIVATE kana_decoder_core)
+kana_decoder_enable_test_assertions(kana_decoder_trace_tests)
 add_test(NAME decoder_trace_tests COMMAND kana_decoder_trace_tests)
 
 add_executable(kana_decoder_surge_cluster_tests tests/test_surge_cluster.cpp)
 target_link_libraries(kana_decoder_surge_cluster_tests PRIVATE kana_decoder_core)
+kana_decoder_enable_test_assertions(kana_decoder_surge_cluster_tests)
 add_test(NAME surge_cluster_model_tests COMMAND kana_decoder_surge_cluster_tests)
 
 add_executable(kana_decoder_surge_ngram_tests tests/test_surge_ngram.cpp)
 target_link_libraries(kana_decoder_surge_ngram_tests PRIVATE kana_decoder_core)
+kana_decoder_enable_test_assertions(kana_decoder_surge_ngram_tests)
 add_test(NAME surge_ngram_memory_tests COMMAND kana_decoder_surge_ngram_tests)
 
 add_executable(kana_decoder_surge_language_tests tests/test_surge_language.cpp)
 target_link_libraries(kana_decoder_surge_language_tests PRIVATE kana_decoder_core)
+kana_decoder_enable_test_assertions(kana_decoder_surge_language_tests)
 add_test(NAME surge_language_foundation_tests COMMAND kana_decoder_surge_language_tests)
 
 add_executable(kana_decoder_japanese_language_set_tests tests/test_japanese_language_set.cpp)
 target_link_libraries(kana_decoder_japanese_language_set_tests PRIVATE kana_decoder_core)
+kana_decoder_enable_test_assertions(kana_decoder_japanese_language_set_tests)
 add_test(NAME japanese_language_set_conformance_tests COMMAND kana_decoder_japanese_language_set_tests)
 
 add_executable(kana_decoder_language_pack_tests tests/test_language_pack.cpp)
 target_link_libraries(kana_decoder_language_pack_tests PRIVATE kana_decoder_core)
+kana_decoder_enable_test_assertions(kana_decoder_language_pack_tests)
 target_compile_definitions(kana_decoder_language_pack_tests PRIVATE KANA_DECODER_PACK_DIR="${CMAKE_CURRENT_SOURCE_DIR}/packs/ja-lite")
 add_test(NAME immutable_language_pack_runtime_tests COMMAND kana_decoder_language_pack_tests)
 
 add_executable(kana_decoder_surge_runtime_tests tests/test_surge_runtime.cpp)
 target_link_libraries(kana_decoder_surge_runtime_tests PRIVATE kana_decoder_core)
+kana_decoder_enable_test_assertions(kana_decoder_surge_runtime_tests)
 target_compile_definitions(kana_decoder_surge_runtime_tests PRIVATE KANA_DECODER_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 add_test(NAME surge_core_normalization_integration COMMAND kana_decoder_surge_runtime_tests)
 add_test(NAME surge_core_real_data_eval_smoke COMMAND kana_decoder_surge_eval
