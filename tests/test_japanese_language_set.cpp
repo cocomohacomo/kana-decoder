@@ -1,5 +1,6 @@
 #include "kana_decoder/engine.hpp"
 #include "kana_decoder/japanese_decoder.hpp"
+#include "kana_decoder/japanese_language.hpp"
 
 #include <cassert>
 #include <string>
@@ -83,5 +84,37 @@ int main() {
       "あ", lexicon, scorer, options, nullptr, nullptr, nullptr, &exceeded);
   assert(exceeded);
   assert(paths.empty());
+  // Dictionary-supplied inflected surfaces carry their own okurigana.
+  // The renderer must preserve the selected surface rather than attempting
+  // to regenerate a lemma form or guessing an inflection.
+  LatticeCandidate inflected = candidate("ja-maw-連用形促音便", "回っ", -100);
+  inflected.pos = "動詞/一般";
+  inflected.inflection_type = "五段-ラ行";
+  inflected.inflection_form = "連用形-促音便";
+  assert(lexicon.add("まわっ", inflected));
+  const auto inflected_paths = decode_reading("まわっ", lexicon, scorer);
+  assert(!inflected_paths.empty());
+  assert(inflected_paths.front().tokens.size() == 1);
+  const auto& inflected_token = inflected_paths.front().tokens.front();
+  assert(inflected_token.candidate.surface == "回っ");
+  assert(inflected_token.candidate.inflection_type == "五段-ラ行");
+  assert(inflected_token.candidate.inflection_form == "連用形-促音便");
+  surge::JapaneseLanguageAdapter adapter;
+  surge::SurfaceRenderOptions render_options;
+  std::string rendered;
+  assert(adapter.render_path(inflected_paths.front(), "まわっ", render_options, rendered));
+  assert(rendered == "回っ");
+
+  LatticeCandidate te_form = candidate("ja-tab-連用形", "食べて", -90);
+  te_form.pos = "動詞/一般";
+  te_form.inflection_type = "下一段-バ行";
+  te_form.inflection_form = "連用形-一般";
+  assert(lexicon.add("たべて", te_form));
+  const auto te_paths = decode_reading("たべて", lexicon, scorer);
+  assert(!te_paths.empty());
+  assert(te_paths.front().tokens.front().candidate.surface == "食べて");
+  assert(adapter.render_path(te_paths.front(), "たべて", render_options, rendered));
+  assert(rendered == "食べて");
+
   return 0;
 }
