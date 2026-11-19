@@ -335,8 +335,8 @@ Candidate Recall@N here is sentence-level exact surface coverage over the raw co
 - [x] Preserve sentence-level Candidate Recall, oracle CER, token-aligned Recall, token miss attribution, candidate error partitions, typed-entity evidence counters, elapsed time and Peak RSS in machine-readable reports.
 - [x] Enforce the 1,792 MiB peak-RSS ceiling for every dev calibration subprocess and the held-out test evaluator.
 - [x] Upload aggregate evaluation reports and provenance only; do not upload raw corpus or sentence traces.
-- [ ] Complete latest-head C++/Python CI after the calibration-fixture JSON syntax correction.
-- [ ] Complete the new pinned real-corpus SURGE Runtime workflow on this branch.
+- [x] Calibration-fixture JSON syntax correction verified by CI #1108 and #1109 (build, CTest, bounded benchmarks, Pack and Python tests passed).
+- [ ] Complete the new pinned real-corpus SURGE Runtime workflow #165 on this branch (currently running).
 - [ ] Inspect dev token-miss class distributions and select the next optimization target without consulting test results.
 - [ ] Publish held-out CER, sentence exact, candidate recall, miss attribution and resource metrics only after the new workflow succeeds. Hosted CI measurements are not target-PC performance claims.
 
