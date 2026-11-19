@@ -86,5 +86,21 @@
 
 ## SURGE Core decision and evaluation
 
-- [SURGE migration implementation report v0.2](docs/IMPLEMENTATION_REPORT_v0.2.md): Core-owned recognition/normalization decisions and the real-corpus evaluation CLI.
+- [SURGE migration implementation report v0.2](docs/IMPLEMENTATION_REPORT_v0.2.md): Core-owned recognition/normalization decisions the real-corpus evaluation CLI, and dev-only evidence-weight calibration.
 - Build `kana_decoder_surge_eval` and run `./build/kana_decoder_surge_eval /path/to/ja-pack /path/to/corpus.tsv test /path/to/train_sequences.tsv` to compare decoder top-1 with SURGE Core output.
+
+
+Dev-only SURGE policy calibration (uses the dev split; test remains held out):
+
+```bash
+python tools/calibrate_surge_policy.py \
+  --evaluator ./build/kana_decoder_surge_eval \
+  --pack /path/to/ja-pack \
+  --corpus /path/to/corpus.tsv \
+  --train-sequences /path/to/train_sequences.tsv \
+  --output-policy ./surge-decision-policy.tsv \
+  --output-report ./surge-policy-calibration.json
+
+./build/kana_decoder_surge_eval /path/to/ja-pack /path/to/corpus.tsv test \
+  /path/to/train_sequences.tsv ./surge-decision-policy.tsv
+```
