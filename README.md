@@ -13,7 +13,8 @@
 - 出力バッファ不足時に入力・revision・commit状態を変更しないトランザクション動作
 - 軽度誤り補正、UTF-8検証、Pack Manifest / SHA-256 / license検証（C++側は容量上限を共有しSHA-256をストリーミング検証）
 - Sudachi V0/V1 import adapter、Pack builder、文書単位のtrain/dev/test分割
-- GitHub ActionsによるC++ / Pythonテストとベンチマーク\n- 実コーパスを使ったC++全文デコード評価（予測左履歴、未来文脈なし）
+- GitHub ActionsによるC++ / Pythonテストとベンチマーク
+- pinned Sudachi Small + UD Japanese-GSDのdev校正、test固定評価、token Candidate Recall / miss attributionを含むSURGE Runtime評価\n- 実コーパスを使ったC++全文デコード評価（予測左履歴、未来文脈なし）
 
 ## ビルドとテスト
     cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -50,6 +51,7 @@
 - tools/evaluate_ablation.py は全読みを覆う単一span候補に限定し、形態素スコア・combined local score・SURGEの根拠付き解決を比較します。複数形態素文の正解token alignmentを推測しません。
 
 ## 仕様
+- v0.64: [Pinned real-corpus SURGE runtime evaluation](docs/SPECIFICATION_v0.64.md)
 - v0.63: [Token candidate miss attribution](docs/SPECIFICATION_v0.63.md)
 - v0.62: [Gold-token-aligned candidate recall](docs/SPECIFICATION_v0.62.md)
 - v0.61: [Candidate error attribution diagnostics](docs/SPECIFICATION_v0.61.md)
