@@ -228,15 +228,17 @@ recovery after journal replay.
 The next retrieval stage is implemented in the kana-decoder integration branch
 without modifying the SURGE main-development repository.
 
-- Reads the current Core Focus and traverses at most 16 related Clusters, with
-  traversal depth capped at 2.
+- Reads the current Core Focus and traverses at most 16 child or explicitly
+  related Clusters, with depth capped at 2. It does not walk upward to the
+  session root, preventing accidental retrieval of unrelated sibling topics.
 - Reads a bounded relation window (up to 8,192 relations, from both ends of the
   ordered index) and reports scanned count/truncation.
 - Retrieves retained Claim surfaces from those Clusters and injects
   `active_focus` evidence into the single `UnifiedDecision`.
 - Builds the latest ClaimValidity view and invokes the existing vendored
   `DependencyEngine::evaluate` with limits of 128 impacted nodes and 2,048
-  predicate operations. The pass is skipped when the graph exceeds 4,096 nodes.
+  predicate operations. The pass is skipped when the graph exceeds 4,096 nodes;
+  this skip is exposed as a runtime metric.
 - When a focused historical Claim is dependency-impacted, adds
   `dependency_reassessment` evidence to the matching current candidate.
 - Routes Claim contradictions to their interpretation Cluster (not the
