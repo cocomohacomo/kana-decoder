@@ -69,6 +69,7 @@ struct CandidateRecord {
   std::string dependency_id;
   std::string surface;
   std::string normalized_surface;
+  std::string entity_content;
 };
 
 }  // namespace
@@ -201,7 +202,10 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
         numeric.valid = true;
         if (kana_decoder::surge::render_entity(numeric,
               kana_decoder::surge::NumericStyle::GroupedArabic, record.normalized_surface)) {
-          // The typed Entity is serialized into the Core Entity node below.
+          record.entity_content = "numeric;raw=" + token_reading +
+              ";mantissa=" + std::to_string(parsed.mantissa) +
+              ";decimal_places=" + std::to_string(parsed.decimal_places) +
+              ";normalized=" + record.normalized_surface;
         }
       }
       candidates.emplace(key, std::move(record));
@@ -232,7 +236,9 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
                      << ";source_digest=" << source_digest
                      << ";observed_at=" << timestamp;
     delta.nodes.push_back({{record.entity_id, surge::NodeKind::Entity,
-        record.normalized_surface.empty() ? token.candidate.surface : record.normalized_surface, {}}});
+        record.entity_content.empty() ? "lexical;surface=" + token.candidate.surface +
+            ";pos=" + token.candidate.pos + ";reading=" + token_reading :
+            record.entity_content, {}}});
     delta.nodes.push_back({{record.evidence_id, surge::NodeKind::Evidence,
         evidence_content.str(), {}}});
     delta.nodes.push_back({{record.claim_id, surge::NodeKind::Claim,
