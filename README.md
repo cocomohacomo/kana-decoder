@@ -82,7 +82,7 @@
 
 ## SURGE Language / Normalization Runtime migration
 
-- v0.44: [Immutable Language Pack Runtime](docs/SPECIFICATION_v0.44.md). Immutable Pack identity/digest, Pack-mediated decode and streaming providers, shared snapshot pinning across engines/sessions, and Language Adapter-owned numeric realization. This is an incremental boundary; morphology and complete surface rendering migration remain in progress.
+- v0.44: [Immutable Language Pack Runtime](docs/SPECIFICATION_v0.45.md). Immutable Pack identity/digest, Pack-mediated decode and streaming providers, shared snapshot pinning across engines/sessions, and Language Adapter-owned numeric realization. This is an incremental boundary; morphology and complete surface rendering migration remain in progress.
 - v0.43: [SURGE Language and Normalization Runtime Migration](docs/SPECIFICATION_v0.43.md). Language Adapter and Normalization Adapter are both owned by SURGE. Language-specific recognition and rendering resources live in replaceable SURGE Language Sets; kana-decoder remains a thin input/output, compatibility and evaluation host.
 - Framework contract: [SURGE Language Runtime and Replaceable Language Packs v0.1](https://github.com/cocomohacomo/surge/blob/feat/language-runtime-core/docs/surge/LANGUAGE_RUNTIME_AND_REPLACEABLE_LANGUAGE_PACKS_v0.1.md).
 
