@@ -257,6 +257,6 @@ v0.56ではP0のCI・Pack・journal recoveryゲートが通過した。P1ではC
 - [x] Persist each extracted Entity/Evidence pair in ContextGraph and relate only Claims contained within its span.
 - [x] Add adapter tests for multiple partial entities and sentence rendering.
 - [x] Add runtime test proving typed entity evidence changes the pre-decision selection and persists two entities.
-- [ ] Verify latest branch head with complete static/shared CI and resolve all failures.
+- [x] Verify latest branch head with complete static/shared CI #1064; all 29 CTest cases, bounded microbenchmarks, Japanese reference Pack and Python policy tests passed.
 - [ ] Calibrate `typed_entity` family weight on a held-out development corpus; evaluate CER and Candidate Recall@N on a separate fixed test corpus.
 - [ ] Extend typed extraction to context-bound units/currency, relative dates and locale-specific calendar policies only with explicit grammar and ambiguity tests.
