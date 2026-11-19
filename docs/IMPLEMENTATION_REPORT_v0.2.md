@@ -186,3 +186,38 @@ This first grid is a reproducible baseline, not a claim of optimal calibration. 
 - [x] Unit test for dev-only grid selection, deterministic tie-break and provenance hashes
 - [ ] CI verifies calibration script and policy loader end-to-end
 - [ ] Real UD Japanese-GSD dev/test metrics and resource use collected
+
+
+## 10. Unified SURGE decision and clustered input retention
+
+Recognition and normalization are now exposed through one Core API,
+`surge::UnifiedDecision::evaluate`. A path candidate carries both
+interpretation evidence and its source/rendered surface hypotheses. SURGE
+selects the interpretation and all of its surface realizations in one call,
+under one policy and one trace/disposition boundary. If any surface set cannot
+be resolved, the unified result defers/rejects and clears partial surface
+selections. The old `RecognitionDecision` and `NormalizationDecision`
+entry points are removed from this implementation.
+
+Input retention is also made explicit in SURGE Core. The new
+`ContextGraph::append_cluster_membership` API deterministically classifies
+members under typed child clusters and adds parent/member containment edges to
+the same SemanticDelta. kana-decoder supplies only classification labels and
+partition keys:
+- `LEXICAL_INTERPRETATION` clusters retain candidate Claims.
+- `SURFACE_REALIZATION` clusters retain source and language-rendered surface Entities.
+- Claims retain linked Evidence, source digest, validity and provenance.
+- Contradictions and unresolved alternatives continue into Question routing
+  and Chaos Cluster retention.
+
+The runtime reports the persisted Cluster count. The runtime conformance test
+now asserts that root, interpretation and surface clusters exist. SURGE
+ContextGraph conformance tests cover deterministic cluster membership and
+recovery after journal replay.
+
+### Verification status
+- [x] Unified Core API and adapter integration committed to the open PR branches.
+- [x] Cluster classification delegated from the adapter to SURGE Core API.
+- [x] Conformance tests added for unified surface choice and cluster replay.
+- [ ] CI for the latest SURGE and kana-decoder commits is pending.
+- [ ] Real UD Japanese-GSD dev calibration and held-out test metrics remain pending.
