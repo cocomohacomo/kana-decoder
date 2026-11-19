@@ -126,6 +126,37 @@ int main() {
     assert(selected.committed);
     assert(selected.output == "高尚");
     assert(selected.selected_claim_ids.size() == 1);
+
+    // A later packet reuses the active Focus cluster. The previously retained
+    // surface must outrank an otherwise tied unseen candidate, and the
+    // historical dependency must be re-evaluated under its validity record.
+    kana_decoder::DecodedPath unseen_path;
+    unseen_path.score = -1.0;
+    auto unseen_token = first_token;
+    unseen_token.candidate.id = "unseen-candidate";
+    unseen_token.candidate.surface = "公証";
+    unseen_token.lexical_score = -1.0;
+    unseen_token.morphology_score = -1.0;
+    unseen_token.cluster_raw_evidence = 0.0;
+    unseen_path.tokens.push_back(unseen_token);
+
+    kana_decoder::DecodedPath focused_path;
+    focused_path.score = -1.0;
+    auto focused_token = second_token;
+    focused_token.lexical_score = -1.0;
+    focused_token.morphology_score = -1.0;
+    focused_token.cluster_raw_evidence = 0.0;
+    focused_path.tokens.push_back(focused_token);
+
+    const auto recalled = decision_runtime.normalize("こうしょう",
+        {unseen_path, focused_path}, true);
+    assert(recalled.committed);
+    assert(recalled.output == "高尚");
+    assert(recalled.metrics.focus_retrieved_claims >= 2);
+    assert(recalled.metrics.focus_evidence_added >= 1);
+    assert(recalled.metrics.dependency_triggered >= 1);
+    assert(recalled.metrics.dependency_impacted_nodes >= 2);
+    assert(recalled.metrics.retrieval_relations_scanned > 0);
   }
 
   // Family calibration must be injected into the SURGE Core decision itself.
