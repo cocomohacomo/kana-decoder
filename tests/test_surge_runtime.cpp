@@ -245,6 +245,64 @@ int main() {
     assert(recovered_date_runtime.state_version() == date_state_version);
   }
 
+  // Typed entities inside a longer sentence must contribute evidence before
+  // UnifiedDecision and persist only against the claims covered by each span.
+  const auto partial_entity_journal = (std::filesystem::temp_directory_path() /
+      "kana-decoder-surge-partial-entity-test.journal").string();
+  std::filesystem::remove(partial_entity_journal, ignored);
+  kana_decoder::surge::JapaneseLanguageAdapter partial_entity_adapter;
+  kana_decoder::SurgeRuntimeConfig partial_entity_config;
+  partial_entity_config.journal_path = partial_entity_journal;
+  partial_entity_config.context_id = "partial-entity-decision-test";
+  partial_entity_config.language_adapter = &partial_entity_adapter;
+  partial_entity_config.surface_render_options.normalize_numbers = true;
+  partial_entity_config.remove_journal_on_destroy = true;
+  {
+    kana_decoder::SurgeNormalizationRuntime partial_entity_runtime(partial_entity_config);
+    std::string partial_entity_error;
+    assert(partial_entity_runtime.open(partial_entity_error));
+    const std::string partial_date = "にせんにじゅうろくねんじゅういちがつにじゅうににち";
+    const std::string partial_reading = "きょうは" + partial_date +
+        "のごごさんじにじゅっぷんです";
+    const auto make_partial_path = [&](const std::string& id,
+                                       const std::string& date_surface,
+                                       const std::string& time_surface,
+                                       double score) {
+      kana_decoder::DecodedPath path;
+      path.score = score;
+      const auto add = [&](std::size_t start, std::size_t end,
+                           const std::string& token_id, const std::string& surface) {
+        kana_decoder::DecodedToken token;
+        token.start = start;
+        token.end = end;
+        token.candidate.id = id + "-" + token_id;
+        token.candidate.surface = surface;
+        token.candidate.morphology.language_tag = "ja-JP";
+        path.tokens.push_back(token);
+      };
+      add(0, 4, "prefix", "今日は");
+      add(4, 29, "date", date_surface);
+      add(29, 30, "particle", "の");
+      add(30, 41, "time", time_surface);
+      add(41, 43, "suffix", "です");
+      return path;
+    };
+    const auto decoder_top = make_partial_path(
+        "decoder-top", "二千二十六年十一月二十二日", "午後三時二十分", -1.0);
+    const auto entity_supported = make_partial_path(
+        "entity-supported", "2026年11月22日", "15時20分", -10.0);
+    const auto entity_result = partial_entity_runtime.normalize(
+        partial_reading, {decoder_top, entity_supported}, true);
+    if (!entity_result.committed)
+      std::cerr << "partial entity normalize failed: " << entity_result.error << '\\n';
+    assert(entity_result.committed);
+    assert(entity_result.output == "今日は2026年11月22日の15時20分です");
+    assert(entity_result.metrics.typed_entities_found == 2);
+    assert(entity_result.metrics.typed_entity_evidence_added == 1);
+    assert(entity_result.metrics.selected_typed_entity_evidence == 1);
+    assert(entity_result.metrics.typed_entities_persisted == 2);
+  }
+
   // Family calibration must be injected into the SURGE Core decision itself.
   const auto calibrated_journal = (std::filesystem::temp_directory_path() /
       "kana-decoder-surge-core-calibrated-test.journal").string();
