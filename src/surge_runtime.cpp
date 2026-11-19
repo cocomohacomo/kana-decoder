@@ -261,6 +261,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   recognition_policy.max_candidates = config_.max_candidates_per_decode;
   recognition_policy.max_evidence_per_candidate = 2048;
   recognition_policy.minimum_margin = 0.0;
+  recognition_policy.family_weights = config_.recognition_family_weights;
   const auto recognition = ::surge::RecognitionDecision::evaluate(
       recognition_candidates, recognition_policy);
   if (recognition.disposition != ::surge::DecisionDisposition::Select) {
@@ -317,7 +318,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
       rendered_surface.candidate_id = "surface-rendered";
       rendered_surface.stable_order = 1;
       rendered_surface.evidence.push_back({"surface-rendered-evidence", "language_renderer",
-          "rendered", 1.0, 1.0, true});
+          "rendered", config_.normalization_renderer_score, 1.0, true});
       surface_hypotheses.push_back(std::move(rendered_surface));
     }
     ::surge::DecisionPolicy normalization_policy;
