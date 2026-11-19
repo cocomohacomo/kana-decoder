@@ -1,4 +1,5 @@
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -10,6 +11,12 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 CALIBRATOR = ROOT / "tools" / "calibrate_surge_policy.py"
+
+
+
+_spec = importlib.util.spec_from_file_location("calibrate_surge_policy", CALIBRATOR)
+_calibrator = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_calibrator)
 
 
 class SurgePolicyCalibrationTests(unittest.TestCase):
@@ -90,6 +97,47 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
             self.assertEqual(result["best_policy"]["token_aligned_candidate_generation"]["recall_at_10"], 0.8)
             self.assertEqual(result["best_policy"]["token_aligned_candidate_generation"]["miss_attribution_at_10"]["no_surface_candidate"], 5)
             self.assertIn("normalization_renderer\t", policy.read_text(encoding="utf-8"))
+
+
+    def test_diagnostic_partitions_fail_closed(self):
+        metrics = {
+            "cases": 10,
+            "candidate_generation": {
+                "surface_exact_recall_at_1": 0.2,
+                "surface_exact_recall_at_5": 0.4,
+                "surface_exact_recall_at_10": 0.5,
+                "oracle_cer_at_5": 0.3,
+                "oracle_cer_at_10": 0.25,
+            },
+            "candidate_error_classification": {
+                "missing_candidate": 5, "candidate_available": 5,
+                "candidate_available_runtime_failure": 0,
+                "candidate_available_deferred": 1,
+                "candidate_available_surge_exact": 2,
+                "candidate_available_surge_wrong": 2,
+                "wrong_output_matches_raw_nbest": 1,
+                "wrong_output_outside_raw_nbest": 1,
+            },
+            "token_aligned_candidate_generation": {
+                "gold_tokens": 100, "recall_at_1": 0.4,
+                "recall_at_5": 0.7, "recall_at_10": 0.8,
+                "miss_attribution_at_10": {
+                    "exact_span_and_surface": 80,
+                    "span_match_surface_mismatch": 5,
+                    "surface_match_span_mismatch": 10,
+                    "no_surface_candidate": 5,
+                },
+            },
+        }
+        _calibrator.validate_diagnostic_metrics(metrics)
+        metrics["candidate_error_classification"]["missing_candidate"] = 4
+        with self.assertRaisesRegex(RuntimeError, "do not partition"):
+            _calibrator.validate_diagnostic_metrics(metrics)
+
+        metrics["candidate_error_classification"]["missing_candidate"] = 5
+        metrics["token_aligned_candidate_generation"]["miss_attribution_at_10"]["no_surface_candidate"] = 4
+        with self.assertRaisesRegex(RuntimeError, "miss attribution"):
+            _calibrator.validate_diagnostic_metrics(metrics)
 
 
 if __name__ == "__main__":
