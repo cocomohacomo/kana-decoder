@@ -412,7 +412,8 @@ bool parse_japanese_number(std::string_view reading, ParsedNumber& result) {
 }
 
 bool JapaneseLanguageAdapter::make_hypothesis(const ::kana_decoder::Candidate& candidate,
-                                               Span span, std::string_view hypothesis_id,
+                                               double candidate_score, Span span,
+                                               std::string_view hypothesis_id,
                                                Hypothesis& output) const {
   if (!span.valid() || candidate.id.empty() || candidate.surface.empty()) return false;
   Hypothesis value;
@@ -422,8 +423,8 @@ bool JapaneseLanguageAdapter::make_hypothesis(const ::kana_decoder::Candidate& c
       ? std::string_view("lexical") : std::string_view(candidate.pos);
   if (!value.interpretation.assign(interpretation)) return false;
   value.span = span;
-  value.score = -static_cast<double>(candidate.word_cost) -
-                static_cast<double>(candidate.connection_cost);
+  if (!std::isfinite(candidate_score)) return false;
+  value.score = candidate_score;
   output = value;
   return true;
 }
