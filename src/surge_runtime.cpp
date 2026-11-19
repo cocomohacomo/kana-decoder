@@ -67,7 +67,7 @@ struct SurgeNormalizationRuntime::CandidateRecord {
   std::string key;
   std::string claim_id;
   std::string entity_id;
-  std::string evidence_id;
+  std::vector<std::string> evidence_ids;
   std::string dependency_id;
   std::string surface;
   std::string normalized_surface;
@@ -183,7 +183,6 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
       const auto suffix = id_component(key);
       record.claim_id = prefix + "/claim/" + suffix;
       record.entity_id = prefix + "/entity/" + suffix;
-      record.evidence_id = prefix + "/evidence/" + suffix;
       record.dependency_id = prefix + "/dependency/" + suffix;
 
       const auto token_reading = codepoint_slice(reading, token.start, token.end);
@@ -217,8 +216,8 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   delta.idempotency_key = prefix + "/semantic-idempotency";
   delta.expected_state_version = journal_->state_version();
 
-  for (const auto& item : candidates) {
-    const auto& record = item.second;
+  for (auto& item : candidates) {
+    auto& record = item.second;
     const auto token_reading = codepoint_slice(reading, record.start, record.end);
     const auto& token = [&]() -> const DecodedToken& {
       for (const auto& path : paths)
@@ -226,32 +225,65 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
           if (candidate_key(candidate) == record.key) return candidate;
       return paths.front().tokens.front();
     }();
-    std::ostringstream evidence_content;
-    evidence_content << "producer=kana-decoder;candidate=" << token.candidate.id
-                     << ";surface=" << token.candidate.surface
-                     << ";pos=" << token.candidate.pos
-                     << ";reading=" << token_reading
-                     << ";morphology_score=" << std::setprecision(17) << token.morphology_score
-                     << ";context_score=" << token.context_score
-                     << ";source_digest=" << source_digest
-                     << ";observed_at=" << timestamp;
     delta.nodes.push_back({{record.entity_id, ::surge::NodeKind::Entity,
         record.entity_content.empty() ? "lexical;surface=" + token.candidate.surface +
             ";pos=" + token.candidate.pos + ";reading=" + token_reading :
             record.entity_content, {}}});
-    delta.nodes.push_back({{record.evidence_id, ::surge::NodeKind::Evidence,
-        evidence_content.str(), {}}});
+
+    const std::string evidence_prefix = record.claim_id + "/evidence/";
+    auto add_evidence = [&](const std::string& source, double score,
+                            const std::string& detail) {
+      const auto evidence_id = evidence_prefix + source;
+      std::ostringstream content;
+      content << "producer=kana-decoder;source=" << source
+              << ";candidate=" << token.candidate.id
+              << ";surface=" << token.candidate.surface
+              << ";pos=" << token.candidate.pos
+              << ";reading=" << token_reading
+              << ";score=" << std::setprecision(17) << score
+              << ";detail=" << detail
+              << ";source_digest=" << source_digest
+              << ";observed_at=" << timestamp;
+      delta.nodes.push_back({{evidence_id, ::surge::NodeKind::Evidence,
+          content.str(), {}}});
+      delta.relations.push_back({{prefix + "/supports/" +
+          id_component(record.claim_id + evidence_id),
+          ::surge::RelationKind::Supports, evidence_id, record.claim_id}});
+      ::surge::EvidenceValidity evidence_validity;
+      evidence_validity.evidence_id = evidence_id;
+      evidence_validity.valid_from = timestamp;
+      evidence_validity.basis_evidence_id = evidence_id;
+      evidence_validity.revision = 1;
+      delta.evidence_validity_updates.push_back(evidence_validity);
+      record.evidence_ids.push_back(evidence_id);
+    };
+
+    add_evidence("LEXICAL", token.lexical_score,
+        "dictionary word/connection cost;aggregate_morphology=" +
+        std::to_string(token.morphology_score));
+    if (token.has_transition_evidence)
+      add_evidence("TRANSITION", token.transition_score, "connection-matrix transition");
+    if (token.has_ngram_evidence)
+      add_evidence("WORD_NGRAM", token.ngram_score, "observed word n-gram context");
+    if (token.has_pos_evidence)
+      add_evidence("POS_NGRAM", token.pos_score, "observed POS n-gram context");
+    if (token.has_cluster_evidence)
+      add_evidence("SURGE_CLUSTER", token.cluster_raw_evidence,
+          "cluster evidence;applied_bonus=" + std::to_string(token.cluster_score));
+
+    if (record.evidence_ids.empty()) {
+      result.error = "SURGE_HYPOTHESIS_WITHOUT_EVIDENCE";
+      return result;
+    }
     delta.nodes.push_back({{record.claim_id, ::surge::NodeKind::Claim,
         "candidate interpretation: " + token.candidate.surface + " [" + token.candidate.pos + "]",
-        {record.evidence_id}}});
+        record.evidence_ids}});
     if (!path_candidate_keys.front().empty() &&
         item.first == path_candidate_keys.front().front()) {
       delta.nodes.push_back({{record.dependency_id, ::surge::NodeKind::Dependency,
           "CLAIM_TEMPORAL_STATE:VALID@" + timestamp,
           {record.claim_id, record.entity_id}}});
     }
-    delta.relations.push_back({{prefix + "/supports/" + id_component(record.claim_id),
-        ::surge::RelationKind::Supports, record.evidence_id, record.claim_id}});
     delta.relations.push_back({{prefix + "/about-cluster/" + id_component(record.claim_id),
         ::surge::RelationKind::About, record.claim_id, context_cluster_id_}});
     delta.relations.push_back({{prefix + "/about-entity/" + id_component(record.claim_id),
@@ -260,25 +292,18 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     ::surge::ClaimValidity claim_validity;
     claim_validity.claim_id = record.claim_id;
     claim_validity.valid_from = timestamp;
-    claim_validity.basis_evidence_id = record.evidence_id;
+    claim_validity.basis_evidence_id = record.evidence_ids.front();
     claim_validity.revision = 1;
     delta.claim_validity_updates.push_back(claim_validity);
-
-    ::surge::EvidenceValidity evidence_validity;
-    evidence_validity.evidence_id = record.evidence_id;
-    evidence_validity.valid_from = timestamp;
-    evidence_validity.basis_evidence_id = record.evidence_id;
-    evidence_validity.revision = 1;
-    delta.evidence_validity_updates.push_back(evidence_validity);
   }
-
   const auto applied = graph_->apply(delta);
   if (!applied.committed) {
     result.error = "SURGE_SEMANTIC_DELTA_REJECTED:" + applied.error;
     return result;
   }
   result.metrics.claims = candidates.size();
-  result.metrics.evidence = candidates.size();
+  result.metrics.evidence = 0;
+  for (const auto& item : candidates) result.metrics.evidence += item.second.evidence_ids.size();
   result.metrics.entities = candidates.size();
 
   std::vector<std::pair<std::string, std::string>> contradictions;
@@ -362,7 +387,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     const auto member_ref = prefix + "/candidate-set";
     ::surge::ChaosMember member;
     member.member_ref = member_ref;
-    member.event_ref = candidates.begin()->second.evidence_id;
+    member.event_ref = candidates.begin()->second.evidence_ids.front();
     member.admission_reason = "open-world unresolved N-best candidate set";
     member.admitted_at = timestamp;
     member.source_digest = source_digest;
