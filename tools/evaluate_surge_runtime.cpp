@@ -215,6 +215,10 @@ int main(int argc, char** argv) {
   std::size_t candidate_paths_total = 0;
   std::size_t gold_aligned_tokens = 0, token_covered_at_1 = 0;
   std::size_t token_covered_at_5 = 0, token_covered_at_10 = 0;
+  std::size_t token_exact_span_surface_at_10 = 0;
+  std::size_t token_span_match_surface_mismatch_at_10 = 0;
+  std::size_t token_surface_match_span_mismatch_at_10 = 0;
+  std::size_t token_not_found_at_10 = 0;
   std::size_t candidate_missing_cases = 0, candidate_available_runtime_failures = 0;
   std::size_t candidate_available_deferred = 0, candidate_available_surge_exact = 0;
   std::size_t candidate_available_surge_wrong = 0;
@@ -237,6 +241,21 @@ int main(int argc, char** argv) {
         const auto width = codepoints(gold.first).size();
         const auto end = offset + width;
         ++gold_aligned_tokens;
+        bool exact_span_surface = false, same_span = false, same_surface = false;
+        const auto top_limit = std::min<std::size_t>(10, paths.size());
+        for (std::size_t rank = 0; rank < top_limit; ++rank) {
+          for (const auto& token : paths[rank].tokens) {
+            const bool span_match = token.start == offset && token.end == end;
+            const bool surface_match = token.candidate.surface == gold.second;
+            exact_span_surface = exact_span_surface || (span_match && surface_match);
+            same_span = same_span || span_match;
+            same_surface = same_surface || surface_match;
+          }
+        }
+        if (exact_span_surface) ++token_exact_span_surface_at_10;
+        else if (same_span) ++token_span_match_surface_mismatch_at_10;
+        else if (same_surface) ++token_surface_match_span_mismatch_at_10;
+        else ++token_not_found_at_10;
         const auto token_matches = [&](std::size_t path_limit) {
           const auto limit = std::min(path_limit, paths.size());
           for (std::size_t rank = 0; rank < limit; ++rank) {
@@ -384,7 +403,10 @@ int main(int argc, char** argv) {
   std::cout << ",\"recall_at_10\":";
   if (gold_aligned_tokens) std::cout << static_cast<double>(token_covered_at_10) / gold_aligned_tokens;
   else std::cout << "null";
-  std::cout << "}"
+  std::cout << ",\"miss_attribution_at_10\":{\"exact_span_and_surface\":" << token_exact_span_surface_at_10
+      << ",\"span_match_surface_mismatch\":" << token_span_match_surface_mismatch_at_10
+      << ",\"surface_match_span_mismatch\":" << token_surface_match_span_mismatch_at_10
+      << ",\"no_surface_candidate\":" << token_not_found_at_10 << "}}"
       << ",\"candidate_error_classification\":{\"missing_candidate\":" << candidate_missing_cases
       << ",\"candidate_available\":" << candidate_exact_at_10
       << ",\"candidate_available_runtime_failure\":" << candidate_available_runtime_failures
