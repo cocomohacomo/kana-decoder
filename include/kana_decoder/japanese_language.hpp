@@ -20,6 +20,10 @@ class JapaneseLanguageAdapter final : public LanguageAdapter {
                            Entity& output) const override;
   bool render_entity(const Entity& entity, NumericStyle style,
                      std::string& output) const override;
+  bool render_path(const ::kana_decoder::DecodedPath& path,
+                   std::string_view reading,
+                   const SurfaceRenderOptions& options,
+                   std::string& output) const override;
 };
 
 struct ParsedNumber {
