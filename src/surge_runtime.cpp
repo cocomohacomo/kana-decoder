@@ -327,8 +327,14 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
             relation->kind != ::surge::RelationKind::AgreesWith &&
             relation->kind != ::surge::RelationKind::ConflictsWith) continue;
         std::string neighbor;
-        if (relation->from == current.first) neighbor = relation->to;
-        else if (relation->to == current.first) neighbor = relation->from;
+        if (relation->kind == ::surge::RelationKind::Contains) {
+          // Traverse only into child Clusters. Do not walk up to the session
+          // root and accidentally retrieve unrelated sibling topics.
+          if (relation->from == current.first) neighbor = relation->to;
+        } else {
+          if (relation->from == current.first) neighbor = relation->to;
+          else if (relation->to == current.first) neighbor = relation->from;
+        }
         if (neighbor.empty() || retrieval_clusters.count(neighbor)) continue;
         const auto node = graph_->nodes().find(neighbor);
         if (node == graph_->nodes().end() ||
