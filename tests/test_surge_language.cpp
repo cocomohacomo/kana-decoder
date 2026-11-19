@@ -58,14 +58,12 @@ int main() {
 
   JapaneseLanguageAdapter ja_adapter;
   assert(ja_adapter.language_tag() == "ja-JP");
-  ::kana_decoder::LatticeCandidate adapter_candidate;
+  ::kana_decoder::Candidate adapter_candidate;
   adapter_candidate.id = "candidate-adapter";
   adapter_candidate.surface = "京都";
   adapter_candidate.pos = "名詞/固有名詞";
-  adapter_candidate.word_cost = -12;
-  adapter_candidate.connection_cost = 4;
   Hypothesis adapted_hypothesis;
-  assert(ja_adapter.make_hypothesis(adapter_candidate, {0, 3}, "adapted-1", adapted_hypothesis));
+  assert(ja_adapter.make_hypothesis(adapter_candidate, 8.0, {0, 3}, "adapted-1", adapted_hypothesis));
   assert(adapted_hypothesis.candidate_id.equals("candidate-adapter"));
   assert(adapted_hypothesis.interpretation.equals("名詞/固有名詞"));
   assert(adapted_hypothesis.score == 8.0);
@@ -240,6 +238,37 @@ int main() {
   assert(terminal_punctuation(DiscourseAct::Statement, PunctuationStyle::Japanese) == "。");
   assert(terminal_punctuation(DiscourseAct::Question, PunctuationStyle::ASCII) == "?");
   assert(terminal_punctuation(DiscourseAct::Question, PunctuationStyle::Minimal).empty());
+
+  ::kana_decoder::DecodedPath numeric_path;
+  ::kana_decoder::DecodedToken numeric_token;
+  numeric_token.start = 0;
+  numeric_token.end = 6;
+  numeric_token.candidate.id = "numeric-32";
+  numeric_token.candidate.surface = "三十二";
+  numeric_path.tokens.push_back(numeric_token);
+  SurfaceRenderOptions render_options;
+  render_options.normalize_numbers = true;
+  render_options.append_terminal_punctuation = true;
+  std::string normalized_sentence;
+  assert(ja_adapter.render_path(numeric_path, "さんじゅうに",
+                                render_options, normalized_sentence));
+  assert(normalized_sentence == "32。");
+  render_options.discourse_act = DiscourseAct::Question;
+  assert(ja_adapter.render_path(numeric_path, "さんじゅうに",
+                                render_options, normalized_sentence));
+  assert(normalized_sentence == "32？");
+  render_options.normalize_numbers = false;
+  render_options.append_terminal_punctuation = false;
+  assert(ja_adapter.render_path(numeric_path, "さんじゅうに",
+                                render_options, normalized_sentence));
+  assert(normalized_sentence == "三十二");
+  const auto prior_render = normalized_sentence;
+  numeric_token.start = 0;
+  numeric_token.end = 7;
+  numeric_path.tokens.front() = numeric_token;
+  assert(!ja_adapter.render_path(numeric_path, "さんじゅうに",
+                                 render_options, normalized_sentence));
+  assert(normalized_sentence == prior_render);
 
   LanguageState bounded;
   for (std::size_t i = 0; i < kMaxHypotheses; ++i) {
