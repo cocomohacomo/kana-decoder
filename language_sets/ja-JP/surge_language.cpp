@@ -416,12 +416,15 @@ bool JapaneseLanguageAdapter::make_hypothesis(const ::kana_decoder::Candidate& c
                                                double candidate_score, Span span,
                                                std::string_view hypothesis_id,
                                                Hypothesis& output) const {
-  if (!span.valid() || candidate.id.empty() || candidate.surface.empty()) return false;
+  if (!span.valid() || candidate.id.empty() || candidate.surface.empty() ||
+      (!candidate.morphology.language_tag.empty() &&
+       candidate.morphology.language_tag != language_tag())) return false;
   Hypothesis value;
   if (!value.id.assign(hypothesis_id) || !value.candidate_id.assign(candidate.id) ||
       !value.surface.assign(candidate.surface)) return false;
-  const std::string_view interpretation = candidate.pos.empty()
-      ? std::string_view("lexical") : std::string_view(candidate.pos);
+  const std::string_view interpretation = candidate.morphology.part_of_speech.empty()
+      ? std::string_view("lexical") :
+        std::string_view(candidate.morphology.part_of_speech);
   if (!value.interpretation.assign(interpretation)) return false;
   value.span = span;
   if (!std::isfinite(candidate_score)) return false;
