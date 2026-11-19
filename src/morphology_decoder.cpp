@@ -79,7 +79,9 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
      candidates.pop_back();
     }
    }
+   const auto morphology_candidates=candidates;
    for(const auto& state:beams[pos]){
+    candidates=morphology_candidates;
     bool cluster_resolved=false;
     std::string cluster_winner;
     double cluster_gap=0.0;
