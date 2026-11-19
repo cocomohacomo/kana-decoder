@@ -38,7 +38,9 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
                 "'candidate_error_classification':{'missing_candidate':5,'candidate_available':5,"
                 "'candidate_available_runtime_failure':0,'candidate_available_deferred':1,"
                 "'candidate_available_surge_exact':2,'candidate_available_surge_wrong':2,"
-                "'wrong_output_matches_raw_nbest':1,'wrong_output_outside_raw_nbest':1}}))\n",
+                "'wrong_output_matches_raw_nbest':1,'wrong_output_outside_raw_nbest':1},"
+                "'token_aligned_candidate_generation':{'gold_tokens':100,'recall_at_1':0.4,"
+                "'recall_at_5':0.7,'recall_at_10':0.8}}))\n",
                 encoding="utf-8",
             )
             evaluator.chmod(0o755)
@@ -82,6 +84,7 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
             self.assertEqual(result["best_policy"]["candidate_generation"]["surface_exact_recall_at_5"], 0.4)
             self.assertEqual(result["best_policy"]["candidate_generation"]["surge_exact_given_candidate_at_10"], 0.6)
             self.assertEqual(result["best_policy"]["candidate_error_classification"]["candidate_available_surge_wrong"], 2)
+            self.assertEqual(result["best_policy"]["token_aligned_candidate_generation"]["recall_at_10"], 0.8)
             self.assertIn("normalization_renderer\t", policy.read_text(encoding="utf-8"))
 
 
