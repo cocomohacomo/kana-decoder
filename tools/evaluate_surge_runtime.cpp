@@ -227,6 +227,8 @@ int main(int argc, char** argv) {
       const auto missing = codepoints(item.expected).size();
       top1_distance += missing;
       surge_distance += missing;
+      candidate_oracle_distance_at_5 += missing;
+      candidate_oracle_distance_at_10 += missing;
       continue;
     }
     std::string top1;
