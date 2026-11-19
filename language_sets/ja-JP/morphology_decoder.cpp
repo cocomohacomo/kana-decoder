@@ -205,8 +205,12 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     DecodedToken decoded_token;
     decoded_token.start=edge->start;
     decoded_token.end=edge->end;
-    decoded_token.candidate=Candidate{candidate.id,candidate.surface,candidate.pos,
-                                      candidate.inflection_type,candidate.inflection_form};
+    decoded_token.candidate.id = candidate.id;
+    decoded_token.candidate.surface = candidate.surface;
+    decoded_token.candidate.morphology.language_tag = "ja-JP";
+    decoded_token.candidate.morphology.part_of_speech = candidate.pos;
+    decoded_token.candidate.morphology.inflection_class = candidate.inflection_type;
+    decoded_token.candidate.morphology.inflection_form = candidate.inflection_form;
     decoded_token.morphology_score=morph;
     decoded_token.context_score=ctx;
     decoded_token.lexical_score=lexical_score;
