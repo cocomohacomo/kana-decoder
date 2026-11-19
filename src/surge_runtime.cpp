@@ -675,9 +675,22 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
 
   const bool ambiguous = !alternatives.empty() || !contradiction_relation_ids.empty();
   const auto output_event_id = prefix + (finalize && !ambiguous ? "/commit" : "/proposal");
-  delta.journal_events.push_back({output_event_id,
-      finalize && !ambiguous ? "NORMALIZATION_COMMIT" : "NORMALIZATION_PROPOSAL",
-      commit_payload.str()});
+  const auto output_event_kind =
+      finalize && !ambiguous ? "NORMALIZATION_COMMIT" : "NORMALIZATION_PROPOSAL";
+  // SemanticDelta persists graph nodes/relations through ContextGraph. It has
+  // no arbitrary journal_events field; represent the normalization record as
+  // typed Evidence so it is committed atomically with the selected Claims.
+  delta.nodes.push_back({{output_event_id, ::surge::NodeKind::Evidence,
+      "EVENT=" + output_event_kind + ";" + commit_payload.str(), {}}});
+  std::string output_cluster;
+  std::string output_cluster_error;
+  if (!graph_->append_cluster_membership(delta, context_cluster_id_,
+        "NORMALIZATION_OUTPUT", source_digest + ":" + std::to_string(current_sequence),
+        output_event_id, prefix + "/output-cluster",
+        output_cluster, output_cluster_error)) {
+    result.error = "SURGE_OUTPUT_CLUSTER_CLASSIFICATION_FAILED:" + output_cluster_error;
+    return result;
+  }
 
   const auto applied = graph_->apply(delta);
   if (!applied.committed) {
