@@ -607,3 +607,12 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - train splitの候補ID系列から品詞系列を生成し、同じ多次数N-gram集計器でPOS Unigram / Bigram / Trigram / 4-gram / Skip-Bigramを学習。
 - Beamごとに品詞履歴を最大3件保持し、候補の品詞文脈スコアをSURGE Evidenceとして追加。デフォルトではPOS scorer pointerがnullのため既存挙動を維持。
 - Cluster-only比較ではPOS Evidenceを無効化し、N-gram / combinedで有効化して寄与を分離する。
+
+
+## 53. SURGE Evidence競合制御と統合校正（v0.40）
+
+- 直近実Pack testでCluster単独CER 46.1117%、N-gram + Cluster CER 46.9664%となり、併用で0.8547ポイント悪化した。Morphology CERは48.6578%。
+- dev校正へCluster sidecarを渡し、Word N-gram / POS N-gram / Clusterの寄与を同時に選択する144構成の探索へ変更。Cluster weight 0でCluster無効、N-gram weight 0でWord N-gram gate無効とし、Morphology / N-gram / Cluster / Combinedを同じdev文書集合で比較。
+- test時はdevで凍結した5値（N-gram weight、margin、smoothing alpha、POS weight、Cluster weight）を適用。固定Cluster単独、固定N-gram単独、dev選択方式を別々に出力。
+- 旧4値校正TSVは新形式では拒否する。POS索引は評価時のみ構築。Language Pack・通常API既定値は変更しない。
+- このコミット時点では新しい実Pack CIの完了前であり、精度改善は未確定。
