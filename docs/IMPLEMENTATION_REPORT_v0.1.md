@@ -678,6 +678,7 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Evidence集約はEvidenceKind単位でconfidence加重寄与の最大値を取り、観測された種類間で重み付き平均。単一Evidence種別の重複カウントを抑制し、有効期間外は除外する。
 - Decisionは実在Evidenceを参照し、選択仮説・比較仮説・confidenceを保存。Revisionは差し替え対象・旧/新仮説・理由を保存。CommitSpanは重複範囲を拒否する。
 - Hypothesisのspan / candidate ID / surfaceを照合し、最大8件のDecodedPathをEvidenceで再ランキングする任意APIを追加。path scoreをtoken数で正規化し、devで校正するevidence_weightを適用。path score自体やDecoder既定挙動は変更しない。
+- LanguageAdapter / JapaneseLanguageAdapterを追加。言語タグ、辞書候補からHypothesisへの写像（candidate ID・表層・POS・符号付きコスト）、日本語数詞からNumber/Percent/Currency/Unit Entityへの変換を提供する。
 - 日本語数詞の限定パーサを追加。0〜9の読み、十/百/千/万/億/兆、300/600/800/3000/8000の代表的音便、最大9桁の小数をint64 mantissa + decimal_placesで保持する。
 - Number / Percent / Currency / Date / Time / Range / Unit / Identifierの型付きEntityと、アラビア数字・桁区切り・小数桁保持・日付・時刻・単位・通貨表記の初期レンダラーを追加。句読点はDiscourseActと出力ポリシーから選択する。談話行為自体の自動認識は未実装。
 - JSON Schemaとdocs/SPECIFICATION_v0.41.mdを追加。READMEにもv0.41を掲載。
