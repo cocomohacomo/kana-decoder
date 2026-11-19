@@ -17,7 +17,7 @@ std::vector<std::string> utf8_chars(const std::string& s) {
 }
 std::vector<DecodedPath> decode_reading(const std::string& reading,const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,const DecoderOptions& options,const ConnectionModel* connections,std::vector<CandidateScoreTrace>* trace,std::vector<LatticePositionTrace>* lattice_trace,bool* resource_limit_exceeded){
  if(resource_limit_exceeded)*resource_limit_exceeded=false;
- if (!valid_utf8_impl(reading)) return {};
+ if (!is_valid_utf8(reading)) return {};
  const std::size_t input_limit=std::min<std::size_t>(options.max_input_codepoints,256);
  const std::size_t edge_limit=std::min<std::size_t>(options.max_lattice_edges,4096);
  const std::size_t candidate_limit=std::min<std::size_t>(options.max_lattice_candidates,32768);
