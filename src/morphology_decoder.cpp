@@ -13,7 +13,8 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  if(length==0)return {};
  if(!std::isfinite(opt.context_weight)||opt.context_weight<0.0||
     !std::isfinite(opt.surge_context_margin)||opt.surge_context_margin<0.0||
-    !std::isfinite(opt.surge_cluster_weight)||opt.surge_cluster_weight<0.0){
+    !std::isfinite(opt.surge_cluster_weight)||opt.surge_cluster_weight<0.0||
+    !std::isfinite(opt.pos_context_weight)||opt.pos_context_weight<0.0){
   if(resource_limit_exceeded)*resource_limit_exceeded=true;
   return {};
  }
@@ -48,7 +49,7 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
   if(edge.start>=edge.end||edge.end>length||edge.candidates.empty())continue;
   at[edge.start].push_back(&edge);
  }
- struct State { DecodedPath path; std::vector<std::string> history; std::int32_t last_right_id=0; bool has_last=false; };
+ struct State { DecodedPath path; std::vector<std::string> history; std::vector<std::string> pos_history; std::int32_t last_right_id=0; bool has_last=false; };
  std::vector<std::vector<State>> beams(length+1);
  beams[0].push_back(State{});
  auto prune=[&](std::vector<State>& states){
@@ -180,7 +181,9 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     const double ngram_context=raw_context*opt.context_weight;
     const double cluster_context=(cluster_resolved&&candidate.surface==cluster_winner)
       ? cluster_override_bonus : 0.0;
-    const double ctx=ngram_context+cluster_context;
+    const double pos_context=(opt.pos_ngram_scorer&&!candidate.pos.empty())
+      ? opt.pos_ngram_scorer->score(candidate.pos,state.pos_history,{})*opt.pos_context_weight : 0.0;
+    const double ctx=ngram_context+cluster_context+pos_context;
     const double local=morph+ctx;
     if(trace && trace->size()<trace_limit) trace->push_back(CandidateScoreTrace{
       edge->start,edge->end,candidate.id,candidate.surface,
@@ -192,6 +195,8 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
       Candidate{candidate.id,candidate.surface,candidate.pos,candidate.inflection_type,candidate.inflection_form},morph,ctx});
     next.history.push_back(candidate.id);next.last_right_id=candidate.right_id;next.has_last=true;
     if(next.history.size()>3)next.history.erase(next.history.begin());
+    if(!candidate.pos.empty())next.pos_history.push_back(candidate.pos);
+    if(next.pos_history.size()>3)next.pos_history.erase(next.pos_history.begin());
     beams[edge->end].push_back(std::move(next));
     }
    }
