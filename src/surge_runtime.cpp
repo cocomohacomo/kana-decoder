@@ -33,7 +33,7 @@ std::string utc_now() {
 }
 
 std::string codepoint_slice(const std::string& input, std::size_t start, std::size_t end) {
-  if (!surge::is_valid_utf8(input) || start >= end) return {};
+  if (!::surge::is_valid_utf8(input) || start >= end) return {};
   std::size_t cp = 0, byte_start = std::string::npos, byte_end = std::string::npos;
   for (std::size_t i = 0; i < input.size();) {
     if (cp == start) byte_start = i;
@@ -56,10 +56,12 @@ std::string candidate_key(const DecodedToken& token) {
 }
 
 std::string id_component(const std::string& value) {
-  return surge::sha256_hex(value).substr(0, 20);
+  return ::surge::sha256_hex(value).substr(0, 20);
 }
 
-struct CandidateRecord {
+}  // namespace
+
+struct SurgeNormalizationRuntime::CandidateRecord {
   std::size_t start{0};
   std::size_t end{0};
   std::string key;
@@ -71,8 +73,6 @@ struct CandidateRecord {
   std::string normalized_surface;
   std::string entity_content;
 };
-
-}  // namespace
 
 SurgeNormalizationRuntime::SurgeNormalizationRuntime(SurgeRuntimeConfig config)
     : config_(std::move(config)) {
@@ -100,14 +100,14 @@ bool SurgeNormalizationRuntime::open(std::string& error) {
     error = "SURGE_RUNTIME_CONFIG_INVALID";
     return false;
   }
-  surge::EventJournalLimits limits;
+  ::surge::EventJournalLimits limits;
   limits.max_events = config_.max_journal_events;
   limits.max_payload_bytes = config_.max_journal_payload_bytes;
   limits.max_transactions = config_.max_journal_transactions;
   limits.max_identity_bytes = config_.max_journal_identity_bytes;
-  journal_ = std::make_unique<surge::EventJournal>(config_.journal_path, limits);
-  graph_ = std::make_unique<surge::ContextGraph>(*journal_);
-  chaos_ = std::make_unique<surge::ChaosClusterLedger>(*journal_);
+  journal_ = std::make_unique<::surge::EventJournal>(config_.journal_path, limits);
+  graph_ = std::make_unique<::surge::ContextGraph>(*journal_);
+  chaos_ = std::make_unique<::surge::ChaosClusterLedger>(*journal_);
   if (!graph_->open()) {
     error = "SURGE_CONTEXT_GRAPH_OPEN_FAILED:" + journal_->last_error();
     return false;
@@ -124,11 +124,11 @@ bool SurgeNormalizationRuntime::open(std::string& error) {
 
 bool SurgeNormalizationRuntime::ensure_context_cluster(std::string& error) {
   if (graph_->nodes().count(context_cluster_id_) != 0) return true;
-  surge::SemanticDelta delta;
+  ::surge::SemanticDelta delta;
   delta.delta_id = "normalization/context-create/" + id_component(config_.context_id);
   delta.idempotency_key = delta.delta_id;
   delta.expected_state_version = journal_->state_version();
-  delta.nodes.push_back({{context_cluster_id_, surge::NodeKind::Cluster,
+  delta.nodes.push_back({{context_cluster_id_, ::surge::NodeKind::Cluster,
       "Streaming kana-to-text normalization context; adapter=" + config_.context_id, {}}});
   const auto result = graph_->apply(delta);
   if (!result.committed) {
@@ -146,14 +146,14 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     result.error = "SURGE_RUNTIME_NOT_OPEN";
     return result;
   }
-  if (reading.empty() || !surge::is_valid_utf8(reading) || paths.empty() ||
+  if (reading.empty() || !::surge::is_valid_utf8(reading) || paths.empty() ||
       paths.size() > 8 || paths.front().tokens.empty()) {
     result.error = "SURGE_NORMALIZATION_INPUT_INVALID";
     return result;
   }
 
   const std::string timestamp = utc_now();
-  const std::string source_digest = surge::sha256_hex(reading);
+  const std::string source_digest = ::surge::sha256_hex(reading);
   const std::uint64_t current_sequence = sequence_++;
   const std::string prefix = "norm/" + id_component(config_.context_id) + "/" +
                              std::to_string(current_sequence);
@@ -212,7 +212,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     }
   }
 
-  surge::SemanticDelta delta;
+  ::surge::SemanticDelta delta;
   delta.delta_id = prefix + "/semantic-delta";
   delta.idempotency_key = prefix + "/semantic-idempotency";
   delta.expected_state_version = journal_->state_version();
@@ -235,36 +235,36 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
                      << ";context_score=" << token.context_score
                      << ";source_digest=" << source_digest
                      << ";observed_at=" << timestamp;
-    delta.nodes.push_back({{record.entity_id, surge::NodeKind::Entity,
+    delta.nodes.push_back({{record.entity_id, ::surge::NodeKind::Entity,
         record.entity_content.empty() ? "lexical;surface=" + token.candidate.surface +
             ";pos=" + token.candidate.pos + ";reading=" + token_reading :
             record.entity_content, {}}});
-    delta.nodes.push_back({{record.evidence_id, surge::NodeKind::Evidence,
+    delta.nodes.push_back({{record.evidence_id, ::surge::NodeKind::Evidence,
         evidence_content.str(), {}}});
-    delta.nodes.push_back({{record.claim_id, surge::NodeKind::Claim,
+    delta.nodes.push_back({{record.claim_id, ::surge::NodeKind::Claim,
         "candidate interpretation: " + token.candidate.surface + " [" + token.candidate.pos + "]",
         {record.evidence_id}}});
     if (!path_candidate_keys.front().empty() &&
         item.first == path_candidate_keys.front().front()) {
-      delta.nodes.push_back({{record.dependency_id, surge::NodeKind::Dependency,
+      delta.nodes.push_back({{record.dependency_id, ::surge::NodeKind::Dependency,
           "CLAIM_TEMPORAL_STATE:VALID@" + timestamp,
           {record.claim_id, record.entity_id}}});
     }
     delta.relations.push_back({{prefix + "/supports/" + id_component(record.claim_id),
-        surge::RelationKind::Supports, record.evidence_id, record.claim_id}});
+        ::surge::RelationKind::Supports, record.evidence_id, record.claim_id}});
     delta.relations.push_back({{prefix + "/about-cluster/" + id_component(record.claim_id),
-        surge::RelationKind::About, record.claim_id, context_cluster_id_}});
+        ::surge::RelationKind::About, record.claim_id, context_cluster_id_}});
     delta.relations.push_back({{prefix + "/about-entity/" + id_component(record.claim_id),
-        surge::RelationKind::About, record.claim_id, record.entity_id}});
+        ::surge::RelationKind::About, record.claim_id, record.entity_id}});
 
-    surge::ClaimValidity claim_validity;
+    ::surge::ClaimValidity claim_validity;
     claim_validity.claim_id = record.claim_id;
     claim_validity.valid_from = timestamp;
     claim_validity.basis_evidence_id = record.evidence_id;
     claim_validity.revision = 1;
     delta.claim_validity_updates.push_back(claim_validity);
 
-    surge::EvidenceValidity evidence_validity;
+    ::surge::EvidenceValidity evidence_validity;
     evidence_validity.evidence_id = record.evidence_id;
     evidence_validity.valid_from = timestamp;
     evidence_validity.basis_evidence_id = record.evidence_id;
@@ -292,11 +292,11 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
           left->second.surface != right->second.surface) {
         const auto relation_id = prefix + "/contradicts/" +
             id_component(left->second.claim_id + right->second.claim_id);
-        surge::SemanticDelta conflict;
+        ::surge::SemanticDelta conflict;
         conflict.delta_id = relation_id + "/delta";
         conflict.idempotency_key = relation_id + "/key";
         conflict.expected_state_version = journal_->state_version();
-        conflict.relations.push_back({{relation_id, surge::RelationKind::Contradicts,
+        conflict.relations.push_back({{relation_id, ::surge::RelationKind::Contradicts,
             left->second.claim_id, right->second.claim_id}});
         const auto conflict_result = graph_->apply(conflict);
         if (!conflict_result.committed) {
@@ -312,9 +312,9 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
 
   if (!contradictions.empty()) {
     for (const auto& relation : graph_->relations()) {
-      if (relation.second.kind != surge::RelationKind::Contradicts ||
+      if (relation.second.kind != ::surge::RelationKind::Contradicts ||
           relation.first.find(prefix + "/contradicts/") != 0) continue;
-      const auto routed = surge::QuestionRouter::route(*graph_, relation.first, "kana-normalization-v1");
+      const auto routed = ::surge::QuestionRouter::route(*graph_, relation.first, "kana-normalization-v1");
       if (!routed.committed) {
         result.error = "SURGE_QUESTION_ROUTING_FAILED:" + routed.error;
         return result;
@@ -337,9 +337,9 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
       });
   if (alternatives.size() > 16) alternatives.resize(16);
 
-  surge::ChaosProvenance provenance{"kana-decoder", "1", "normalization-v1", timestamp};
+  ::surge::ChaosProvenance provenance{"kana-decoder", "1", "normalization-v1", timestamp};
   if (!alternatives.empty()) {
-    surge::ChaosCluster existing_chaos;
+    ::surge::ChaosCluster existing_chaos;
     if (!chaos_->get(chaos_cluster_id_, existing_chaos)) {
       const auto created = chaos_->create(prefix + "/chaos-create",
           prefix + "/chaos-create-key", journal_->state_version(), chaos_cluster_id_, provenance);
@@ -349,7 +349,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
       }
     }
     const auto member_ref = prefix + "/candidate-set";
-    surge::ChaosMember member;
+    ::surge::ChaosMember member;
     member.member_ref = member_ref;
     member.event_ref = candidates.begin()->second.evidence_id;
     member.admission_reason = "open-world unresolved N-best candidate set";
@@ -362,7 +362,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
       result.error = "SURGE_CHAOS_MEMBER_ADMISSION_FAILED:" + admitted.error;
       return result;
     }
-    surge::ChaosPatternHypothesis pattern;
+    ::surge::ChaosPatternHypothesis pattern;
     pattern.hypothesis_id = prefix + "/candidate-pattern";
     pattern.statement = "Competing normalization hypotheses for source digest " + source_digest;
     pattern.epistemic_state = "HYPOTHETICAL";
@@ -384,14 +384,14 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   for (std::size_t selected_index = 0; selected_index < best_claims.size(); ++selected_index) {
     const auto& key = best_claims[selected_index];
     const auto found = candidates.find(key);
-    if (found == candidates.end() || graph_->claim_status(found->second.claim_id) != surge::ClaimStatus::Active) {
+    if (found == candidates.end() || graph_->claim_status(found->second.claim_id) != ::surge::ClaimStatus::Active) {
       result.error = "SURGE_SELECTED_CLAIM_NOT_ACTIVE";
       return result;
     }
     // Reassess one representative claim per streaming packet. Every candidate
     // still carries revisioned validity; full re-evaluation is demand-driven.
     if (selected_index == 0) {
-      surge::TemporalReassessmentRecord reassessment;
+      ::surge::TemporalReassessmentRecord reassessment;
       std::string reassessment_error;
       if (!graph_->reassess_claim(found->second.claim_id, timestamp,
                                   journal_->state_version(), reassessment, reassessment_error)) {
