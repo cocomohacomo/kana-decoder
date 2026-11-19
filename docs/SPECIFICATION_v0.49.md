@@ -22,9 +22,9 @@ The Japanese provider translates these values into its private `DecoderOptions`.
 
 ## 3. Compatibility
 
-A transitional C++ overload accepts the former `DecoderOptions` and forwards only the resource/path limits represented by `LanguageDecodeOptions`. This preserves current C++ callers while they migrate. Language-specific scoring pointers and policy switches are deliberately not forwarded through the generic Pack contract.
+The transitional `DecoderOptions` overload was removed after the C API and conformance tests migrated to `LanguageDecodeOptions`. The generic Pack contract no longer accepts Japanese decoder policy objects.
 
-New host and conformance-test code must use `LanguageDecodeOptions`. The compatibility overload is temporary and must be removed after C API, tests and evaluation tools stop using Japanese implementation types.
+Evaluation tools that directly exercise the Japanese Language Set may continue to use its private decoder API; they are not host-facing Pack clients.
 
 The C ABI is unchanged.
 
