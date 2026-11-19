@@ -1,5 +1,6 @@
 #include "kana_decoder/surge_runtime.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <iostream>
