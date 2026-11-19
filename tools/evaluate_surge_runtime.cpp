@@ -53,6 +53,41 @@ std::size_t edit_distance(const std::vector<std::string>& a,
   }
   return prev.back();
 }
+void add_sequence_counts(const std::vector<std::string>& tokens,
+                        kana_decoder::MaskedNgramScorer& scorer) {
+  for (std::size_t i = 0; i < tokens.size(); ++i) {
+    const auto& token = tokens[i];
+    if (token.empty()) continue;
+    scorer.add_unigram(token, 1);
+    if (i >= 1 && !tokens[i - 1].empty())
+      scorer.add_left_bigram(tokens[i - 1], token, 1);
+    if (i >= 2 && !tokens[i - 2].empty() && !tokens[i - 1].empty()) {
+      scorer.add_left_ngram({tokens[i - 2], tokens[i - 1]}, token, 1);
+      scorer.add_left_skipgram(tokens[i - 2], token, 1);
+    }
+    if (i >= 3 && !tokens[i - 3].empty() && !tokens[i - 2].empty() &&
+        !tokens[i - 1].empty())
+      scorer.add_left_ngram({tokens[i - 3], tokens[i - 2], tokens[i - 1]}, token, 1);
+  }
+}
+bool load_training_sequences(const std::string& path,
+    const kana_decoder::LexiconTrie& lexicon,
+    kana_decoder::MaskedNgramScorer& scorer,
+    kana_decoder::MaskedNgramScorer& pos_scorer) {
+  std::ifstream input(path);
+  if (!input) return false;
+  std::string line;
+  while (std::getline(input, line)) {
+    if (line.empty() || line[0] == '#') continue;
+    const auto tokens = split_tabs(line);
+    add_sequence_counts(tokens, scorer);
+    std::vector<std::string> pos_tokens;
+    pos_tokens.reserve(tokens.size());
+    for (const auto& token : tokens) pos_tokens.push_back(lexicon.candidate_pos(token));
+    add_sequence_counts(pos_tokens, pos_scorer);
+  }
+  return input.eof();
+}
 bool load_cases(const std::string& path, const std::string& split,
                 std::vector<Case>& cases) {
   std::ifstream input(path);
@@ -110,8 +145,22 @@ int main(int argc, char** argv) {
     std::cerr << "failed to load language pack\n";
     return 2;
   }
+  kana_decoder::MaskedNgramScorer* active_scorer = &scorer;
+  kana_decoder::MaskedNgramScorer trained_scorer, trained_pos_scorer;
+  kana_decoder::DecoderOptions decoder_options;
+  if (argc == 5) {
+    lexicon.build_candidate_pos_index();
+    if (!load_training_sequences(argv[4], lexicon, trained_scorer, trained_pos_scorer)) {
+      std::cerr << "failed to load training sequences\\n";
+      return 2;
+    }
+    active_scorer = &trained_scorer;
+    decoder_options.pos_ngram_scorer = &trained_pos_scorer;
+    decoder_options.pos_context_weight = 0.15;
+    decoder_options.surge_left_context_gate = true;
+  }
   std::vector<Case> cases;
-  const std::string split = argc == 4 ? argv[3] : "test";
+  const std::string split = argc >= 4 ? argv[3] : "test";
   if (!load_cases(argv[2], split, cases)) {
     std::cerr << "failed to load evaluation corpus or unsupported TSV format\n";
     return 2;
@@ -126,7 +175,7 @@ int main(int argc, char** argv) {
     const auto& item = cases[case_index];
     input_points += codepoints(item.reading).size();
     reference_points += codepoints(item.expected).size();
-    const auto paths = kana_decoder::decode_reading(item.reading, lexicon, scorer, {},
+    const auto paths = kana_decoder::decode_reading(item.reading, lexicon, *active_scorer, decoder_options,
         &connections);
     if (paths.empty()) {
       ++decode_failures;
