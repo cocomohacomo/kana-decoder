@@ -2,7 +2,7 @@
 
 Updated: 2026-11-19
 Branch: `refactor/surge-core-as-runtime`
-Current contract: `SPECIFICATION_v0.49.md`
+Current contract: `SPECIFICATION_v0.50.md`
 
 ## Product acceptance target
 
@@ -15,6 +15,7 @@ The product is a kana-to-Japanese-text decoder. It accepts pure kana and emits a
 - Removed the former `DecoderOptions` overload from the Language Pack contract; the C API and conformance tests now use `LanguageDecodeOptions`.
 - Expanded Language Pack conformance coverage for path limits, input limits, invalid UTF-8, legacy forwarding, deterministic decoding and streaming transactional behavior.
 - Added specification v0.49.
+- Moved the Japanese LanguageAdapter implementation/numeric renderer and Japanese SURGE Cluster sidecar scorer into `language_sets/ja-JP/`; both are now compiled by the shared PIC-enabled Language Set object target.
 
 ## Remaining work before practical release
 
