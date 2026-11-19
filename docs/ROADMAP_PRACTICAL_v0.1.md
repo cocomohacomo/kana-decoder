@@ -180,6 +180,7 @@ v0.44のimmutable LanguagePack境界を前提に、次のコード変更はP0の
 - [x] Implement bounded Japanese path rendering with source-span validation, opt-in numeric normalization, optional Latin/Japanese spacing and optional terminal punctuation.
 - [x] Route SURGE-selected token surfaces through LanguageAdapter after UnifiedDecision.
 - [x] Add Japanese renderer unit and SURGE runtime integration tests.
+- [x] Add Python conformance test that prevents Japanese decoder declarations from leaking into generic public headers; register it with CTest.
 - [ ] CI run #970 or a newer run for the final PR head, including static/shared/Python integration.
 - [ ] Complete inflection/okurigana and date/time/unit/currency extraction.
 - [ ] Production dictionary, held-out accuracy and target-PC resource qualification.
