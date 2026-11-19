@@ -7,6 +7,7 @@
 #include <iterator>
 #include <regex>
 #include <string>
+#include <utility>
 
 namespace kana_decoder {
 namespace {
