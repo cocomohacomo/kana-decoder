@@ -2,7 +2,7 @@
 
 更新日: 2026-11-19
 対象ブランチ: `refactor/surge-core-as-runtime`
-対象仕様: `SPECIFICATION_v0.54.md`
+対象仕様: `SPECIFICATION_v0.55.md`
 
 ## 0. 製品ゴール
 
@@ -28,6 +28,11 @@
 - [ ] 最新PR headのActionsを完了させ、失敗ログを修正する。
 - [x] `SemanticDelta::journal_events` の未対応参照を除去し、NORMALIZATION_PROPOSAL/COMMITを同一SemanticDelta内のEvidence nodeとして永続化する。
 - [ ] 上記修正を含む最新PR headでstatic/shared buildと全テストを再実行する。
+- [x] Release CTestで `NDEBUG` によってassert式が消えないよう、C/C++テストターゲットへ `-UNDEBUG` を適用。
+- [x] `StreamingSession::append` を使用していた日本語依存テストを、provider側decode + `append_decoded` へ移行。
+- [x] Japanese Pack loaderの失敗段階を `error` 出力へ伝播し、Pack testのnull dereferenceを診断付き失敗へ変更。
+- [x] Sudachi V1 TSV testのタブ区切り文字を修正。
+- [ ] assertions有効状態で全テストを通し、実際に表面化する既存テスト不整合を修正。
 - [ ] static/shared両方のLanguagePackテストをCIで実行する。
 - [ ] C APIでPackロード失敗時にEngine状態が変化しないことを検証する。
 - [ ] Engine破棄後もSessionがPack snapshotを安全に保持することを検証する。
@@ -218,3 +223,12 @@ v0.44のimmutable LanguagePack境界を前提に、次のコード変更はP0の
 - [x] Verify `食べて` plus auxiliary `いる` renders as `食べている`.
 - [x] Verify the selected path covers the full reading with contiguous spans.
 - [ ] Measure inflection-chain Candidate Recall@N and streaming stability on held-out licensed dictionary data.
+
+
+## 16. v0.55 Release test reliability
+
+- [x] Keep C/C++ test assertions enabled in Release builds.
+- [x] Migrate generic streaming tests to the provider-neutral decoded-path API.
+- [x] Propagate exact Japanese Pack loader diagnostics.
+- [x] Fix the Sudachi V1 TSV test delimiter.
+- [ ] Re-run final-head CI with assertions active and resolve all failures.
