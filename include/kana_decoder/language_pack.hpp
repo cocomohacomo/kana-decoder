@@ -3,7 +3,6 @@
 #include "kana_decoder/engine.hpp"
 #include "kana_decoder/surge_language.hpp"
 
-#include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -43,19 +42,6 @@ class LanguagePack {
                       const LanguageDecodeOptions& options = {}) const = 0;
   virtual const surge::LanguageAdapter& adapter() const = 0;
 
-  // Transitional source-compatibility bridge for callers using the former
-  // Japanese DecoderOptions. New host code must use LanguageDecodeOptions.
-  std::vector<DecodedPath> decode(const std::string& reading,
-                                  const DecoderOptions& legacy) const {
-    LanguageDecodeOptions options;
-    options.max_paths = std::min<std::size_t>(legacy.max_paths, 8);
-    options.beam_width = std::min<std::size_t>(legacy.beam_width, 8);
-    options.max_input_codepoints = legacy.max_input_codepoints;
-    options.max_lattice_edges = legacy.max_lattice_edges;
-    options.max_lattice_candidates = legacy.max_lattice_candidates;
-    options.max_expanded_states = legacy.max_expanded_states;
-    return decode(reading, options);
-  }
 };
 
 std::shared_ptr<const LanguagePack> load_language_pack_snapshot(
