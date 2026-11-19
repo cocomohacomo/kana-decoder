@@ -175,8 +175,9 @@ int kd_decode_result_token(const kd_decode_result* result,size_t path_index,size
     const auto& token=result->paths[path_index].tokens[token_index];
     view->start_codepoint=token.start; view->end_codepoint=token.end;
     view->candidate_id=token.candidate.id.c_str(); view->surface=token.candidate.surface.c_str();
-    view->pos=token.candidate.pos.c_str(); view->inflection_type=token.candidate.inflection_type.c_str();
-    view->inflection_form=token.candidate.inflection_form.c_str();
+    view->pos=token.candidate.morphology.part_of_speech.c_str();
+    view->inflection_type=token.candidate.morphology.inflection_class.c_str();
+    view->inflection_form=token.candidate.morphology.inflection_form.c_str();
     view->morphology_score=token.morphology_score; view->context_score=token.context_score;
     return 0;
 }
@@ -307,7 +308,7 @@ int kd_ngram_resolve(kd_ngram_scorer* p, const kd_candidate_view* c, size_t coun
         std::vector<std::string> ls, rs;
         for (size_t i = 0; i < count; ++i) {
             if (!c[i].id || !c[i].surface) return KD_ERR_INVALID_ARGUMENT;
-            candidates.push_back({c[i].id, c[i].surface, {}, {}, {}});
+            candidates.push_back({c[i].id, c[i].surface, {}});
         }
         for (size_t i = 0; i < nl; ++i) {
             if (!left || !left[i]) return KD_ERR_INVALID_ARGUMENT;
