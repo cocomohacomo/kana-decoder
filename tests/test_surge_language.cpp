@@ -1,4 +1,4 @@
-#include "kana_decoder/surge_language.hpp"
+#include "kana_decoder/japanese_language.hpp"
 
 #include <cassert>
 #include <cmath>
