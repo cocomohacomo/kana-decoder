@@ -2,7 +2,7 @@
 
 更新日: 2026-11-19
 対象ブランチ: `refactor/surge-core-as-runtime`
-対象仕様: `SPECIFICATION_v0.56.md`
+対象仕様: `SPECIFICATION_v0.57.md`
 
 ## 0. 製品ゴール
 
@@ -232,3 +232,16 @@ v0.56ではP0のCI・Pack・journal recoveryゲートが通過した。P1ではC
 - [x] Propagate exact Japanese Pack loader diagnostics.
 - [x] Fix the Sudachi V1 TSV test delimiter.
 - [ ] Re-run final-head CI with assertions active and resolve all failures.
+
+
+## 17. v0.57 typed Japanese entities and SURGE graph integration
+
+- [x] Generalize `LanguageAdapter::make_numeric_entity` into provider-neutral `make_entity` and `EntityTarget`, retaining the numeric forwarding alias.
+- [x] Parse bounded Japanese Date, Time (hour/minute/second), Range and explicit Identifier entities.
+- [x] Render full-reading Date/Time/Range after path coverage validation when structured numeric normalization is enabled.
+- [x] Persist full-reading Date/Time/Range as SURGE Entity + Evidence nodes with Supports/About relations, temporal validity and bounded entity clustering.
+- [x] Verify graph metrics and journal recovery for typed date entities.
+- [x] Verify static/shared build, all 29 CTest cases, microbenchmarks, reference Pack and Python policy tests on CI #1042.
+- [ ] Extend typed entity extraction from full-reading to bounded partial spans inside longer sentences.
+- [ ] Add calibrated entity evidence to UnifiedDecision before candidate selection; validate with held-out CER and Candidate Recall@N.
+- [ ] Complete locale-specific calendar, relative-date and timezone policies; automatic identifier recognition remains intentionally disabled.
