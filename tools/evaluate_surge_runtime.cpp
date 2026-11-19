@@ -1,5 +1,6 @@
 #include "kana_decoder/engine.hpp"
 #include "kana_decoder/japanese_decoder.hpp"
+#include "kana_decoder/japanese_language.hpp"
 #include "kana_decoder/surge_runtime.hpp"
 
 #include <algorithm>
@@ -206,6 +207,7 @@ int main(int argc, char** argv) {
   std::size_t runtime_failures = 0;
   std::size_t exact_top1 = 0, exact_surge = 0, top1_distance = 0, surge_distance = 0;
   std::size_t reference_points = 0, overrides = 0, deferred = 0, decode_failures = 0;
+  kana_decoder::surge::JapaneseLanguageAdapter typed_entity_adapter;
   std::size_t input_points = 0;
   std::size_t typed_entities_found = 0, typed_entity_evidence_added = 0;
   std::size_t selected_typed_entity_evidence = 0, typed_entities_persisted = 0;
@@ -241,6 +243,7 @@ int main(int argc, char** argv) {
     config.max_journal_payload_bytes = 1024U * 1024U;
     config.max_journal_identity_bytes = 512U * 1024U;
     config.remove_journal_on_destroy = true;
+    config.language_adapter = &typed_entity_adapter;
     config.recognition_family_weights = calibrated_policy.recognition_family_weights;
     config.normalization_renderer_score = calibrated_policy.normalization_renderer_score;
     kana_decoder::SurgeNormalizationRuntime runtime(config);
