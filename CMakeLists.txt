@@ -31,12 +31,6 @@ target_include_directories(kana_decoder_shared PUBLIC ${CMAKE_CURRENT_SOURCE_DIR
 target_link_libraries(kana_decoder_shared PRIVATE surge_core)
 target_compile_options(kana_decoder_shared PRIVATE -Wall -Wextra -Wpedantic -Werror)
 set_target_properties(kana_decoder_shared PROPERTIES OUTPUT_NAME kana_decoder)
-add_executable(kana_decoder_tests tests/test_engine.cpp)
-target_link_libraries(kana_decoder_tests PRIVATE kana_decoder_core)
-kana_decoder_enable_test_assertions(kana_decoder_tests)
-target_compile_definitions(kana_decoder_tests PRIVATE KANA_DECODER_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
-enable_testing()
-
 # Release builds define NDEBUG. Keep C/C++ conformance assertions active so
 # CTest does not silently compile away the test conditions.
 function(kana_decoder_enable_test_assertions target)
@@ -44,6 +38,12 @@ function(kana_decoder_enable_test_assertions target)
     target_compile_options(${target} PRIVATE -UNDEBUG)
   endif()
 endfunction()
+
+add_executable(kana_decoder_tests tests/test_engine.cpp)
+target_link_libraries(kana_decoder_tests PRIVATE kana_decoder_core)
+kana_decoder_enable_test_assertions(kana_decoder_tests)
+target_compile_definitions(kana_decoder_tests PRIVATE KANA_DECODER_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+enable_testing()
 
 add_executable(kana_decoder_c_api_tests tests/test_c_api.c)
 target_link_libraries(kana_decoder_c_api_tests PRIVATE kana_decoder_core)
