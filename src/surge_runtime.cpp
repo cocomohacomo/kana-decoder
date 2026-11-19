@@ -4,6 +4,7 @@
 #include "surge/question_router.hpp"
 #include "surge/sha256.hpp"
 #include "surge/decision.hpp"
+#include "surge/dependency_engine.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -70,6 +71,15 @@ std::string candidate_key(const DecodedToken& token) {
 
 std::string id_component(const std::string& value) {
   return ::surge::sha256_hex(value).substr(0, 20);
+}
+
+std::string claim_surface(const ::surge::GraphNode& claim) {
+  static const std::string prefix = "candidate interpretation: ";
+  if (claim.kind != ::surge::NodeKind::Claim ||
+      claim.content.compare(0, prefix.size(), prefix) != 0) return {};
+  const auto end = claim.content.find(" [", prefix.size());
+  if (end == std::string::npos || end == prefix.size()) return {};
+  return claim.content.substr(prefix.size(), end - prefix.size());
 }
 
 }  // namespace
@@ -281,7 +291,78 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   recognition_policy.max_evidence_per_candidate = 2048;
   recognition_policy.minimum_margin = 0.0;
   recognition_policy.family_weights = config_.recognition_family_weights;
-  const auto decision = ::surge::UnifiedDecision::evaluate(
+  // Retrieve only the active Focus cluster, with hard bounds. This is a
+  // read-only query over SURGE's retained graph, not an adapter-owned memory.
+  std::map<std::string, std::size_t> focused_surface_hits;
+  std::vector<std::string> focused_claim_roots;
+  if (graph_->focus() && !graph_->focus()->cluster_id.empty()) {
+    const auto focused_cluster = graph_->focus()->cluster_id;
+    for (const auto& relation : graph_->relations()) {
+      if (relation.second.kind != ::surge::RelationKind::Contains ||
+          relation.second.from != focused_cluster) continue;
+      const auto member = graph_->nodes().find(relation.second.to);
+      if (member == graph_->nodes().end() ||
+          member->second.kind != ::surge::NodeKind::Claim) continue;
+      const auto surface = claim_surface(member->second);
+      if (surface.empty()) continue;
+      ++focused_surface_hits[surface];
+      if (focused_claim_roots.size() < 64)
+        focused_claim_roots.push_back(member->first);
+    }
+  }
+  result.metrics.focus_retrieved_claims = focused_claim_roots.size();
+
+  std::set<std::string> dependency_impacts;
+  if (!focused_claim_roots.empty()) {
+    std::map<std::string, ::surge::ClaimValidityRecord> validity;
+    for (const auto& item : graph_->nodes()) {
+      if (item.second.kind != ::surge::NodeKind::Claim) continue;
+      const auto latest = graph_->latest_claim_validity(item.first);
+      if (latest) validity.emplace(item.first, *latest);
+    }
+    const auto dependency_result = ::surge::DependencyEngine::evaluate(
+        graph_->nodes(), focused_claim_roots, 128, 2048, validity);
+    if (dependency_result.complete) {
+      result.metrics.dependency_triggered =
+          dependency_result.triggered_dependencies.size();
+      result.metrics.dependency_impacted_nodes =
+          dependency_result.impacted_nodes.size();
+      dependency_impacts.insert(dependency_result.impacted_nodes.begin(),
+                                dependency_result.impacted_nodes.end());
+    }
+  }
+
+  for (auto& candidate : recognition_candidates) {
+    const auto path_index = static_cast<std::size_t>(
+        std::stoul(candidate.candidate_id.substr(5)));
+    if (path_index >= paths.size()) continue;
+    for (std::size_t t = 0; t < paths[path_index].tokens.size(); ++t) {
+      const auto& token = paths[path_index].tokens[t];
+      const auto hit = focused_surface_hits.find(token.candidate.surface);
+      if (hit != focused_surface_hits.end()) {
+        const auto prefix_id = "focus-p" + std::to_string(path_index) +
+                               "-t" + std::to_string(t);
+        candidate.evidence.push_back({prefix_id, "active_focus",
+            std::to_string(token.start) + ":" + std::to_string(token.end),
+            1.0 + std::min<std::size_t>(hit->second - 1, 3) * 0.25, 0.50, true});
+        ++result.metrics.focus_evidence_added;
+        for (const auto& root : focused_claim_roots) {
+          const auto old = graph_->nodes().find(root);
+          if (old != graph_->nodes().end() &&
+              claim_surface(old->second) == token.candidate.surface &&
+              dependency_impacts.count(root) != 0) {
+            candidate.evidence.push_back({prefix_id + "-dependency",
+                "dependency_reassessment",
+                std::to_string(token.start) + ":" + std::to_string(token.end),
+                0.5, 0.25, true});
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  auto decision = ::surge::UnifiedDecision::evaluate(
       recognition_candidates, recognition_policy);
   if (decision.disposition != ::surge::DecisionDisposition::Select) {
     result.error = "SURGE_UNIFIED_DECISION_DEFERRED:" + decision.reason;
@@ -336,14 +417,14 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     if (i) commit_payload << ",";
     commit_payload << candidates.at(best_claims[i]).claim_id;
   }
-  commit_payload << ";recognition_selected=" << recognition.selected_candidate_id
-                 << ";recognition_reason=" << recognition.reason
+  commit_payload << ";recognition_selected=" << decision.selected_candidate_id
+                 << ";recognition_reason=" << decision.reason
                  << ";recognition_score=" << std::setprecision(17) << decision.selected_score
                  << ";recognition_margin=" << decision.margin
                  << ";recognition_trace=";
   for (std::size_t i = 0; i < decision.trace.size(); ++i) {
     if (i) commit_payload << ",";
-    const auto& trace = recognition.trace[i];
+    const auto& trace = decision.trace[i];
     commit_payload << trace.candidate_id << ":" << trace.score << ":"
                    << trace.accepted_evidence << ":" << trace.ignored_evidence;
   }
@@ -482,7 +563,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
           {record.claim_id, record.entity_id}}});
     }
     delta.relations.push_back({{prefix + "/about-cluster/" + id_component(record.claim_id),
-        ::surge::RelationKind::About, record.claim_id, context_cluster_id_}});
+        ::surge::RelationKind::About, record.claim_id, interpretation_cluster}});
     delta.relations.push_back({{prefix + "/about-entity/" + id_component(record.claim_id),
         ::surge::RelationKind::About, record.claim_id, record.entity_id}});
 
