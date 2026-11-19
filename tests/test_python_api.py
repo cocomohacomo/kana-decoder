@@ -1,4 +1,4 @@
-import pathlib,sys,unittest,faulthandler
+import pathlib,sys,unittest,faulthandler,tempfile
 faulthandler.enable()
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/"python"))
@@ -8,7 +8,8 @@ sys.argv=sys.argv[:1]
 @unittest.skipUnless(PACK is not None and LIB is not None, "requires CTest-provided shared-library and Pack paths")
 class PythonApiTests(unittest.TestCase):
  def test_decode_nbest_and_streaming(self):
-  with KanaDecoder(PACK,library_path=LIB) as decoder:
+  with tempfile.TemporaryDirectory() as temp:
+   with KanaDecoder(PACK,library_path=LIB,surge_journal_path=str(pathlib.Path(temp)/"surge.journal")) as decoder:
    result=decoder.decode("あめ")
    self.assertIn(result,("雨","飴","あめ"))
    paths=decoder.decode_nbest("あめ",8)
