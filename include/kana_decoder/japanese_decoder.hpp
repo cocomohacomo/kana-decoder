@@ -11,6 +11,9 @@
 
 namespace kana_decoder {
 
+enum class OutputMode { Normal, Ambiguous, Conservative, Diagnostic };
+enum class CorrectionKind { Insert, Delete, Replace, Duplicate, Phonetic };
+
 class MaskedNgramScorer {
 public:
  void add_left_bigram(const std::string&,const std::string&,std::uint32_t);
