@@ -34,7 +34,7 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
                 "'elapsed_seconds':0.2,'peak_rss_kib':1000,\n"
                 "'candidate_generation':{'mean_paths':4.0,'surface_exact_recall_at_1':0.2,\n"
                 "'surface_exact_recall_at_5':0.4,'surface_exact_recall_at_10':0.5,\n"
-                "'oracle_cer_at_5':0.3,'oracle_cer_at_10':0.25}}))\n",
+                "'oracle_cer_at_5':0.3,'oracle_cer_at_10':0.25,'surge_exact_given_candidate_at_10':0.6}}))\n",
                 encoding="utf-8",
             )
             evaluator.chmod(0o755)
