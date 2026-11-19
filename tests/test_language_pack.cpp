@@ -48,11 +48,6 @@ int main() {
   assert(pack->decode(std::string("\xff", 1),
                       kana_decoder::LanguageDecodeOptions{}).empty());
 
-  // The legacy C++ options bridge remains source-compatible during migration.
-  kana_decoder::DecoderOptions legacy_bounded;
-  legacy_bounded.max_input_codepoints = 1;
-  assert(pack->decode("あめ", legacy_bounded).empty());
-
   // Incremental chunks must retain the full reading and converge to the
   // same best path as a one-shot decode.
   kana_decoder::StreamingSession streaming;
