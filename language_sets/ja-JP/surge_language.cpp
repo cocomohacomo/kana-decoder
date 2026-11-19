@@ -1,5 +1,6 @@
 #include "kana_decoder/japanese_language.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cctype>
 #include <cstring>
@@ -707,11 +708,16 @@ bool render_entity(const Entity& entity, NumericStyle style, std::string& output
                "月" + std::to_string(entity.tertiary) + "日";
       break;
     case EntityKind::Time:
-      if (entity.value < 0 || entity.value > 23 || entity.secondary < 0 || entity.secondary > 59) return false;
+      if (entity.value < 0 || entity.value > 23 || entity.secondary < 0 ||
+          entity.secondary > 59 || entity.tertiary < 0 || entity.tertiary > 59) return false;
       output = std::to_string(entity.value) + "時";
-      if (entity.secondary != 0) {
+      if (entity.secondary != 0 || entity.tertiary != 0) {
         output += entity.secondary < 10 ? "0" : "";
         output += std::to_string(entity.secondary) + "分";
+      }
+      if (entity.tertiary != 0) {
+        output += entity.tertiary < 10 ? "0" : "";
+        output += std::to_string(entity.tertiary) + "秒";
       }
       break;
     case EntityKind::Range:
