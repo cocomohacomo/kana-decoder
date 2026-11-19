@@ -81,11 +81,13 @@ int kd_engine_set_surge_journal(kd_engine* p, const char* path) {
 }
 
 int kd_engine_load_pack(kd_engine* p, const char* dir) {
-    if (!p || !dir || !*dir) return KD_ERR_INVALID_ARGUMENT;
+    if (!p || !dir || !*dir || p->loaded) return KD_ERR_INVALID_ARGUMENT;
     try {
         std::string error;
         auto pack = kana_decoder::load_language_pack_snapshot(dir, &error);
         if (!pack) return KD_ERR_INVALID_ARGUMENT;
+        if (!p->surge || !p->surge->set_language_adapter(&pack->adapter()))
+            return KD_ERR_INTERNAL;
         p->pack = std::move(pack);
         p->loaded = true;
         return 0;
@@ -184,7 +186,11 @@ kd_streaming_session* kd_streaming_session_create(const kd_engine* engine,size_t
         result->pack = engine->pack;
         const auto path = temporary_surge_journal_path();
         result->surge = make_surge_runtime(path, path, true);
-        if (!result->surge) { delete result; return nullptr; }
+        if (!result->surge ||
+            !result->surge->set_language_adapter(&result->pack->adapter())) {
+            delete result;
+            return nullptr;
+        }
         return result;
     } catch (...) { return nullptr; }
 }
