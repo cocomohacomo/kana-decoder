@@ -68,6 +68,10 @@ def main() -> int:
                      "deferred": metrics["surge_core"]["deferred"],
                      "runtime_failures": metrics["surge_core"]["runtime_failures"],
                      "decode_failures": metrics["surge_core"]["decode_failures"],
+                     "typed_entities_found": metrics["surge_core"].get("typed_entities_found", 0),
+                     "typed_entity_evidence_added": metrics["surge_core"].get("typed_entity_evidence_added", 0),
+                     "selected_typed_entity_evidence": metrics["surge_core"].get("selected_typed_entity_evidence", 0),
+                     "typed_entities_persisted": metrics["surge_core"].get("typed_entities_persisted", 0),
                      "elapsed_seconds": metrics["elapsed_seconds"],
                      "peak_rss_kib": metrics["peak_rss_kib"]})
         candidate.unlink(missing_ok=True)
