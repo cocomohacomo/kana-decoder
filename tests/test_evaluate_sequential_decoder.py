@@ -64,6 +64,17 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
                 result["surge_evidence_gated_left_context"]["cases"],
                 result["morphology_only"]["cases"])
             self.assertIn("cer", result["surge_evidence_gated_left_context"])
+            survival = result["candidate_survival_diagnostic"]
+            self.assertEqual(survival["gold_tokens"], result["source_test_tokens"])
+            for key in ("lattice_present", "morphology_top8", "scored_or_expanded",
+                        "final_aligned", "lattice_missing", "shortlist_drop",
+                        "expansion_drop", "final_selection_drop"):
+                self.assertGreaterEqual(survival[key], 0)
+                self.assertLessEqual(survival[key], survival["gold_tokens"])
+            for key in ("lattice_coverage_pct", "morphology_top8_coverage_pct",
+                        "scored_coverage_pct", "final_alignment_pct"):
+                self.assertGreaterEqual(survival[key], 0.0)
+                self.assertLessEqual(survival[key], 100.0)
 
             # Calibration artifacts are strict five-number records. Reject trailing
             # fields and non-finite values rather than silently accepting corruption.
