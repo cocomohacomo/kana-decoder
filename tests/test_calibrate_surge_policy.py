@@ -30,7 +30,7 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
                 "exact = 0.1 + 0.05 * policy['pos_ngram']\n"
                 "print(json.dumps({'split':'dev','cases':10,"
                 "'surge_core':{'cer':cer,'sentence_exact':exact,'overrides':2,"
-                "'deferred':1,'runtime_failures':0,'decode_failures':0},"
+                "'deferred':1,'runtime_failures':0,'decode_failures':0,'typed_entities_found':3,'typed_entity_evidence_added':2,'selected_typed_entity_evidence':1,'typed_entities_persisted':3},"
                 "'elapsed_seconds':0.2,'peak_rss_kib':1000}))\n",
                 encoding="utf-8",
             )
@@ -67,7 +67,7 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
             )
             self.assertEqual(result["best_policy"]["name"], "typed_entity_strong")
             self.assertTrue(policy.is_file())
-            self.assertIn("typed_entity\\t1.5", policy.read_text(encoding="utf-8"))
+            self.assertIn("typed_entity\t1.5", policy.read_text(encoding="utf-8"))
             self.assertEqual(result["best_policy"]["typed_entities_found"], 3)
             self.assertEqual(result["best_policy"]["typed_entity_evidence_added"], 2)
             self.assertEqual(result["best_policy"]["selected_typed_entity_evidence"], 1)
