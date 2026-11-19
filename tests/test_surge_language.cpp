@@ -200,6 +200,10 @@ int main() {
   assert(extracted_entities[0].entity.kind == EntityKind::Date);
   assert(extracted_entities[1].span.start == 30 && extracted_entities[1].span.end == 41);
   assert(extracted_entities[1].entity.kind == EntityKind::Time);
+  std::vector<EntitySpan> ambiguous_number_entities;
+  assert(ja_adapter.extract_entities("さんじゅうに", kMaxEntities,
+                                     ambiguous_number_entities));
+  assert(ambiguous_number_entities.empty());
 
   ::kana_decoder::DecodedPath partial_path;
   const auto add_token = [&](std::size_t start, std::size_t end,
