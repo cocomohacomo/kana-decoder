@@ -1,11 +1,15 @@
 #include "kana_decoder/c_api.h"
 #include <assert.h>
+#include <stdio.h>
 #include <string.h>
 int main(void) {
     assert(kd_c_api_version() == KD_C_API_VERSION);
     kd_engine *engine = kd_engine_create();
     char output[64] = {0};
     assert(engine != NULL);
+    const char *journal = "/tmp/kana-decoder-c-api-surge-test.journal";
+    remove(journal);
+    assert(kd_engine_set_surge_journal(engine, journal) == 0);
     assert(kd_engine_load_pack(engine, KANA_DECODER_PACK_DIR) == 0);
     assert(kd_engine_decode(engine, "あめ", output, sizeof(output)) == 0);
     assert(strcmp(output, "雨") == 0);
