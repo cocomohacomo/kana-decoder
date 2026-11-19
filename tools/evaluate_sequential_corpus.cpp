@@ -338,7 +338,7 @@ int main(int argc, char** argv) {
     }
 
     double selected_weight = 1.0, selected_margin = 0.5, selected_alpha = 0.5;
-    if (argc == 6 && !read_calibration(argv[5], selected_weight, selected_margin, selected_alpha)) {
+    if (argc >= 6 && !read_calibration(argv[5], selected_weight, selected_margin, selected_alpha)) {
         std::cerr << "invalid calibration file\n";
         return 2;
     }
