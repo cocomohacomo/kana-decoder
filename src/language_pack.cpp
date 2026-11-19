@@ -21,7 +21,7 @@ bool read_identity(const std::string& directory, LanguagePackIdentity& identity,
     return false;
   }
   std::string manifest((std::istreambuf_iterator<char>(input)), {});
-  if (!input.eof() || manifest.size() > 1024u * 1024u) {
+  if (input.bad() || manifest.size() > 1024u * 1024u) {
     if (error) *error = "LANGUAGE_PACK_MANIFEST_INVALID";
     return false;
   }
@@ -45,14 +45,14 @@ bool read_identity(const std::string& directory, LanguagePackIdentity& identity,
 
 class JapaneseLanguagePack final : public LanguagePack {
  public:
-  LanguagePackIdentity identity;
+  LanguagePackIdentity identity_data;
   LexiconTrie lexicon_data;
   MaskedNgramScorer scorer_data;
   ConnectionModel connections_data;
   CorrectionOptions corrections_data;
   surge::JapaneseLanguageAdapter adapter_data;
 
-  const LanguagePackIdentity& identity() const override { return identity; }
+  const LanguagePackIdentity& identity() const override { return identity_data; }
   const LexiconTrie& lexicon() const override { return lexicon_data; }
   const MaskedNgramScorer& ngram_scorer() const override { return scorer_data; }
   const ConnectionModel& connections() const override { return connections_data; }
@@ -66,8 +66,8 @@ std::shared_ptr<const LanguagePack> load_language_pack_snapshot(
     const std::string& directory, std::string* error) {
   if (!verify_pack_manifest(directory, error)) return {};
   auto pack = std::make_shared<JapaneseLanguagePack>();
-  if (!read_identity(directory, pack->identity, error)) return {};
-  if (pack->identity.language_tag != pack->adapter_data.language_tag()) {
+  if (!read_identity(directory, pack->identity_data, error)) return {};
+  if (pack->identity_data.language_tag != pack->adapter_data.language_tag()) {
     if (error) *error = "LANGUAGE_PACK_ADAPTER_MISMATCH";
     return {};
   }
