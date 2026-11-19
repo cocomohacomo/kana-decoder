@@ -1,4 +1,6 @@
 #include "kana_decoder/engine.hpp"
+#include <algorithm>
+#include <utility>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
