@@ -118,6 +118,7 @@ private:
  std::map<std::string,std::uint32_t> evidence_;
  std::map<std::string,std::uint32_t> totals_;
  double gap_threshold_=0.0;
+ double smoothing_alpha_=0.5;
  std::size_t vocab_size_=1;
  static std::string evidence_key(std::uint32_t,std::uint32_t,const std::string&);
  static std::string total_key(std::uint32_t,std::uint32_t);
