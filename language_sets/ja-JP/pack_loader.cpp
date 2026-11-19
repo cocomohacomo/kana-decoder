@@ -1,4 +1,4 @@
-#include "kana_decoder/engine.hpp"
+#include "kana_decoder/japanese_decoder.hpp"
 #include "kana_decoder/pack_manifest.hpp"
 #include <charconv>
 #include <cmath>
