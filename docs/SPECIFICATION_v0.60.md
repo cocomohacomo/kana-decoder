@@ -14,9 +14,12 @@ For each input case, concatenate candidate token surfaces for each returned N-be
 Report:
 - mean returned N-best path count per case;
 - sentence-level raw-surface exact Candidate Recall@1, @5 and @10;
-- oracle CER@5 and @10, using the minimum edit distance among the first N candidate paths.
+- oracle CER@5 and @10, using the minimum edit distance among the first N candidate paths;
+- conditional SURGE exact success among cases where the gold surface exists in the top 10 raw candidates.
 
 The denominator is the complete evaluation set. A decoder failure is a candidate miss and contributes the gold reference length as deletion distance to both oracle CER aggregates. Recall@N must be monotonic: Recall@1 <= Recall@5 <= Recall@10. Oracle CER must be non-increasing as N grows.
+
+The conditional SURGE metric is the fraction of top-10-covered cases for which the final SURGE output is also an exact match. Runtime failure, deferral or incorrect realization counts as a miss in this conditional rate.
 
 These are sentence-level raw-surface coverage diagnostics. They are not token-aligned morphological Candidate Recall, do not normalize entities, and do not measure final SURGE output accuracy.
 
