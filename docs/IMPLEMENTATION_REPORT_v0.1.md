@@ -643,3 +643,20 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - gold情報はdecode_reading呼び出しへ渡さず、完了後のspan/surface照合だけに利用。dev校正ループには診断を挿入せず、凍結済みselected policyに対して一度だけ計測する。
 - 既存trace上限4096件/文を利用し、上限到達後の未観測候補を誤ってBeam脱落と断定しない。DecoderOptions・Pack・通常実行時の挙動は変更しない。
 - CTest統合テストにJSON契約と範囲検証を追加。CI実行前のため、ビルド・実測結果は未確定。
+
+
+## 57. v0.40.4 実Pack評価とN-best回復可能性診断
+
+### v0.40.3 実Pack評価（Actions run 44475908733）
+- Sudachi Small + UD Japanese-GSD test split: 2,414文 / 10,317 gold tokens。gold token境界はdecode入力に渡さず、decode後alignmentだけに使用。未来文脈なし。
+- Morphology-only: sentence exact 24.6479%、CER 48.6578%。
+- Train-derived unigram + predicted-left: exact 24.7722%、CER 48.6036%。
+- SURGE Cluster: exact 25.9735%、CER 46.1117%。Morphology比CERを2.5461ポイント改善。dev選択policyもcluster_onlyで同値。
+- Candidate survival: lattice 9,774 (94.7368%)、morphology top-8 9,774、scored/expanded 9,751、best path exact token alignment 6,015 (58.3018%)。lattice missing 543、shortlist drop 0、expansion drop 6、trace censored 17、final-selection nonalignment 3,748。
+- Peak RSS 1,392.3 MiB、1,792 MiB gate内。decode failure 0、over-limit sentence 0。
+- 3,748件のfinal-selection nonalignmentは、N-best別pathに残るケースと、返却N-bestまで残らないケースが混在する。これを単純なBeam pruning件数とは解釈しない。
+
+### N-best回復可能性の診断リファクタ
+- sequential evaluatorにN-best全pathのgold span/surface照合を追加。best pathにないが他のN-bestに残る `nbest_recoverable` と、score trace上では展開されたが返却N-bestに存在しない `scored_not_in_nbest` を分離。
+- `nbest_aligned = final_aligned + nbest_recoverable` を統合テストで検証する。
+- この追加は評価専用で、decodeの順位・候補・Language Packを変更しない。v0.40.4コードのCIおよび実Pack再評価は現在のActions run完了後に確定する。
