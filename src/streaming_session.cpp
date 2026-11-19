@@ -6,13 +6,23 @@ std::size_t byte_offset_for_codepoints(const std::string&s,std::size_t count){au
 }
 namespace kana_decoder {
 StreamingSession::StreamingSession(std::size_t limit):max_reading_codepoints_(limit?limit:1){}
-bool StreamingSession::append(const std::string& chunk,const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,StreamingSnapshot& snapshot,const DecoderOptions& options,const ConnectionModel* connections){
- if (chunk.empty() || !is_valid_utf8(chunk)) return false;
- auto current = utf8_chars(reading_);
- auto incoming = utf8_chars(chunk);
- if (current.size() + incoming.size() > max_reading_codepoints_) return false;
- std::string candidate=reading_+chunk;auto paths=decode_reading(candidate,lexicon,scorer,options,connections);if(paths.empty())return false;
- reading_=std::move(candidate);++revision_;snapshot.revision=revision_;snapshot.reading=reading_;snapshot.paths=std::move(paths);snapshot.provisional=true;return true;
+bool StreamingSession::append_decoded(const std::string& chunk,
+ std::vector<DecodedPath> paths,StreamingSnapshot& snapshot,
+ std::size_t max_input_codepoints){
+ if(chunk.empty()||!is_valid_utf8(chunk)||paths.empty())return false;
+ const auto current=utf8_chars(reading_);
+ const auto incoming=utf8_chars(chunk);
+ const std::size_t effective_limit=std::min(max_reading_codepoints_,max_input_codepoints);
+ if(effective_limit==0||current.size()>effective_limit||
+    incoming.size()>effective_limit-current.size())return false;
+ std::string candidate=reading_+chunk;
+ reading_=std::move(candidate);
+ ++revision_;
+ snapshot.revision=revision_;
+ snapshot.reading=reading_;
+ snapshot.paths=std::move(paths);
+ snapshot.provisional=true;
+ return true;
 }
 
 bool StreamingSession::commit_common_prefix(StreamingSnapshot& snapshot,std::string& output){
