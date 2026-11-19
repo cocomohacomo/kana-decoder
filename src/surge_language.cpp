@@ -5,6 +5,7 @@
 #include <limits>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace kana_decoder::surge {
 namespace {
@@ -260,6 +261,17 @@ const Hypothesis* LanguageState::find_hypothesis(std::string_view id) const {
   return nullptr;
 }
 
+const Hypothesis* LanguageState::find_hypothesis_for_candidate(std::uint16_t start, std::uint16_t end,
+                                                                std::string_view candidate_id,
+                                                                std::string_view surface) const {
+  for (std::size_t i = 0; i < hypothesis_count_; ++i) {
+    const auto& item = hypotheses_[i];
+    if (item.span.start == start && item.span.end == end &&
+        item.candidate_id.equals(candidate_id) && item.surface.equals(surface)) return &item;
+  }
+  return nullptr;
+}
+
 const Entity* LanguageState::find_entity(std::string_view id) const {
   for (std::size_t i = 0; i < entity_count_; ++i)
     if (entities_[i].id.equals(id)) return &entities_[i];
@@ -306,6 +318,63 @@ bool LanguageState::aggregate_evidence(std::string_view hypothesis_id, std::uint
 
 std::size_t LanguageState::memory_bytes() const {
   return sizeof(*this);
+}
+
+bool rerank_paths(std::vector<::kana_decoder::DecodedPath>& paths,
+                  const LanguageState& state, const EvidencePolicy& policy,
+                  std::uint64_t revision, double evidence_weight,
+                  PathRerankMetrics* metrics) {
+  if (paths.size() > 8 || !std::isfinite(evidence_weight) || evidence_weight < 0.0) return false;
+  if (metrics) *metrics = {};
+  if (paths.size() < 2 || evidence_weight == 0.0) return true;
+  std::array<double, 8> ranks{};
+  std::array<double, 8> evidence_scores{};
+  std::array<bool, 8> has_evidence{};
+  std::array<std::size_t, 8> order{};
+  for (std::size_t i = 0; i < paths.size(); ++i) {
+    order[i] = i;
+    const auto& path = paths[i];
+    double evidence_sum = 0.0;
+    std::size_t evidence_tokens = 0;
+    for (const auto& token : path.tokens) {
+      if (token.start > 65535 || token.end > 65535) continue;
+      const auto* hypothesis = state.find_hypothesis_for_candidate(
+          static_cast<std::uint16_t>(token.start), static_cast<std::uint16_t>(token.end),
+          token.candidate.id, token.candidate.surface);
+      if (!hypothesis) continue;
+      double token_score = 0.0;
+      if (state.aggregate_evidence(hypothesis->id.str(), revision, policy, token_score)) {
+        evidence_sum += token_score;
+        ++evidence_tokens;
+      }
+    }
+    if (evidence_tokens > 0) {
+      has_evidence[i] = true;
+      evidence_scores[i] = evidence_sum / static_cast<double>(evidence_tokens);
+      ranks[i] = path.tokens.empty() ? path.score :
+          path.score / static_cast<double>(path.tokens.size()) + evidence_weight * evidence_scores[i];
+      if (metrics) ++metrics->supported_paths;
+    } else {
+      ranks[i] = path.tokens.empty() ? path.score : path.score / static_cast<double>(path.tokens.size());
+    }
+  }
+  for (std::size_t i = 1; i < paths.size(); ++i) {
+    const std::size_t current = order[i];
+    std::size_t j = i;
+    while (j > 0 && ranks[current] > ranks[order[j - 1]]) {
+      order[j] = order[j - 1];
+      --j;
+    }
+    order[j] = current;
+  }
+  if (metrics) {
+    metrics->order_changed = order[0] != 0;
+    metrics->best_evidence_score = has_evidence[order[0]] ? evidence_scores[order[0]] : 0.0;
+  }
+  std::array<::kana_decoder::DecodedPath, 8> sorted{};
+  for (std::size_t i = 0; i < paths.size(); ++i) sorted[i] = paths[order[i]];
+  for (std::size_t i = 0; i < paths.size(); ++i) paths[i] = std::move(sorted[i]);
+  return true;
 }
 
 bool parse_japanese_number(std::string_view reading, ParsedNumber& result) {
