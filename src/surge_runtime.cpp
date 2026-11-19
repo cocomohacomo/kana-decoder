@@ -313,10 +313,16 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   }
 
   if (!contradictions.empty()) {
+    // QuestionRouter commits a new graph state. Snapshot relation IDs first so
+    // its ContextGraph::apply move does not invalidate the iterator being used.
+    std::vector<std::string> contradiction_relation_ids;
     for (const auto& relation : graph_->relations()) {
-      if (relation.second.kind != ::surge::RelationKind::Contradicts ||
-          relation.first.find(prefix + "/contradicts/") != 0) continue;
-      const auto routed = ::surge::QuestionRouter::route(*graph_, relation.first, "kana-normalization-v1");
+      if (relation.second.kind == ::surge::RelationKind::Contradicts &&
+          relation.first.find(prefix + "/contradicts/") == 0)
+        contradiction_relation_ids.push_back(relation.first);
+    }
+    for (const auto& relation_id : contradiction_relation_ids) {
+      const auto routed = ::surge::QuestionRouter::route(*graph_, relation_id, "kana-normalization-v1");
       if (!routed.committed) {
         result.error = "SURGE_QUESTION_ROUTING_FAILED:" + routed.error;
         return result;
