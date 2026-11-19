@@ -2,7 +2,7 @@
 
 Updated: 2026-11-19
 Branch: `refactor/surge-core-as-runtime`
-Current contract: `SPECIFICATION_v0.51.md`
+Current contract: `SPECIFICATION_v0.52.md`
 
 ## Product acceptance target
 
@@ -20,6 +20,8 @@ The product is a kana-to-Japanese-text decoder. It accepts pure kana and emits a
 - Added `LanguageAdapter::render_path` and Japanese path renderer with validated spans, opt-in number rendering, optional Latin/Japanese spacing and discourse punctuation.
 - Routed the SURGE UnifiedDecision-selected path through the configured LanguageAdapter; added adapter and runtime integration tests.
 - Moved the Japanese LanguageAdapter implementation/numeric renderer and Japanese SURGE Cluster sidecar scorer into `language_sets/ja-JP/`; both are now compiled by the shared PIC-enabled Language Set object target.
+- Corrected the Sudachi V1 importer contract: POS5/POS6 are retained as conjugation type/form, explicit conjugation aliases are supported, and `*` sentinels are normalized to empty metadata.
+- Added dictionary-backed inflection/okurigana conformance cases for `回っ` and `食べて`; selected dictionary surfaces are preserved exactly by the renderer rather than regenerated heuristically.
 
 ## Remaining work before practical release
 
@@ -53,6 +55,6 @@ The product is a kana-to-Japanese-text decoder. It accepts pure kana and emits a
 
 ## Verification status
 
-The v0.51 source and test changes are committed to the development branch. Latest relevant Actions run #970 is queued. The final renderer span-coverage guard and explicit renderer integration-test score were committed after that run was queued, so the current PR head still requires a fresh successful CI run. Golden-corpus parity, held-out quality, target-PC latency and Peak RSS have not yet been verified. Therefore this status does not mark practical operation as complete.
+The v0.52 source and test changes are committed to the development branch. Latest relevant Actions run #970 is queued. The final renderer span-coverage guard, public-header guard, Sudachi V1 conjugation metadata correction and dictionary-backed inflection tests were committed after that run was queued, so the current PR head still requires a fresh successful CI run. Golden-corpus parity, held-out quality, target-PC latency and Peak RSS have not yet been verified. Therefore this status does not mark practical operation as complete.
 
 The separate SURGE repository and its development branches are not modified by this work.
