@@ -53,7 +53,7 @@ Decision evidence references must resolve to stored Evidence. Evidence kinds cov
 
 ## 5. Entity normalization primitives"
 
-The initial renderer accepts already-recognized typed entities; it is not a kana-to-number parser.
+The initial renderer accepts typed entities, and the Japanese adapter now also parses a bounded subset of spoken Japanese integer/decimal readings. It is not a general speech recognizer or unrestricted natural-language number parser.
 
 Supported kinds:
 - Number
@@ -66,14 +66,15 @@ Supported kinds:
 - Identifier
 
 Supported initial output rules:
-- Arabic number output, optionally grouped by thousands.
+- Japanese numeral reading to signed-64-bit mantissa plus up to 9 decimal places (digit names, 十/百/千/万/億/兆, common 300/600/800/3000/8000 sound changes).
+- Arabic number output, optionally grouped by thousands, preserving explicitly supplied decimal scale.
 - Japanese date form YYYY年M月D日.
 - Japanese time form H時MM分 (minutes omitted when zero).
 - Range form start〜end + unit.
 - Unit and percent suffix output.
 - Yen suffix output; other currency symbols/codes are prefixed.
 
-Invalid calendar dates, invalid clock times, reversed ranges and missing required units fail closed. Japanese kanji numeral parsing, locale-specific decimal handling and contextual unit disambiguation remain language-adapter work.
+Invalid calendar dates, invalid clock times, reversed ranges and missing required units fail closed. Kanji numeral output, negative-number words, fractions, counters, locale-specific decimal handling, contextual unit recognition and broad date/time phrase parsing remain language-adapter work.
 
 ## 6. Punctuation policy
 
@@ -119,7 +120,7 @@ The dedicated surge_language_foundation_tests target covers:
 
 1. Path-level N-best trace and candidate recovery ranking, guided by measured 1,631 recoverable test tokens.
 2. Evidence provenance IDs and dependency-aware validity/retraction.
-3. Japanese language adapter: number-word parser, unit/date/time/range recognition and script policy.
+3. Japanese language adapter: extend number-word grammar, unit/date/time/range recognition and script policy.
 4. Syntax/semantic adapter using dictionary POS, inflection and connection data.
 5. StreamingSession integration for provisional normalization, revision and commit.
 6. Train/dev/test evaluation of semantic/orthographic gains with causal input and strict memory/RTF budgets.
