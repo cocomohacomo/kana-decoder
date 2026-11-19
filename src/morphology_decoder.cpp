@@ -182,7 +182,7 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     const double cluster_context=(cluster_resolved&&candidate.surface==cluster_winner)
       ? cluster_override_bonus : 0.0;
     const double pos_context=(opt.pos_ngram_scorer&&!candidate.pos.empty())
-      ? opt.pos_ngram_scorer->score(candidate.pos,state.pos_history,{})*opt.pos_context_weight : 0.0;
+      ? opt.pos_ngram_scorer->contextual_score(candidate.pos,state.pos_history,{})*opt.pos_context_weight : 0.0;
     const double ctx=ngram_context+cluster_context+pos_context;
     const double local=morph+ctx;
     if(trace && trace->size()<trace_limit) trace->push_back(CandidateScoreTrace{
