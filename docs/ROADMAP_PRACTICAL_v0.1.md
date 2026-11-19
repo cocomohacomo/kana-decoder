@@ -2,7 +2,7 @@
 
 更新日: 2026-11-19
 対象ブランチ: `refactor/surge-core-as-runtime`
-対象仕様: `SPECIFICATION_v0.50.md`
+対象仕様: `SPECIFICATION_v0.51.md`
 
 ## 0. 製品ゴール
 
@@ -36,7 +36,11 @@
 - [x] 日本語Language Setの形態素探索とPack providerを独立したCMake OBJECT targetとしてビルド可能にする。
 - [x] LanguagePackのdecode/append境界を `LanguageDecodeOptions` に変更し、C APIとconformance testを日本語固有 `DecoderOptions` から分離。
 - [x] 日本語LanguageAdapter/数詞表記と日本語SURGE Cluster sidecar scorerを `language_sets/ja-JP/` へ移動し、static/shared双方のja-JP OBJECT targetへ統合。
-- [ ] `engine.hpp` に残る日本語lattice/trie/morphology/scorer型とSURGE Language Adapterの依存を中立ヘッダーへ分離。
+- [x] 日本語decoder型・辞書・scorer・morphology・correction・trace宣言を `japanese_decoder.hpp` へ分離し、generic `engine.hpp` から除去。
+- [x] SURGE `LanguageAdapter` をgeneric `Candidate` + score契約へ変更し、日本語Adapter宣言を `japanese_language.hpp` へ分離。
+- [x] SURGE選択後の `render_path` 境界を追加し、日本語Rendererのspan検証・任意数詞表記・任意句読点を実装。
+- [ ] static/shared build、C/Python統合、Renderer統合テストをCIで確認。
+- [ ] `engine.hpp` の `Candidate` に残るPOS/活用情報を将来の複数言語Providerに適した中立データ構造へ整理。
 - [ ] 共通データ型とprovider interfaceを公開ヘッダーへ整理し、Hostから日本語実装ヘッダーを参照させない。
 - [x] 辞書Trie、N-gram scorer、接続行列、訂正候補、Pack resource loaderの実装をLanguage Set targetへ移動。
 - [x] Pack decodeの決定性、入力上限、UTF-8拒否、チャンク連結、セッション分離をconformance testへ追加。\n- [x] 辞書候補のコスト順序、辞書一致時のfallback抑止、未知語fallbackをfixtureで固定する。
@@ -164,3 +168,18 @@ v0.44のimmutable LanguagePack境界を前提に、次のコード変更はP0の
 - [ ] Verify static/shared build and all CTest/Python integration targets in CI.
 - [ ] Move the remaining Japanese implementation declarations out of the generic public headers.
 - [ ] Complete production dictionary, full surface renderer and held-out/target-device qualification.
+
+
+## 12. v0.51 Japanese API separation and surface renderer
+
+- [x] Move Japanese scorer, correction, lattice, connection, trie, morphology and decoder API declarations to `japanese_decoder.hpp`.
+- [x] Remove Japanese decoder API declarations and policy enums from generic `engine.hpp`.
+- [x] Move Japanese LanguageAdapter and numeric helper declarations to `japanese_language.hpp`.
+- [x] Change generic LanguageAdapter hypothesis creation to accept generic Candidate and an explicit provider-neutral score.
+- [x] Add provider-neutral `SurfaceRenderOptions` and `LanguageAdapter::render_path`.
+- [x] Implement bounded Japanese path rendering with source-span validation, opt-in numeric normalization, optional Latin/Japanese spacing and optional terminal punctuation.
+- [x] Route SURGE-selected token surfaces through LanguageAdapter after UnifiedDecision.
+- [x] Add Japanese renderer unit and SURGE runtime integration tests.
+- [ ] CI run #969 and full static/shared/Python integration.
+- [ ] Complete inflection/okurigana and date/time/unit/currency extraction.
+- [ ] Production dictionary, held-out accuracy and target-PC resource qualification.
