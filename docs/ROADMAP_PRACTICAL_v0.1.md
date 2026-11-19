@@ -313,3 +313,14 @@ Candidate Recall@N here is sentence-level exact surface coverage over the raw co
 - [x] Add a six-column token-aligned smoke fixture and monotonicity contract test.
 - [ ] Verify final-head CI and inspect token-level coverage on the pinned Sudachi Small + UD Japanese-GSD corpus.
 - [ ] Use token-level misses to separate dictionary absence from segmentation-boundary mismatch before changing decoder search budgets.
+
+
+## 22. v0.63 token candidate miss attribution
+
+- [x] Classify each gold token against the top-10 decoder paths by exact span+surface, same span with wrong surface, same surface at another span, or no matching surface.
+- [x] Make the four classes mutually exclusive and exhaustive, including decoder path failures.
+- [x] Verify attribution totals equal the gold-token denominator and exact matches agree with token Recall@10.
+- [x] Propagate the attribution object into dev calibration rows for diagnosis only; keep policy selection independent.
+- [x] Document that POS-specific attribution is not yet supported because the current gold corpus does not contain trusted POS tags.
+- [ ] Run latest-head CI and inspect attribution on the pinned Sudachi Small + UD Japanese-GSD development corpus.
+- [ ] Prioritize lexicon, segmentation, inflection metadata or SURGE selection only after real-data class distribution is available.
