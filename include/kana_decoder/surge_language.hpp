@@ -244,6 +244,30 @@ bool rerank_paths(std::vector<::kana_decoder::DecodedPath>& paths,
                   PathRerankMetrics* metrics = nullptr);
 
 enum class NumericStyle : std::uint8_t { Arabic, GroupedArabic };
+enum class NumericEntityTarget : std::uint8_t { Number, Percent, Currency, Unit };
+
+class LanguageAdapter {
+ public:
+  virtual ~LanguageAdapter() = default;
+  virtual std::string_view language_tag() const = 0;
+  virtual bool make_hypothesis(const ::kana_decoder::LatticeCandidate& candidate,
+                               Span span, std::string_view hypothesis_id,
+                               Hypothesis& output) const = 0;
+  virtual bool make_numeric_entity(std::string_view reading, std::string_view entity_id,
+                                   NumericEntityTarget target, std::string_view unit,
+                                   Entity& output) const = 0;
+};
+
+class JapaneseLanguageAdapter final : public LanguageAdapter {
+ public:
+  std::string_view language_tag() const override { return "ja-JP"; }
+  bool make_hypothesis(const ::kana_decoder::LatticeCandidate& candidate,
+                       Span span, std::string_view hypothesis_id,
+                       Hypothesis& output) const override;
+  bool make_numeric_entity(std::string_view reading, std::string_view entity_id,
+                           NumericEntityTarget target, std::string_view unit,
+                           Entity& output) const override;
+};
 struct ParsedNumber {
   std::int64_t mantissa = 0;
   std::uint8_t decimal_places = 0;
