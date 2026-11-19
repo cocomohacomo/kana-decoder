@@ -80,10 +80,11 @@ semantically equivalent. The retained hypothesis is not promoted automatically.
 
 Claim and Evidence validity are written in the same SemanticDelta as the
 candidate graph. ContextGraph runs DependencyEngine with bounded predicate
-operations. One representative selected Claim per packet receives an explicit
-TemporalReassessmentRecord; all candidate Claims still retain validity records
-and can be reassessed on demand. This avoids one durable reassessment transaction
-per token while preserving the evidence needed for later re-evaluation.
+operations and evaluates the packet's representative selected Claim against its
+valid-time predicate in that transaction. The result returns selected Claim IDs;
+callers can request an explicit TemporalReassessmentRecord later through
+`SurgeNormalizationRuntime::reassess_claim` when time, focus or source context
+changes. Reassessment is not forced for every token.
 
 ## 7. Streaming and commit lifecycle
 
