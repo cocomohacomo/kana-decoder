@@ -51,10 +51,12 @@ Candidate identity is the tuple of reading codepoint span, dictionary candidate 
 and surface. Distinct candidates sharing a span but producing different surfaces
 are represented as competing Claims, never overwritten in place.
 
-The current adapter records decoder morphology and context observations as
-provenance-bearing Evidence content. It does not claim that the combined context
-score is already decomposed into independent Word-Ngram, POS-Ngram and Cluster
-Evidence channels. That decomposition remains a follow-up adapter task.
+The decoder now exports independent lexical, transition, word N-gram, POS
+N-gram and Cluster evidence channels in DecodedToken. Missing evidence is not
+fabricated: a Word/POS/Cluster Evidence node is created only when its producer
+reports an observed source. Cluster raw evidence and the applied override bonus
+are retained separately. The legacy aggregate morphology/context scores remain
+available for compatibility and diagnostics.
 
 ## 4. Contradiction, question and focus flow
 
@@ -144,14 +146,12 @@ and graph memory cost must be measured independently from decoder RSS.
 
 ## 11. Next stages
 
-1. Split Morphological, Word-Ngram, POS-Ngram, Cluster and Orthographic
-   Evidence into independently versioned Core Evidence producers.
-2. Move evidence aggregation and candidate ranking into a generic SURGE
+1. Move evidence aggregation and candidate ranking into a generic SURGE
    RecognitionDecision API, with calibrated per-language policies.
-3. Connect full syntax/semantic frames and scope spans from dictionary,
-   connection matrix and language-specific recognizers.
-4. Add date/time/range/unit/entity extraction and orthographic style policy.
-5. Add snapshot/compaction and bounded retention for long-lived sessions.
-6. Run full Pack quality and resource benchmarks; compare CER, exact sentence,
+2. Connect syntax/semantic frames, scope spans and dependency relations from
+   dictionary, connection matrix and language-specific recognizers.
+3. Add date/time/range/unit/entity extraction and orthographic style policy.
+4. Add snapshot/compaction and bounded retention for long-lived sessions.
+5. Run full Pack quality and resource benchmarks; compare CER, exact sentence,
    RSS, RTF, journal growth and streaming commit correction rate.
 
