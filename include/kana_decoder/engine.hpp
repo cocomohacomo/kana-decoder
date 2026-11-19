@@ -16,6 +16,7 @@ public:
  void add_left_bigram(const std::string&,const std::string&,std::uint32_t);
  void add_right_bigram(const std::string&,const std::string&,std::uint32_t);
  void add_left_ngram(const std::vector<std::string>&,const std::string&,std::uint32_t);
+ void add_left_skipgram(const std::string&,const std::string&,std::uint32_t);
  void add_right_ngram(const std::string&,const std::vector<std::string>&,std::uint32_t);
  void add_unigram(const std::string&,std::uint32_t);
  bool set_smoothing_alpha(double);
@@ -24,11 +25,13 @@ public:
  double score(const std::string&,const std::vector<std::string>&,const std::vector<std::string>&) const;
  double contextual_score(const std::string&,const std::vector<std::string>&,const std::vector<std::string>&) const;
  bool has_left_context_evidence(const std::string&,const std::vector<std::string>&) const;
+ double skip_contextual_score(const std::string&,const std::vector<std::string>&) const;
  AmbiguityResult resolve(const std::vector<Candidate>&,const std::vector<std::string>&,const std::vector<std::string>&,
   OutputMode,double minimum_score=-8.0,double minimum_margin=1.25,bool include_other=true,const std::string& original_reading={}) const;
 private:
  std::unordered_map<std::string,std::uint64_t> left_counts_,right_counts_,unigram_counts_;
  std::unordered_map<std::string,std::uint64_t> left_context_totals_,right_context_totals_;
+ std::unordered_map<std::string,std::uint64_t> skip_counts_,skip_context_totals_;
  std::uint64_t unigram_total_=0;
  double smoothing_alpha_=0.5;
  static std::string key(const std::string&,const std::string&);
