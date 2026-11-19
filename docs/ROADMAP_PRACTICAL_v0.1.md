@@ -2,7 +2,7 @@
 
 更新日: 2026-11-19
 対象ブランチ: `refactor/surge-core-as-runtime`
-対象仕様: `SPECIFICATION_v0.45.md`
+対象仕様: `SPECIFICATION_v0.46.md`
 
 ## 0. 製品ゴール
 
@@ -35,7 +35,7 @@
 - [x] `MorphologyDecoder` とlattice探索を `language_sets/ja-JP/` に物理移動する。
 - [x] 日本語Language Setの形態素探索とPack providerを独立したCMake OBJECT targetとしてビルド可能にする。
 - [ ] 共通データ型とprovider interfaceを公開ヘッダーへ整理し、Hostから日本語実装ヘッダーを参照させない。
-- [x] 辞書Trie、N-gram scorer、接続行列、訂正候補、Pack resource loaderの実装をLanguage Set targetへ移動。\n- [ ] 辞書照合、未知語fallback、候補上限、beam/expansion上限をLanguage Set conformance testで固定する。
+- [x] 辞書Trie、N-gram scorer、接続行列、訂正候補、Pack resource loaderの実装をLanguage Set targetへ移動。\n- [x] Pack decodeの決定性、入力上限、UTF-8拒否、チャンク連結、セッション分離をconformance testへ追加。\n- [ ] 辞書照合、未知語fallback、候補上限、beam/expansion上限をLanguage Set conformance testで固定する。
 - [ ] 既存の変換結果をgolden corpusで比較し、移管前後の差分をゼロにする。
 
 ### P2: 証拠生成と判断品質
@@ -102,3 +102,15 @@
 ## 6. 今回の着手範囲
 
 v0.44のimmutable LanguagePack境界を前提に、次のコード変更はP0のCI確認後、P1の形態素/lattice物理移管から着手する。SURGE本体リポジトリはこの作業対象に含めない。P1移管は既存golden出力との完全互換性を維持し、差分が出た場合は性能改善と混同せず個別に原因を特定する。
+
+
+## 7. v0.46 conformance test update
+
+- [x] Immutable Pack snapshot identity is checked.
+- [x] Repeated decode of identical input is checked for deterministic best-path surfaces.
+- [x] Input code-point budget rejection is checked without accepting a truncated prefix.
+- [x] Invalid UTF-8 input rejection is checked.
+- [x] Two-chunk streaming output is checked against one-shot decode output.
+- [x] Two streaming sessions are checked for reading-state isolation.
+- [ ] Japanese dictionary match ordering, unknown-kana fallback policy, lattice edge/candidate ceilings and expansion-budget behavior still require dedicated fixture-level assertions.
+- [ ] The expanded suite remains unverified until GitHub Actions completes.
