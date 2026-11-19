@@ -139,3 +139,12 @@ No v0.32 accuracy gain is claimed until the new CI and full Pack workflow comple
 - 推論ではBeamごとの予測済み履歴のみを参照し、4-gram 0.50、Trigram 0.30、Bigram 0.15、Skip-Bigram 0.05を初期重みとして、観測された次数だけで重みを再正規化する。
 - Beamごとに直近3候補IDを保持し、分岐間で履歴を共有しない。Beam幅8・入力256 codepoints・展開262,144状態の既存ハード上限は維持する。
 - 重みは初期値でありdev splitで校正する。testデータを使った重み調整は禁止する。
+
+
+## 13. 品詞N-gram経験記憶（v0.39）
+
+- Language Packの辞書候補IDから品詞ラベルを取得し、train splitの候補ID系列と同じ境界で品詞系列を生成する。
+- 品詞系列にもUnigram / Bigram / Trigram / 4-gram / Skip-Bigramを構築し、各Beam状態が候補ID履歴と品詞履歴を独立保持する。
+- 候補の品詞N-gramスコアをSURGE経験Evidenceとして加算する。品詞ラベルが欠落・競合する候補は品詞Evidenceを適用しない。
+- Cluster-only評価では品詞N-gramを無効にし、N-gramおよびcombined評価では有効にして寄与を分離する。
+- 既存の接続コスト行列と二重計上する可能性があるため、品詞N-gramの重みはdevで校正し、実testで改善が確認されるまでは既定デコーダで無効。
