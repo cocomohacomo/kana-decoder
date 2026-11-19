@@ -2,7 +2,7 @@
 
 Updated: 2026-11-19
 Branch: `refactor/surge-core-as-runtime`
-Current contract: `SPECIFICATION_v0.54.md`
+Current contract: `SPECIFICATION_v0.55.md`
 
 ## Product acceptance target
 
@@ -57,6 +57,6 @@ The product is a kana-to-Japanese-text decoder. It accepts pure kana and emits a
 
 ## Verification status
 
-The v0.54 source and test changes are committed to the development branch. Latest relevant Actions run #970 is queued. The final renderer span-coverage guard, public-header guard, Sudachi V1 conjugation metadata correction, dictionary-backed inflection tests and the `SemanticDelta` build fix were committed after the earlier runs, The new inflection-chain tests and output persistence fix require CI confirmation on the latest PR head. Golden-corpus parity, held-out quality, target-PC latency and Peak RSS have not yet been verified. Therefore this status does not mark practical operation as complete.
+The v0.55 source and test changes are committed to the development branch. Actions run #998 failed during Build because `tests/test_engine.cpp` still called the removed Japanese-specific `StreamingSession::append`; the test now uses provider-decoded paths with `append_decoded`. The earlier #992 run reached CTest and exposed Pack-load failures plus one malformed Sudachi TSV test delimiter. Loader diagnostics, active Release assertions and the delimiter correction are now committed; a fresh final-head CI run is required. Golden-corpus parity, held-out quality, target-PC latency and Peak RSS remain unverified, so practical operation is not yet complete.
 
 The separate SURGE repository and its development branches are not modified by this work.
