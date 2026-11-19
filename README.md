@@ -48,6 +48,7 @@
 - tools/evaluate_ablation.py は全読みを覆う単一span候補に限定し、形態素スコア・combined local score・SURGEの根拠付き解決を比較します。複数形態素文の正解token alignmentを推測しません。
 
 ## 仕様
+- v0.36: docs/SPECIFICATION_v0.34.md（v0.36追記）
 - v0.34: docs/SPECIFICATION_v0.34.md
 - v0.33: docs/SPECIFICATION_v0.33.md
 - v0.32: docs/SPECIFICATION_v0.32.md
@@ -66,4 +67,5 @@
 - Licensing: docs/LICENSING_POLICY.md、docs/THIRD_PARTY_COMPONENTS.md
 
 
-- v0.35: 実データ評価で改善が見られたSURGEクラスタ診断モデルのsidecar serializerを追加。train-only cluster / distance-conditioned evidence / dev thresholdをバージョン付きTSVとSHA-256 manifestへ出力。現段階では実験用であり本番decoderは読み込まない。
+- v0.35: SURGEクラスタsidecar serializerを追加。train-only cluster / distance-conditioned evidence / dev thresholdをバージョン付きTSVとSHA-256 manifestへ出力。
+- v0.36: C++ sidecar loader/scorerを追加し、予測済み履歴に基づくSURGE Cluster単独・N-gram併用の全文評価を実装。既定無効・Pack非同梱の実験機能。N-gram gateの相対証拠スコアも修正。CER改善は実Pack評価で確認するまで未確定。
