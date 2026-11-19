@@ -298,8 +298,8 @@ int main() {
     assert(entity_result.committed);
     assert(entity_result.output == "今日は2026年11月22日の15時20分です");
     assert(entity_result.metrics.typed_entities_found == 2);
-    assert(entity_result.metrics.typed_entity_evidence_added == 1);
-    assert(entity_result.metrics.selected_typed_entity_evidence == 1);
+    assert(entity_result.metrics.typed_entity_evidence_added == 2);
+    assert(entity_result.metrics.selected_typed_entity_evidence == 2);
     assert(entity_result.metrics.typed_entities_persisted == 2);
   }
 
