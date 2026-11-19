@@ -634,3 +634,12 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - POS scoringを `contextual_score()` に変更し、予測済みPOS履歴に対する観測文脈Evidenceだけを反映する。
 - 合成回帰テストではPOS unigramが候補甲を強く支持する一方、直前POS bigramが候補乙を支持する条件を作り、文脈側の候補乙が選ばれることを確認する。
 - この修正は評価用POS scorerを有効にした場合のみ影響する。通常APIの既定値、Language Pack、メモリ上限は変更しない。実Pack CERへの効果はActions評価後に判断する。
+
+
+## 56. v0.40.3 正解候補生存診断
+
+- `evaluate_sequential_corpus.cpp` にtest split限定の候補生存診断を追加。各gold tokenの正解表層が辞書ラティス、形態素top-8、実際のCandidateScoreTrace（Beam展開時）、最終best pathのどこまで到達したかを追跡する。
+- 脱落数を `lattice_missing` / `shortlist_drop` / `expansion_drop` / `final_selection_drop` に分類し、段階別coverageもJSON出力する。
+- gold情報はdecode_reading呼び出しへ渡さず、完了後のspan/surface照合だけに利用。dev校正ループには診断を挿入せず、凍結済みselected policyに対して一度だけ計測する。
+- 既存trace上限4096件/文を利用し、DecoderOptions・Pack・通常実行時の挙動は変更しない。
+- CTest統合テストにJSON契約と範囲検証を追加。CI実行前のため、ビルド・実測結果は未確定。
