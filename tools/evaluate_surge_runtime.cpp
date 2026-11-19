@@ -194,6 +194,11 @@ int main(int argc, char** argv) {
     return 2;
   }
 
+  kana_decoder::SurgeRuntimeConfig calibrated_policy;
+  if (argc == 6 && !load_decision_policy(argv[5], calibrated_policy)) {
+    std::cerr << "invalid decision policy file\\n";
+    return 2;
+  }
   std::size_t runtime_failures = 0;
   std::size_t exact_top1 = 0, exact_surge = 0, top1_distance = 0, surge_distance = 0;
   std::size_t reference_points = 0, overrides = 0, deferred = 0, decode_failures = 0;
@@ -230,12 +235,8 @@ int main(int argc, char** argv) {
     config.max_journal_payload_bytes = 1024U * 1024U;
     config.max_journal_identity_bytes = 512U * 1024U;
     config.remove_journal_on_destroy = true;
-    if (argc == 6 && !load_decision_policy(argv[5], config)) {
-      ++runtime_failures;
-      ++deferred;
-      surge_distance += codepoints(item.expected).size();
-      continue;
-    }
+    config.recognition_family_weights = calibrated_policy.recognition_family_weights;
+    config.normalization_renderer_score = calibrated_policy.normalization_renderer_score;
     kana_decoder::SurgeNormalizationRuntime runtime(config);
     std::string runtime_error;
     if (!runtime.open(runtime_error)) {
