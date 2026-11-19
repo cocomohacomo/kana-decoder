@@ -307,6 +307,11 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   result.metrics.entities = candidates.size();
 
   std::vector<std::pair<std::string, std::string>> contradictions;
+  std::vector<std::string> contradiction_relation_ids;
+  ::surge::SemanticDelta conflict_delta;
+  conflict_delta.delta_id = prefix + "/contradiction-delta";
+  conflict_delta.idempotency_key = prefix + "/contradiction-idempotency";
+  conflict_delta.expected_state_version = journal_->state_version();
   for (auto left = candidates.begin(); left != candidates.end(); ++left) {
     auto right = left;
     ++right;
@@ -320,32 +325,21 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
         }
         const auto relation_id = prefix + "/contradicts/" +
             id_component(left->second.claim_id + right->second.claim_id);
-        ::surge::SemanticDelta conflict;
-        conflict.delta_id = relation_id + "/delta";
-        conflict.idempotency_key = relation_id + "/key";
-        conflict.expected_state_version = journal_->state_version();
-        conflict.relations.push_back({{relation_id, ::surge::RelationKind::Contradicts,
+        conflict_delta.relations.push_back({{relation_id, ::surge::RelationKind::Contradicts,
             left->second.claim_id, right->second.claim_id}});
-        const auto conflict_result = graph_->apply(conflict);
-        if (!conflict_result.committed) {
-          result.error = "SURGE_CONTRADICTION_REJECTED:" + conflict_result.error;
-          return result;
-        }
+        contradiction_relation_ids.push_back(relation_id);
         contradictions.emplace_back(left->second.claim_id, right->second.claim_id);
-        ++result.metrics.contradictions;
       }
     }
   }
 
   if (!contradictions.empty()) {
-    // QuestionRouter commits a new graph state. Snapshot relation IDs first so
-    // its ContextGraph::apply move does not invalidate the iterator being used.
-    std::vector<std::string> contradiction_relation_ids;
-    for (const auto& relation : graph_->relations()) {
-      if (relation.second.kind == ::surge::RelationKind::Contradicts &&
-          relation.first.find(prefix + "/contradicts/") == 0)
-        contradiction_relation_ids.push_back(relation.first);
+    const auto conflict_result = graph_->apply(conflict_delta);
+    if (!conflict_result.committed) {
+      result.error = "SURGE_CONTRADICTION_REJECTED:" + conflict_result.error;
+      return result;
     }
+    result.metrics.contradictions = contradictions.size();
     for (const auto& relation_id : contradiction_relation_ids) {
       const auto routed = ::surge::QuestionRouter::route(*graph_, relation_id, "kana-normalization-v1");
       if (!routed.committed) {
