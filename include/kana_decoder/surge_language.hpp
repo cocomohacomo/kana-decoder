@@ -120,6 +120,7 @@ struct Entity {
   std::int64_t value = 0;
   std::int64_t secondary = 0;
   std::int64_t tertiary = 0;
+  std::uint8_t decimal_places = 0;
   bool valid = false;
 };
 
@@ -227,6 +228,11 @@ class LanguageState {
 };
 
 enum class NumericStyle : std::uint8_t { Arabic, GroupedArabic };
+struct ParsedNumber {
+  std::int64_t mantissa = 0;
+  std::uint8_t decimal_places = 0;
+};
+bool parse_japanese_number(std::string_view reading, ParsedNumber& result);
 bool render_entity(const Entity& entity, NumericStyle style, std::string& output);
 std::string terminal_punctuation(DiscourseAct act, PunctuationStyle style);
 
