@@ -157,6 +157,7 @@ public:
    std::size_t max_total_edges=4096,std::size_t max_total_candidates=32768,
    bool* resource_limit_exceeded=nullptr) const;
  std::size_t size() const { return entry_count_; }
+ void build_candidate_pos_index();
  std::string candidate_pos(const std::string& candidate_id) const;
 private:
  struct Node { std::unordered_map<std::string,std::size_t> next; std::vector<LatticeCandidate> values; };
