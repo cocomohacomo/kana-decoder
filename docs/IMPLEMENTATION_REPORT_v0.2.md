@@ -370,3 +370,19 @@ Expanded tests in tests/test_language_pack.cpp now cover:
 This stage adds conformance checks only. It does not alter candidate generation, ranking, morphology, scoring, or rendering policy. The following remain open: trie ordering fixtures, unknown-kana fallback policy, explicit lattice edge/candidate cap tests, expansion-budget exhaustion, Pack-load failure atomicity, golden corpus parity and full edge-device resource measurements.
 
 The GitHub Actions run triggered by this change must complete before build/test success is reported. No accuracy, latency, RSS or package-size improvement is claimed.
+
+
+## 17. Japanese Language Set conformance fixtures (v0.47)
+
+Added `tests/test_japanese_language_set.cpp` and registered `japanese_language_set_conformance_tests` in CTest. The synthetic fixture verifies:
+- deterministic cost ordering for dictionary candidates;
+- suppression of per-codepoint kana fallback when a dictionary match exists at the same start position;
+- explicit `kana:` fallback for an unknown code point;
+- candidate-ceiling and edge-ceiling exhaustion reporting;
+- morphology expansion-budget exhaustion returning no partial best path.
+
+The test fixture is independent of the shipped Japanese dictionary, so it locks down the generation and resource-limit contract without depending on pack contents.
+
+Remaining architecture work: common host headers still expose Japanese implementation types and the generic streaming session API still needs a provider-neutral boundary. This v0.47 change adds conformance coverage only; no recognition weights, ranking, candidate generation policy, or output rendering policy were intentionally changed.
+
+CI for this new target is pending. Golden-corpus parity and CPU/RSS/latency measurements are also pending.
