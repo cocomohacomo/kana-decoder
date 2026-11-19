@@ -207,6 +207,8 @@ int main(int argc, char** argv) {
   std::size_t exact_top1 = 0, exact_surge = 0, top1_distance = 0, surge_distance = 0;
   std::size_t reference_points = 0, overrides = 0, deferred = 0, decode_failures = 0;
   std::size_t input_points = 0;
+  std::size_t typed_entities_found = 0, typed_entity_evidence_added = 0;
+  std::size_t selected_typed_entity_evidence = 0, typed_entities_persisted = 0;
   const auto started = std::chrono::steady_clock::now();
   for (std::size_t case_index = 0; case_index < cases.size(); ++case_index) {
     const auto& item = cases[case_index];
@@ -250,6 +252,10 @@ int main(int argc, char** argv) {
       continue;
     }
     const auto normalized = runtime.normalize(item.reading, paths, true);
+    typed_entities_found += normalized.metrics.typed_entities_found;
+    typed_entity_evidence_added += normalized.metrics.typed_entity_evidence_added;
+    selected_typed_entity_evidence += normalized.metrics.selected_typed_entity_evidence;
+    typed_entities_persisted += normalized.metrics.typed_entities_persisted;
     if (!normalized.committed) {
       ++deferred;
       surge_distance += codepoints(item.expected).size();
@@ -292,7 +298,11 @@ int main(int argc, char** argv) {
       << ",\"overrides\":" << overrides
       << ",\"deferred\":" << deferred
       << ",\"runtime_failures\":" << runtime_failures
-      << ",\"decode_failures\":" << decode_failures << "}"
+      << ",\"decode_failures\":" << decode_failures
+      << ",\"typed_entities_found\":" << typed_entities_found
+      << ",\"typed_entity_evidence_added\":" << typed_entity_evidence_added
+      << ",\"selected_typed_entity_evidence\":" << selected_typed_entity_evidence
+      << ",\"typed_entities_persisted\":" << typed_entities_persisted << "}"
       << ",\"elapsed_seconds\":" << elapsed
       << ",\"sentences_per_second\":" << (elapsed > 0.0 ? cases.size() / elapsed : 0.0)
       << ",\"seconds_per_1000_input_codepoints\":"
