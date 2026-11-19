@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <vector>
+#include "kana_decoder/engine.hpp"
 
 namespace kana_decoder::surge {
 
@@ -68,6 +70,7 @@ enum class PunctuationStyle : std::uint8_t { Japanese, ASCII, Minimal };
 
 struct Hypothesis {
   Id id;
+  Id candidate_id;
   Span span;
   Text surface;
   Label interpretation;
@@ -194,6 +197,9 @@ class LanguageState {
   bool add_commit_span(const CommitSpan& value);
 
   const Hypothesis* find_hypothesis(std::string_view id) const;
+  const Hypothesis* find_hypothesis_for_candidate(std::uint16_t start, std::uint16_t end,
+                                                   std::string_view candidate_id,
+                                                   std::string_view surface) const;
   const Entity* find_entity(std::string_view id) const;
   const Evidence* find_evidence(std::string_view id) const;
   bool aggregate_evidence(std::string_view hypothesis_id, std::uint64_t revision,
@@ -226,6 +232,16 @@ class LanguageState {
   std::size_t evidence_count_ = 0, constraint_count_ = 0, decision_count_ = 0, revision_count_ = 0;
   std::size_t commit_span_count_ = 0;
 };
+
+struct PathRerankMetrics {
+  std::size_t supported_paths = 0;
+  bool order_changed = false;
+  double best_evidence_score = 0.0;
+};
+bool rerank_paths(std::vector<::kana_decoder::DecodedPath>& paths,
+                  const LanguageState& state, const EvidencePolicy& policy,
+                  std::uint64_t revision, double evidence_weight,
+                  PathRerankMetrics* metrics = nullptr);
 
 enum class NumericStyle : std::uint8_t { Arabic, GroupedArabic };
 struct ParsedNumber {
