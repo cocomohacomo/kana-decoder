@@ -266,6 +266,18 @@ int main(int argc, char** argv) {
       << "{\"mode\":\"surge_core_real_data_evaluation\""
       << ",\"split\":\"" << split << "\""
       << ",\"training_sequences_used\":" << (argc >= 5 ? "true" : "false")
+      << ",\"decision_policy_used\":" << (argc == 6 ? "true" : "false")
+      << ",\"decision_policy\":{\"normalization_renderer\":"
+      << calibrated_policy.normalization_renderer_score << ",\"family_weights\":{";
+  {
+    bool first = true;
+    for (const auto& item : calibrated_policy.recognition_family_weights) {
+      if (!first) std::cout << ",";
+      first = false;
+      std::cout << "\\"" << item.first << "\\":" << item.second;
+    }
+  }
+  std::cout << "}}"
       << ",\"cases\":" << cases.size()
       << ",\"input_codepoints\":" << input_points
       << ",\"reference_codepoints\":" << reference_points
