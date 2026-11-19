@@ -291,16 +291,58 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   recognition_policy.max_evidence_per_candidate = 2048;
   recognition_policy.minimum_margin = 0.0;
   recognition_policy.family_weights = config_.recognition_family_weights;
-  // Retrieve only the active Focus cluster, with hard bounds. This is a
-  // read-only query over SURGE's retained graph, not an adapter-owned memory.
+  // Bounded cross-cluster retrieval. The adapter reads SURGE's graph directly;
+  // it keeps no shadow memory. Scan both ends of the ordered relation index so
+  // old and recent stream records remain discoverable under a fixed work cap.
   std::map<std::string, std::size_t> focused_surface_hits;
   std::vector<std::string> focused_claim_roots;
-  if (graph_->focus() && !graph_->focus()->cluster_id.empty()) {
-    const auto focused_cluster = graph_->focus()->cluster_id;
-    for (const auto& relation : graph_->relations()) {
-      if (relation.second.kind != ::surge::RelationKind::Contains ||
-          relation.second.from != focused_cluster) continue;
-      const auto member = graph_->nodes().find(relation.second.to);
+  std::set<std::string> retrieval_clusters;
+  const auto active_focus = graph_->focus();
+  std::vector<const ::surge::GraphRelation*> relation_window;
+  std::set<std::string> relation_window_ids;
+  constexpr std::size_t kRelationWindow = 4096;
+  const auto& all_relations = graph_->relations();
+  for (auto it = all_relations.begin(); it != all_relations.end() &&
+       relation_window.size() < kRelationWindow; ++it) {
+    relation_window.push_back(&it->second);
+    relation_window_ids.insert(it->first);
+  }
+  for (auto it = all_relations.rbegin(); it != all_relations.rend() &&
+       relation_window.size() < kRelationWindow * 2; ++it) {
+    if (relation_window_ids.insert(it->first).second)
+      relation_window.push_back(&it->second);
+  }
+  result.metrics.retrieval_relations_scanned = relation_window.size();
+  result.metrics.retrieval_truncated = all_relations.size() > relation_window.size();
+
+  if (active_focus && !active_focus->cluster_id.empty()) {
+    std::vector<std::pair<std::string, std::size_t>> cluster_queue;
+    retrieval_clusters.insert(active_focus->cluster_id);
+    cluster_queue.push_back({active_focus->cluster_id, 0});
+    for (std::size_t cursor = 0; cursor < cluster_queue.size() &&
+         retrieval_clusters.size() < 16; ++cursor) {
+      const auto current = cluster_queue[cursor];
+      if (current.second >= 2) continue;
+      for (const auto* relation : relation_window) {
+        if (relation->kind != ::surge::RelationKind::Contains &&
+            relation->kind != ::surge::RelationKind::AgreesWith &&
+            relation->kind != ::surge::RelationKind::ConflictsWith) continue;
+        std::string neighbor;
+        if (relation->from == current.first) neighbor = relation->to;
+        else if (relation->to == current.first) neighbor = relation->from;
+        if (neighbor.empty() || retrieval_clusters.count(neighbor)) continue;
+        const auto node = graph_->nodes().find(neighbor);
+        if (node == graph_->nodes().end() ||
+            node->second.kind != ::surge::NodeKind::Cluster) continue;
+        retrieval_clusters.insert(neighbor);
+        cluster_queue.push_back({neighbor, current.second + 1});
+        if (retrieval_clusters.size() >= 16) break;
+      }
+    }
+    for (const auto* relation : relation_window) {
+      if (relation->kind != ::surge::RelationKind::Contains ||
+          retrieval_clusters.count(relation->from) == 0) continue;
+      const auto member = graph_->nodes().find(relation->to);
       if (member == graph_->nodes().end() ||
           member->second.kind != ::surge::NodeKind::Claim) continue;
       const auto surface = claim_surface(member->second);
@@ -313,7 +355,10 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   result.metrics.focus_retrieved_claims = focused_claim_roots.size();
 
   std::set<std::string> dependency_impacts;
-  if (!focused_claim_roots.empty()) {
+  // DependencyEngine currently validates the graph's dependency records as a
+  // whole. Refuse the pass above a hard graph-size budget rather than allowing
+  // an unbounded edge-device scan.
+  if (!focused_claim_roots.empty() && graph_->nodes().size() <= 4096) {
     std::map<std::string, ::surge::ClaimValidityRecord> validity;
     for (const auto& item : graph_->nodes()) {
       if (item.second.kind != ::surge::NodeKind::Claim) continue;
