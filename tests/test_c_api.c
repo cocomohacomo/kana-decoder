@@ -7,7 +7,7 @@ int main(void) {
     kd_engine *engine = kd_engine_create();
     char output[64] = {0};
     assert(engine != NULL);
-    const char *journal = "/tmp/kana-decoder-c-api-surge-test.journal";
+    const char *journal = "kana-decoder-c-api-surge-test.journal";
     remove(journal);
     assert(kd_engine_set_surge_journal(engine, journal) == 0);
     assert(kd_engine_load_pack(engine, KANA_DECODER_PACK_DIR) == 0);
@@ -50,5 +50,6 @@ int main(void) {
     assert(kd_streaming_commit_best(session, committed, sizeof(committed), &revision) == KD_ERR_INVALID_ARGUMENT);
     assert(kd_streaming_reset(session) == 0);
     kd_streaming_session_destroy(session);
+    remove(journal);
     return 0;
 }
