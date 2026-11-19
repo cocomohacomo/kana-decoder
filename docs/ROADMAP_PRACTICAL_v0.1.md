@@ -2,7 +2,7 @@
 
 更新日: 2026-11-19
 対象ブランチ: `refactor/surge-core-as-runtime`
-対象仕様: `SPECIFICATION_v0.53.md`
+対象仕様: `SPECIFICATION_v0.54.md`
 
 ## 0. 製品ゴール
 
@@ -197,6 +197,7 @@ v0.44のimmutable LanguagePack境界を前提に、次のコード変更はP0の
 - [x] Support explicit conjugation/inflection header aliases for compatible CSV sources.
 - [x] Normalize `*` conjugation metadata sentinels to empty values.
 - [x] Add dictionary-backed `回っ` and `食べて` decode/render regression cases; preserve exact dictionary surface and okurigana.
+- [x] Add multi-token `回っ + て → 回って` and `食べて + いる → 食べている` decoder/renderer regression cases.
 - [x] Keep renderer non-generative: do not guess inflection from a lemma or alter the selected surface.
 - [ ] Run final-head CI and all static/shared/C/Python tests.
 - [ ] Measure inflected-form Candidate Recall@N, held-out CER and sentence exact match using a licensed production dictionary.
@@ -209,3 +210,11 @@ v0.44のimmutable LanguagePack境界を前提に、次のコード変更はP0の
 - [x] Persist normalization proposal/commit as typed Evidence nodes in the same SemanticDelta transaction as Claims/Evidence.
 - [x] Attach output Evidence to a deterministic `NORMALIZATION_OUTPUT` cluster.
 - [ ] Verify build, test, journal recovery and idempotent replay on the final PR head.
+
+
+## 15. v0.54 Japanese inflection-chain conformance
+
+- [x] Verify `回っ` plus connective particle `て` renders as `回って`.
+- [x] Verify `食べて` plus auxiliary `いる` renders as `食べている`.
+- [x] Verify the selected path covers the full reading with contiguous spans.
+- [ ] Measure inflection-chain Candidate Recall@N and streaming stability on held-out licensed dictionary data.
