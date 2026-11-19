@@ -37,9 +37,11 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
             self.assertEqual(dev_result["split"], "dev")
             self.assertFalse(dev_result["test_split_used_for_selection"])
             self.assertEqual(dev_result["morphology_only"]["cases"], 1)
-            self.assertEqual(dev_result["configurations_evaluated"], 216)
+            self.assertEqual(dev_result["configurations_evaluated"], 144)
             self.assertGreater(dev_result["selected_smoothing_alpha"], 0.0)
             self.assertGreaterEqual(dev_result["selected_pos_context_weight"], 0.0)
+            self.assertGreaterEqual(dev_result["selected_cluster_weight"], 0.0)
+            self.assertIn(dev_result["selected_policy"], {"morphology", "ngram_only", "cluster_only", "combined"})
             self.assertTrue(calibration.is_file())
             completed = subprocess.run(
                 [str(executable), str(pack), str(train), str(corpus),
@@ -51,6 +53,7 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
             self.assertEqual(result["split"], "test")
             self.assertGreaterEqual(result["dev_selected_context_weight"], 0.0)
             self.assertGreaterEqual(result["dev_selected_pos_context_weight"], 0.0)
+            self.assertGreaterEqual(result["dev_selected_cluster_weight"], 0.0)
             self.assertEqual(result["source_test_tokens"], 2)
             self.assertEqual(result["morphology_only"]["exact_matches"], 0)
             self.assertEqual(result["trained_unigram_left_context"]["exact_matches"], 1)
