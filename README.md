@@ -7,6 +7,8 @@
 - Context-masked n-gram候補順位付け、曖昧性保持、かなフォールバック
 - 接続行列、品詞・活用情報を含む候補デコード
 - C++ / C APIストリーミングセッション、暫定出力、共通接頭辞commit、best-path commit
+- 不変Language Pack snapshot、Manifest digest、Pack-mediated decode/stream append、Engine/Session間の共有参照による辞書・モデル複製の抑制
+- SURGE正文化Runtimeの数詞Entity解析・表記生成をLanguage Adapterへ委譲
 - pip install可能なPython ctypesパッケージ、N-best構造化結果、ストリーミングAPI
 - 出力バッファ不足時に入力・revision・commit状態を変更しないトランザクション動作
 - 軽度誤り補正、UTF-8検証、Pack Manifest / SHA-256 / license検証（C++側は容量上限を共有しSHA-256をストリーミング検証）
@@ -80,6 +82,7 @@
 
 ## SURGE Language / Normalization Runtime migration
 
+- v0.44: [Immutable Language Pack Runtime](docs/SPECIFICATION_v0.44.md). Immutable Pack identity/digest, Pack-mediated decode and streaming providers, shared snapshot pinning across engines/sessions, and Language Adapter-owned numeric realization. This is an incremental boundary; morphology and complete surface rendering migration remain in progress.
 - v0.43: [SURGE Language and Normalization Runtime Migration](docs/SPECIFICATION_v0.43.md). Language Adapter and Normalization Adapter are both owned by SURGE. Language-specific recognition and rendering resources live in replaceable SURGE Language Sets; kana-decoder remains a thin input/output, compatibility and evaluation host.
 - Framework contract: [SURGE Language Runtime and Replaceable Language Packs v0.1](https://github.com/cocomohacomo/surge/blob/feat/language-runtime-core/docs/surge/LANGUAGE_RUNTIME_AND_REPLACEABLE_LANGUAGE_PACKS_v0.1.md).
 
