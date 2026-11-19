@@ -22,7 +22,7 @@ The internal C++ contract is `kana_decoder::LanguagePack`:
 - incremental streaming append provider;
 - language adapter for candidate interpretation and entity realization.
 
-The concrete Japanese Pack privately owns its lexicon, n-gram scorer, connection matrix and correction resources. The host receives decoding/append operations, not direct access to these language-specific tables.
+The concrete Japanese Pack implementation is separated under `language_sets/ja-JP/` and privately owns its lexicon, n-gram scorer, connection matrix and correction resources. The generic dispatcher in `src/language_pack.cpp` selects a provider from the manifest language tag. The host receives decoding/append operations, not direct access to these language-specific tables. The current provider is compiled into the library; dynamic module loading is not yet implemented.
 
 The contract is deliberately read-only after loading. A decoder engine owns a `shared_ptr<const LanguagePack>`; each streaming session pins the same snapshot. Session creation therefore shares the large dictionary and model resources rather than copying them.
 
@@ -48,7 +48,7 @@ The C API remains a compatibility facade. It holds a shared immutable pack refer
 
 The following are still migration work and must not be considered complete:
 
-- moving the current Japanese lattice/morphology implementation out of the host source tree into an independently packaged Language Set module; 
+- extracting the Japanese lattice/morphology implementation into an independently buildable Language Set target rather than compiling it into the main library;
 - completing POS/ngram and correction evidence generation inside the Pack provider rather than retaining transitional decoder implementation code;
 - moving orthographic variants, kana/kanji/katakana/Latin selection, punctuation, spacing, okurigana and inflection realization behind the adapter;
 - providing a stable cross-language runtime ABI and a second independently implemented language pack;
