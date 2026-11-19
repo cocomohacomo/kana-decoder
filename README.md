@@ -8,7 +8,7 @@
 - 接続行列、日本語固有の品詞・活用情報をLanguage Set内で解釈し、汎用CandidateではMorphologyDescriptorとして保持
 - C++ / C APIストリーミングセッション、暫定出力、共通接頭辞commit、best-path commit
 - 不変Language Pack snapshot、Manifest digest、Pack-mediated decode/stream append、Engine/Session間の共有参照による辞書・モデル複製の抑制
-- Japanese recognition sources (lattice decoder, morphology, lexicon trie, n-gram/connection scorer, correction and Pack loader) are built in a dedicated Language Set object target\n- SURGE正文化Runtimeの数詞Entity解析・表記生成をLanguage Adapterへ委譲し、Proposal/Prefix Commit/Final CommitをContextGraphの再生可能なSemanticDeltaとして永続化
+- Japanese recognition sources (lattice decoder, morphology, lexicon trie, n-gram/connection scorer, correction and Pack loader) are built in a dedicated Language Set object target\n- SURGE正文化Runtimeの数詞・日付・時刻・範囲Entity解析をLanguage Adapterへ委譲し、構造化Entity/EvidenceとProposal/Prefix Commit/Final CommitをContextGraphの再生可能なSemanticDeltaとして永続化
 - pip install可能なPython ctypesパッケージ、N-best構造化結果、ストリーミングAPI
 - 出力バッファ不足時に入力・revision・commit状態を変更しないトランザクション動作
 - 軽度誤り補正、UTF-8検証、Pack Manifest / SHA-256 / license検証（C++側は容量上限を共有しSHA-256をストリーミング検証）
@@ -50,6 +50,7 @@
 - tools/evaluate_ablation.py は全読みを覆う単一span候補に限定し、形態素スコア・combined local score・SURGEの根拠付き解決を比較します。複数形態素文の正解token alignmentを推測しません。
 
 ## 仕様
+- v0.57: [Typed Japanese entities and SURGE graph integration](docs/SPECIFICATION_v0.57.md)
 - v0.56: [Provider-neutral Candidate morphology and replayable normalization commits](docs/SPECIFICATION_v0.56.md)
 - v0.55: [Immutable Language Pack and Japanese Language Set migration](docs/SPECIFICATION_v0.55.md)
 - v0.39: docs/SPECIFICATION_v0.39.md
