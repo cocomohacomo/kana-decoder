@@ -472,6 +472,13 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     return result;
   }
   const std::string selected_path_name = decision.selected_candidate_id;
+  for (const auto& selected_candidate : recognition_candidates) {
+    if (selected_candidate.candidate_id != selected_path_name) continue;
+    for (const auto& evidence : selected_candidate.evidence)
+      if (evidence.family == "typed_entity" && evidence.valid)
+        ++result.metrics.selected_typed_entity_evidence;
+    break;
+  }
   if (selected_path_name.rfind("path-", 0) != 0) {
     result.error = "SURGE_RECOGNITION_RESULT_INVALID";
     return result;
