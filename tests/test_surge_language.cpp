@@ -224,6 +224,26 @@ int main() {
                                 structured_options, structured_output));
   assert(structured_output == "今日は2026年11月22日の15時20分です");
 
+  ::kana_decoder::DecodedPath partial_range_path;
+  ::kana_decoder::DecodedToken range_prefix;
+  range_prefix.start = 0; range_prefix.end = 4;
+  range_prefix.candidate.id = "range-prefix";
+  range_prefix.candidate.surface = "価格は";
+  partial_range_path.tokens.push_back(range_prefix);
+  ::kana_decoder::DecodedToken range_value;
+  range_value.start = 4; range_value.end = 9;
+  range_value.candidate.id = "range-value";
+  range_value.candidate.surface = "範囲";
+  partial_range_path.tokens.push_back(range_value);
+  ::kana_decoder::DecodedToken range_suffix;
+  range_suffix.start = 9; range_suffix.end = 11;
+  range_suffix.candidate.id = "range-suffix";
+  range_suffix.candidate.surface = "です";
+  partial_range_path.tokens.push_back(range_suffix);
+  assert(ja_adapter.render_path(partial_range_path, "ねだんはさんからごです",
+                                structured_options, structured_output));
+  assert(structured_output == "価格は3〜5です");
+
   Entity date;
   assert(date.id.assign("date-1"));
   date.kind = EntityKind::Date;
