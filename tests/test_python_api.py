@@ -1,4 +1,5 @@
-import pathlib,sys,unittest
+import pathlib,sys,unittest,faulthandler
+faulthandler.enable()
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/"python"))
 from kana_decoder import KanaDecoder,DecodedPath
