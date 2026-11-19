@@ -13,13 +13,6 @@ bool valid_confidence(double value) {
 }
 bool valid_score(double value) { return std::isfinite(value); }
 
-template <typename T, std::size_t N>
-bool unique_id(const std::array<T, N>& values, std::size_t count, const Id& id) {
-  if (id.empty()) return false;
-  for (std::size_t i = 0; i < count; ++i) if (values[i].id.equals(id.str())) return false;
-  return true;
-}
-
 bool valid_date(std::int64_t year, std::int64_t month, std::int64_t day) {
   if (year < 1 || year > 9999 || month < 1 || month > 12 || day < 1) return false;
   static constexpr int days[] = {31,28,31,30,31,30,31,31,30,31,30,31};
@@ -180,7 +173,9 @@ bool render_entity(const Entity& entity, NumericStyle style, std::string& output
       output = integer_text(entity.value, style) + entity.unit.str();
       break;
     case EntityKind::Currency:
-      output = entity.unit.str() + integer_text(entity.value, style);
+      output = entity.unit.equals("円") || entity.unit.equals("％") || entity.unit.equals("%")
+                   ? integer_text(entity.value, style) + entity.unit.str()
+                   : entity.unit.str() + integer_text(entity.value, style);
       break;
     case EntityKind::Date:
       if (!valid_date(entity.value, entity.secondary, entity.tertiary)) return false;
