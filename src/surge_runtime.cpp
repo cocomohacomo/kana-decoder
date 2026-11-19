@@ -681,7 +681,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   // no arbitrary journal_events field; represent the normalization record as
   // typed Evidence so it is committed atomically with the selected Claims.
   delta.nodes.push_back({{output_event_id, ::surge::NodeKind::Evidence,
-      "EVENT=" + output_event_kind + ";" + commit_payload.str(), {}}});
+      std::string("EVENT=") + output_event_kind + ";" + commit_payload.str(), {}}});
   std::string output_cluster;
   std::string output_cluster_error;
   if (!graph_->append_cluster_membership(delta, context_cluster_id_,
