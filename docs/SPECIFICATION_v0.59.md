@@ -21,6 +21,10 @@ Make the typed_entity Evidence family introduced in v0.58 part of the determinis
 - Selection remains deterministic: minimum CER, then maximum sentence exact, then fixed preset order.
 - The chosen policy and provenance hashes are written to the calibration report.
 
+## 3. Real-data observability
+
+The SURGE real-data evaluator now aggregates and reports four typed-entity counters inside surge_core: detected entities, pre-decision evidence observations, selected-path typed-entity observations, and persisted typed entities. The calibrator copies these counters into each candidate row so weight selection can be interpreted alongside the actual evidence exposure. Older evaluator JSON remains accepted with zero defaults for these optional counters.
+
 ## 3. Test coverage
 
 The fake evaluator test verifies:
