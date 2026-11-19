@@ -221,3 +221,41 @@ recovery after journal replay.
 - [x] Conformance tests added for unified surface choice and cluster replay.
 - [ ] CI for the latest SURGE and kana-decoder commits is pending.
 - [ ] Real UD Japanese-GSD dev calibration and held-out test metrics remain pending.
+
+
+## 11. Bounded cross-cluster retrieval and dependency-aware reassessment
+
+The next retrieval stage is implemented in the kana-decoder integration branch
+without modifying the SURGE main-development repository.
+
+- Reads the current Core Focus and traverses at most 16 related Clusters, with
+  traversal depth capped at 2.
+- Reads a bounded relation window (up to 8,192 relations, from both ends of the
+  ordered index) and reports scanned count/truncation.
+- Retrieves retained Claim surfaces from those Clusters and injects
+  `active_focus` evidence into the single `UnifiedDecision`.
+- Builds the latest ClaimValidity view and invokes the existing vendored
+  `DependencyEngine::evaluate` with limits of 128 impacted nodes and 2,048
+  predicate operations. The pass is skipped when the graph exceeds 4,096 nodes.
+- When a focused historical Claim is dependency-impacted, adds
+  `dependency_reassessment` evidence to the matching current candidate.
+- Routes Claim contradictions to their interpretation Cluster (not the
+  session root), allowing QuestionRouter to set Focus on the relevant semantic
+  Cluster.
+- Exposes retrieval counts, dependency trigger/impact counts and truncation
+  state through runtime metrics.
+
+The adapter does not create a second persistent context store. All retrieved
+records, Focus, Questions, Dependencies, validity and Cluster memberships are
+read from the vendored SURGE Core graph/journal. The vendored Core snapshot is
+not edited in this stage; the SURGE main repository remains untouched.
+
+### Added regression coverage
+A two-packet test creates a contradiction and Focus in the first packet, then
+presents an otherwise tied previously retained surface against a new surface.
+The second packet must select the retained Focus-supported surface and report
+retrieved Claims, dependency triggers/impacts and bounded relation scanning.
+
+### Verification status
+- [x] Adapter implementation and regression test committed.
+- [ ] Latest C++/Python CI and real-data evaluation are pending.
