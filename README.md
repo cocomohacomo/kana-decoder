@@ -82,3 +82,9 @@
 
 - v0.43: [SURGE Language and Normalization Runtime Migration](docs/SPECIFICATION_v0.43.md). Language Adapter and Normalization Adapter are both owned by SURGE. Language-specific recognition and rendering resources live in replaceable SURGE Language Sets; kana-decoder remains a thin input/output, compatibility and evaluation host.
 - Framework contract: [SURGE Language Runtime and Replaceable Language Packs v0.1](https://github.com/cocomohacomo/surge/blob/feat/language-runtime-core/docs/surge/LANGUAGE_RUNTIME_AND_REPLACEABLE_LANGUAGE_PACKS_v0.1.md).
+
+
+## SURGE Core decision and evaluation
+
+- [SURGE migration implementation report v0.2](docs/IMPLEMENTATION_REPORT_v0.2.md): Core-owned recognition/normalization decisions and the real-corpus evaluation CLI.
+- Build `kana_decoder_surge_eval` and run `./build/kana_decoder_surge_eval packs/ja-lite /path/to/corpus.tsv test` to compare decoder top-1 with SURGE Core output.
