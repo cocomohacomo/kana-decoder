@@ -553,3 +553,21 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - beta × marginによる判定はgap >= margin / betaと等価であり、2つの独立パラメータではなかったため廃止。
 - dev校正は7段階の直接的なgap_thresholdのみを探索し、testには固定値を一度適用する。
 - 校正グリッドの冗長性を除き、閾値の意味と再現性を明確化。精度改善は実コーパス評価の完了後に判断する。
+
+
+## 48. SURGEクラスタ実データ評価とモデルシリアライズ（v0.35）
+
+### 実データ評価（Actions run 44420069367）
+- Sudachi Small + UD Japanese-GSD pinned corpusの実行が成功。train 32,496 sequences、語彙上限2,000、167 clusters、clustered tokens 1,266、最大cluster 24。
+- devでgap threshold 0.0を選択。dev: morphology 46.9443%、cluster-gated 53.8930%。
+- test: candidate coverage 9,774 / 10,317（94.7388%）。morphology 45.2936%、cluster-gated 53.3047%、差 +8.0110ポイント。
+- test Question 8,795、resolved 1,165、abstained 7,630、resolution precision 87.5536%、correct-resolution recall 10.4359%。
+- クラスタ方式は棄権時に形態素順位へfallbackするため、cluster-gated accuracyは全coverage tokenでの最終選択正解率。解決精度とは区別する。
+- 制約: gold token boundaries/readingsを使用。gold neighbor candidate IDs・future contextは不使用。従って候補順位診断であり、raw-kana end-to-end精度の改善値ではない。
+- Native runtime smokeは4ケース中exact 1、CER 1.0、decode failure 0。Peak RSSは約1,392 MiB、上限1,792 MiB以内。Sudachi Pack artifactは149,644,215 bytes。小規模smokeの精度は実用精度を示さない。
+
+### v0.35 sidecar serializer
+- tools/compile_surge_clusters.py と tests/test_compile_surge_clusters.py を追加。
+- バージョン付きTSV、決定的なrecord order、SHA-256 manifest、明示的なresource capsを実装。
+- CI workflowで実データからsidecarを生成し、manifestを検査対象に含める。
+- これはC++ loader/scorer実装前のデータ契約固定であり、本番統合・Pack同梱は未実施。
