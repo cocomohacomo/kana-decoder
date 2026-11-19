@@ -464,6 +464,8 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
 
   result.committed = true;
   result.output = std::move(output);
+  for (const auto& key : best_claims)
+    result.selected_claim_ids.push_back(candidates.at(key).claim_id);
   result.metrics.state_version = journal_->state_version();
   return result;
 }
@@ -489,6 +491,18 @@ bool SurgeNormalizationRuntime::commit_output(const std::string& output,
     return false;
   }
   return true;
+}
+
+bool SurgeNormalizationRuntime::reassess_claim(const std::string& claim_id,
+    const std::string& reference_at, ::surge::TemporalReassessmentRecord& record,
+    std::string& error) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (!opened_ || !graph_ || !journal_ || claim_id.empty() || reference_at.empty()) {
+    error = "SURGE_REASSESSMENT_REQUEST_INVALID";
+    return false;
+  }
+  return graph_->reassess_claim(claim_id, reference_at, journal_->state_version(),
+                                record, error);
 }
 
 std::uint64_t SurgeNormalizationRuntime::state_version() const {
