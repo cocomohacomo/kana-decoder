@@ -4,6 +4,7 @@
 #include <cstring>
 #include <limits>
 #include <string>
+#include <string_view>
 
 namespace kana_decoder::surge {
 namespace {
@@ -22,12 +23,103 @@ bool valid_date(std::int64_t year, std::int64_t month, std::int64_t day) {
   return day <= max_day;
 }
 
-std::string integer_text(std::int64_t value, NumericStyle style) {
-  std::string raw = std::to_string(value);
+std::string grouped_digits(std::string raw, NumericStyle style) {
   if (style == NumericStyle::Arabic || raw.size() <= 3) return raw;
   const std::size_t sign = (!raw.empty() && raw[0] == '-') ? 1 : 0;
   for (std::size_t pos = raw.size(); pos > sign + 3; pos -= 3) raw.insert(pos - 3, ",");
   return raw;
+}
+
+std::string integer_text(std::int64_t value, NumericStyle style) {
+  return grouped_digits(std::to_string(value), style);
+}
+
+std::string decimal_text(std::int64_t mantissa, std::uint8_t places, NumericStyle style) {
+  std::string raw = std::to_string(mantissa);
+  if (places == 0) return grouped_digits(raw, style);
+  const bool negative = !raw.empty() && raw.front() == '-';
+  std::string digits = negative ? raw.substr(1) : raw;
+  if (digits.size() <= places) digits.insert(0, static_cast<std::size_t>(places) + 1 - digits.size(), '0');
+  const std::size_t split = digits.size() - places;
+  std::string integer = digits.substr(0, split);
+  std::string fraction = digits.substr(split);
+  while (!fraction.empty() && fraction.back() == '0') fraction.pop_back();
+  if (fraction.empty()) return grouped_digits((negative ? "-" : "") + integer, style);
+  return grouped_digits((negative ? "-" : "") + integer, style) + "." + fraction;
+}
+
+enum class NumberTokenKind { Digit, SmallUnit, LargeUnit, Decimal };
+struct NumberToken { std::string_view text; std::int64_t value; NumberTokenKind kind; };
+constexpr NumberToken kNumberTokens[] = {
+  {"ろっぴゃく",600,NumberTokenKind::Digit},{"はっぴゃく",800,NumberTokenKind::Digit},
+  {"さんびゃく",300,NumberTokenKind::Digit},{"はっせん",8000,NumberTokenKind::Digit},
+  {"さんぜん",3000,NumberTokenKind::Digit},{"いっせん",1000,NumberTokenKind::Digit},
+  {"じゅっ",10,NumberTokenKind::SmallUnit},{"じっ",10,NumberTokenKind::SmallUnit},
+  {"ひゃく",100,NumberTokenKind::SmallUnit},{"びゃく",100,NumberTokenKind::SmallUnit},
+  {"ぴゃく",100,NumberTokenKind::SmallUnit},{"せん",1000,NumberTokenKind::SmallUnit},
+  {"ぜん",1000,NumberTokenKind::SmallUnit},{"じゅう",10,NumberTokenKind::SmallUnit},
+  {"ちょう",1000000000000LL,NumberTokenKind::LargeUnit},
+  {"おく",100000000,NumberTokenKind::LargeUnit},{"まん",10000,NumberTokenKind::LargeUnit},
+  {"てん",0,NumberTokenKind::Decimal},
+  {"ぜろ",0,NumberTokenKind::Digit},{"れい",0,NumberTokenKind::Digit},
+  {"いち",1,NumberTokenKind::Digit},{"に",2,NumberTokenKind::Digit},
+  {"さん",3,NumberTokenKind::Digit},{"よん",4,NumberTokenKind::Digit},
+  {"しち",7,NumberTokenKind::Digit},{"なな",7,NumberTokenKind::Digit},
+  {"はち",8,NumberTokenKind::Digit},{"ろく",6,NumberTokenKind::Digit},
+  {"きゅう",9,NumberTokenKind::Digit},{"し",4,NumberTokenKind::Digit},
+  {"ご",5,NumberTokenKind::Digit},{"く",9,NumberTokenKind::Digit}
+};
+
+bool safe_add(std::int64_t& target, std::int64_t value) {
+  if ((value > 0 && target > std::numeric_limits<std::int64_t>::max() - value) ||
+      (value < 0 && target < std::numeric_limits<std::int64_t>::min() - value)) return false;
+  target += value;
+  return true;
+}
+bool safe_multiply(std::int64_t a, std::int64_t b, std::int64_t& result) {
+  if (a < 0 || b < 0) return false;
+  if (a != 0 && b > std::numeric_limits<std::int64_t>::max() / a) return false;
+  result = a * b;
+  return true;
+}
+const NumberToken* match_number_token(std::string_view input) {
+  for (const auto& token : kNumberTokens)
+    if (input.substr(0, token.text.size()) == token.text) return &token;
+  return nullptr;
+}
+bool parse_integer_part(std::string_view input, std::int64_t& output) {
+  if (input.empty()) { output = 0; return true; }
+  std::int64_t total = 0, group = 0, pending = -1;
+  std::int64_t last_small = 10000, last_large = std::numeric_limits<std::int64_t>::max();
+  while (!input.empty()) {
+    const auto* token = match_number_token(input);
+    if (!token || token->kind == NumberTokenKind::Decimal) return false;
+    input.remove_prefix(token->text.size());
+    if (token->kind == NumberTokenKind::Digit) {
+      if (pending >= 0) return false;
+      pending = token->value;
+    } else if (token->kind == NumberTokenKind::SmallUnit) {
+      if (token->value >= last_small) return false;
+      const std::int64_t multiplier = pending < 0 ? 1 : pending;
+      std::int64_t part = 0;
+      if (!safe_multiply(multiplier, token->value, part) || !safe_add(group, part)) return false;
+      pending = -1;
+      last_small = token->value;
+    } else {
+      if (token->value >= last_large) return false;
+      if (pending >= 0 && !safe_add(group, pending)) return false;
+      if (group == 0) group = 1;
+      std::int64_t part = 0;
+      if (!safe_multiply(group, token->value, part) || !safe_add(total, part)) return false;
+      group = 0; pending = -1;
+      last_small = 10000;
+      last_large = token->value;
+    }
+  }
+  if (pending >= 0 && !safe_add(group, pending)) return false;
+  if (!safe_add(total, group)) return false;
+  output = total;
+  return true;
 }
 }  // namespace
 
@@ -217,20 +309,53 @@ std::size_t LanguageState::memory_bytes() const {
   return sizeof(*this);
 }
 
+bool parse_japanese_number(std::string_view reading, ParsedNumber& result) {
+  if (reading.empty() || reading.size() > 128) return false;
+  const auto decimal_pos = reading.find("てん");
+  if (decimal_pos != std::string_view::npos &&
+      reading.find("てん", decimal_pos + std::string_view("てん").size()) != std::string_view::npos) return false;
+  const auto integer_part = decimal_pos == std::string_view::npos ? reading : reading.substr(0, decimal_pos);
+  const auto fraction_part = decimal_pos == std::string_view::npos
+                                 ? std::string_view{} : reading.substr(decimal_pos + std::string_view("てん").size());
+  std::int64_t integer = 0;
+  if (!parse_integer_part(integer_part, integer)) return false;
+  std::int64_t fraction = 0;
+  std::uint8_t places = 0;
+  auto remaining = fraction_part;
+  while (!remaining.empty()) {
+    const auto* token = match_number_token(remaining);
+    if (!token || token->kind != NumberTokenKind::Digit || places >= 9) return false;
+    if (fraction > (std::numeric_limits<std::int64_t>::max() - token->value) / 10) return false;
+    fraction = fraction * 10 + token->value;
+    ++places;
+    remaining.remove_prefix(token->text.size());
+  }
+  std::int64_t scale = 1;
+  for (std::uint8_t i = 0; i < places; ++i) {
+    if (scale > std::numeric_limits<std::int64_t>::max() / 10) return false;
+    scale *= 10;
+  }
+  std::int64_t mantissa = 0;
+  if (!safe_multiply(integer, scale, mantissa) || !safe_add(mantissa, fraction)) return false;
+  result.mantissa = mantissa;
+  result.decimal_places = places;
+  return true;
+}
+
 bool render_entity(const Entity& entity, NumericStyle style, std::string& output) {
   if (!entity.valid) return false;
   output.clear();
   switch (entity.kind) {
     case EntityKind::Number:
-      output = integer_text(entity.value, style);
+      output = decimal_text(entity.value, entity.decimal_places, style);
       break;
     case EntityKind::Percent:
-      output = integer_text(entity.value, style) + entity.unit.str();
+      output = decimal_text(entity.value, entity.decimal_places, style) + entity.unit.str();
       break;
     case EntityKind::Currency:
       output = entity.unit.equals("円") || entity.unit.equals("％") || entity.unit.equals("%")
-                   ? integer_text(entity.value, style) + entity.unit.str()
-                   : entity.unit.str() + integer_text(entity.value, style);
+                   ? decimal_text(entity.value, entity.decimal_places, style) + entity.unit.str()
+                   : entity.unit.str() + decimal_text(entity.value, entity.decimal_places, style);
       break;
     case EntityKind::Date:
       if (!valid_date(entity.value, entity.secondary, entity.tertiary)) return false;
@@ -247,12 +372,12 @@ bool render_entity(const Entity& entity, NumericStyle style, std::string& output
       break;
     case EntityKind::Range:
       if (entity.value > entity.secondary) return false;
-      output = integer_text(entity.value, style) + "〜" +
-               integer_text(entity.secondary, style) + entity.unit.str();
+      output = decimal_text(entity.value, entity.decimal_places, style) + "〜" +
+               decimal_text(entity.secondary, entity.decimal_places, style) + entity.unit.str();
       break;
     case EntityKind::Unit:
       if (entity.unit.empty()) return false;
-      output = integer_text(entity.value, style) + entity.unit.str();
+      output = decimal_text(entity.value, entity.decimal_places, style) + entity.unit.str();
       break;
     case EntityKind::Identifier:
       output = entity.raw.str();
