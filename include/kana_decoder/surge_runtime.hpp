@@ -42,6 +42,7 @@ struct SurgeRuntimeMetrics {
   std::size_t dependency_impacted_nodes{0};
   std::size_t retrieval_relations_scanned{0};
   bool retrieval_truncated{false};
+  bool dependency_skipped_budget{false};
   std::uint64_t state_version{0};
 };
 
