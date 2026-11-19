@@ -528,7 +528,10 @@ bool JapaneseLanguageAdapter::make_entity(std::string_view reading,
         tail.remove_suffix(std::string_view("びょう").size());
         const auto fun_pos = tail.rfind("ふん");
         const auto pun_pos = tail.rfind("ぷん");
-        const auto minute_pos = std::max(fun_pos, pun_pos);
+        auto minute_pos = fun_pos;
+        if (pun_pos != std::string_view::npos &&
+            (minute_pos == std::string_view::npos || pun_pos > minute_pos))
+          minute_pos = pun_pos;
         if (minute_pos != std::string_view::npos) {
           const auto suffix_size = minute_pos == fun_pos
               ? std::string_view("ふん").size() : std::string_view("ぷん").size();
