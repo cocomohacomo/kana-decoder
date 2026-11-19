@@ -2,7 +2,7 @@
 
 更新日: 2026-11-19
 対象ブランチ: `refactor/surge-core-as-runtime`
-対象仕様: `SPECIFICATION_v0.48.md`
+対象仕様: `SPECIFICATION_v0.49.md`
 
 ## 0. 製品ゴール
 
@@ -34,6 +34,8 @@
 ### P1: 次のコード移管
 - [x] `MorphologyDecoder` とlattice探索を `language_sets/ja-JP/` に物理移動する。
 - [x] 日本語Language Setの形態素探索とPack providerを独立したCMake OBJECT targetとしてビルド可能にする。
+- [x] LanguagePackのdecode/append境界を `LanguageDecodeOptions` に変更し、C APIとconformance testを日本語固有 `DecoderOptions` から分離。
+- [ ] `engine.hpp` に残る日本語lattice/trie/morphology/scorer型とSURGE Language Adapterの依存を中立ヘッダーへ分離。
 - [ ] 共通データ型とprovider interfaceを公開ヘッダーへ整理し、Hostから日本語実装ヘッダーを参照させない。
 - [x] 辞書Trie、N-gram scorer、接続行列、訂正候補、Pack resource loaderの実装をLanguage Set targetへ移動。
 - [x] Pack decodeの決定性、入力上限、UTF-8拒否、チャンク連結、セッション分離をconformance testへ追加。\n- [x] 辞書候補のコスト順序、辞書一致時のfallback抑止、未知語fallbackをfixtureで固定する。
@@ -138,3 +140,15 @@ v0.44のimmutable LanguagePack境界を前提に、次のコード変更はP0の
 - [x] Rejected over-limit chunks preserve the prior reading, snapshot and revision.
 - [ ] Remove the remaining Japanese decoder/resource declarations from the generic public `engine.hpp` header.
 - [ ] Verify all static/shared, C API, Python and streaming tests in CI.
+
+
+## 10. v0.49 provider-neutral decode policy
+
+- [x] Language Pack accepts generic path/input/lattice/expansion budgets through `LanguageDecodeOptions`.
+- [x] Japanese Language Pack translates the neutral budget into its private decoder options.
+- [x] C API calls the neutral contract; its public C ABI is unchanged.
+- [x] Remove the former `DecoderOptions` overload from the Language Pack interface.
+- [x] Add conformance checks for path count, input ceilings, invalid UTF-8 and transactional per-decode streaming rejection.
+- [ ] CI build/test for the latest head.
+- [ ] Remove remaining Japanese implementation declarations from generic public headers.
+- [ ] Complete production renderer, production dictionary, held-out quality evaluation and target-PC resource qualification.
