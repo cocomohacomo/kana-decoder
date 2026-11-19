@@ -32,6 +32,53 @@ def write_policy(path: Path, weights: dict[str, float], renderer: float) -> None
     lines.append(f"normalization_renderer\t{renderer:.8g}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
+def validate_diagnostic_metrics(metrics: dict) -> None:
+    """Fail closed when evaluator diagnostic partitions are inconsistent."""
+    candidate = metrics.get("candidate_generation")
+    if candidate:
+        r1 = candidate["surface_exact_recall_at_1"]
+        r5 = candidate["surface_exact_recall_at_5"]
+        r10 = candidate["surface_exact_recall_at_10"]
+        if not 0.0 <= r1 <= r5 <= r10 <= 1.0:
+            raise RuntimeError("candidate surface recall must be monotonic and within [0, 1]")
+        if candidate["oracle_cer_at_10"] > candidate["oracle_cer_at_5"]:
+            raise RuntimeError("candidate oracle CER must not increase from top-5 to top-10")
+    classification = metrics.get("candidate_error_classification")
+    if classification:
+        cases = metrics["cases"]
+        if classification["missing_candidate"] + classification["candidate_available"] != cases:
+            raise RuntimeError("candidate error classes do not partition all cases")
+        available = sum(classification[name] for name in (
+            "candidate_available_runtime_failure", "candidate_available_deferred",
+            "candidate_available_surge_exact", "candidate_available_surge_wrong"))
+        if available != classification["candidate_available"]:
+            raise RuntimeError("candidate-available outcomes do not form a complete partition")
+        wrong = (classification["wrong_output_matches_raw_nbest"]
+                 + classification["wrong_output_outside_raw_nbest"])
+        if wrong != classification["candidate_available_surge_wrong"]:
+            raise RuntimeError("wrong-output origin classes do not form a complete partition")
+        if candidate and abs(classification["candidate_available"] / cases
+                              - candidate["surface_exact_recall_at_10"]) > 1e-6:
+            raise RuntimeError("candidate error partition disagrees with surface Recall@10")
+    token = metrics.get("token_aligned_candidate_generation")
+    if token:
+        count = token["gold_tokens"]
+        if count == 0:
+            if any(token[key] is not None for key in ("recall_at_1", "recall_at_5", "recall_at_10")):
+                raise RuntimeError("token recall must be null without trusted gold token boundaries")
+        else:
+            r1, r5, r10 = (token[key] for key in ("recall_at_1", "recall_at_5", "recall_at_10"))
+            if not 0.0 <= r1 <= r5 <= r10 <= 1.0:
+                raise RuntimeError("token-aligned recall must be monotonic and within [0, 1]")
+            attribution = token["miss_attribution_at_10"]
+            keys = ("exact_span_and_surface", "span_match_surface_mismatch",
+                    "surface_match_span_mismatch", "no_surface_candidate")
+            if sum(attribution[key] for key in keys) != count:
+                raise RuntimeError("token miss attribution does not partition all gold tokens")
+            if attribution["exact_span_and_surface"] != round(r10 * count):
+                raise RuntimeError("token miss attribution disagrees with Recall@10")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--evaluator", required=True)
@@ -52,12 +99,16 @@ def main() -> int:
         candidate = policy_path.with_name(f".{policy_path.name}.{index}.tmp")
         write_policy(candidate, weights, renderer)
         command = [args.evaluator, args.pack, args.corpus, "dev", args.train_sequences, str(candidate)]
-        result = subprocess.run(command, check=True, capture_output=True, text=True)
-        metrics = json.loads(result.stdout)
+        try:
+            result = subprocess.run(command, check=True, capture_output=True, text=True)
+            metrics = json.loads(result.stdout)
+        finally:
+            candidate.unlink(missing_ok=True)
         if metrics.get("split") != "dev" or metrics.get("cases", 0) <= 0:
             raise RuntimeError("calibration requires a non-empty dev split")
         if metrics.get("surge_core", {}).get("runtime_failures", 0) != 0:
             raise RuntimeError("runtime failures make dev calibration invalid")
+        validate_diagnostic_metrics(metrics)
         peak_rss = metrics.get("peak_rss_kib", -1)
         if peak_rss < 0 or peak_rss > args.max_rss_mib * 1024:
             raise RuntimeError("dev calibration peak RSS is missing or exceeds configured limit")
@@ -77,7 +128,6 @@ def main() -> int:
                      "candidate_generation": metrics.get("candidate_generation", {}),
                      "candidate_error_classification": metrics.get("candidate_error_classification", {}),
                      "token_aligned_candidate_generation": metrics.get("token_aligned_candidate_generation", {})})
-        candidate.unlink(missing_ok=True)
     best_index = min(range(len(rows)), key=lambda i: (rows[i]["cer"], -rows[i]["sentence_exact"], i))
     best = rows[best_index]
     write_policy(policy_path, best["weights"], best["normalization_renderer"])
