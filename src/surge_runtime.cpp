@@ -338,6 +338,8 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
         if (retrieval_clusters.size() >= 16) break;
       }
     }
+    if (retrieval_clusters.size() >= 16 && cluster_queue.size() > 16)
+      result.metrics.retrieval_truncated = true;
     for (const auto* relation : relation_window) {
       if (relation->kind != ::surge::RelationKind::Contains ||
           retrieval_clusters.count(relation->from) == 0) continue;
@@ -349,6 +351,8 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
       ++focused_surface_hits[surface];
       if (focused_claim_roots.size() < 64)
         focused_claim_roots.push_back(member->first);
+      else
+        result.metrics.retrieval_truncated = true;
     }
   }
   result.metrics.focus_retrieved_claims = focused_claim_roots.size();
@@ -374,6 +378,8 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
       dependency_impacts.insert(dependency_result.impacted_nodes.begin(),
                                 dependency_result.impacted_nodes.end());
     }
+  } else if (!focused_claim_roots.empty()) {
+    result.metrics.dependency_skipped_budget = true;
   }
 
   for (auto& candidate : recognition_candidates) {
