@@ -626,6 +626,64 @@ bool JapaneseLanguageAdapter::make_entity(std::string_view reading,
   return true;
 }
 
+bool JapaneseLanguageAdapter::extract_entities(
+    std::string_view reading, std::size_t max_entities,
+    std::vector<EntitySpan>& output) const {
+  output.clear();
+  if (reading.empty() || reading.size() > 1024 ||
+      !::kana_decoder::is_valid_utf8(std::string(reading)) ||
+      max_entities > kMaxEntities) return false;
+  if (max_entities == 0) return true;
+
+  std::vector<std::size_t> byte_offsets;
+  byte_offsets.reserve(reading.size() + 1);
+  for (std::size_t i = 0; i < reading.size();) {
+    byte_offsets.push_back(i);
+    const auto c = static_cast<unsigned char>(reading[i]);
+    i += c < 0x80 ? 1 : (c & 0xe0) == 0xc0 ? 2 :
+         (c & 0xf0) == 0xe0 ? 3 : 4;
+  }
+  byte_offsets.push_back(reading.size());
+  const std::size_t codepoints = byte_offsets.size() - 1;
+  constexpr std::size_t kMaxEntitySpan = 128;
+  std::size_t start = 0;
+  while (start < codepoints && output.size() < max_entities) {
+    const std::size_t max_end = std::min(codepoints, start + kMaxEntitySpan);
+    bool found = false;
+    for (std::size_t end = max_end; end > start; --end) {
+      const auto candidate = reading.substr(byte_offsets[start],
+          byte_offsets[end] - byte_offsets[start]);
+      if (candidate.find("ねん") == std::string_view::npos &&
+          candidate.find("じ") == std::string_view::npos &&
+          candidate.find("から") == std::string_view::npos) continue;
+
+      constexpr EntityTarget targets[] = {
+        EntityTarget::Date, EntityTarget::Time, EntityTarget::Range
+      };
+      for (const auto target : targets) {
+        Entity entity;
+        const std::string entity_id = "typed-" + std::to_string(start) + "-" +
+            std::to_string(end) + "-" + std::to_string(static_cast<unsigned>(target));
+        if (!make_entity(candidate, entity_id, target, {}, entity)) continue;
+        std::string rendered;
+        if (!render_entity(entity, NumericStyle::Arabic, rendered)) continue;
+        EntitySpan span;
+        span.span.start = static_cast<std::uint16_t>(start);
+        span.span.end = static_cast<std::uint16_t>(end);
+        span.entity = entity;
+        if (!span.rendered_surface.assign(rendered)) return false;
+        output.push_back(std::move(span));
+        start = end;
+        found = true;
+        break;
+      }
+      if (found) break;
+    }
+    if (!found) ++start;
+  }
+  return true;
+}
+
 bool JapaneseLanguageAdapter::render_entity(const Entity& entity, NumericStyle style,
     std::string& output) const {
   return kana_decoder::surge::render_entity(entity, style, output);
