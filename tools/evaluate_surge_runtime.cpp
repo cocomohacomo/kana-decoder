@@ -206,6 +206,9 @@ int main(int argc, char** argv) {
   }
   std::size_t runtime_failures = 0;
   std::size_t exact_top1 = 0, exact_surge = 0, top1_distance = 0, surge_distance = 0;
+  std::size_t candidate_exact_at_1 = 0, candidate_exact_at_5 = 0, candidate_exact_at_10 = 0;
+  std::size_t candidate_oracle_distance_at_5 = 0, candidate_oracle_distance_at_10 = 0;
+  std::size_t candidate_paths_total = 0;
   std::size_t reference_points = 0, overrides = 0, deferred = 0, decode_failures = 0;
   kana_decoder::surge::JapaneseLanguageAdapter typed_entity_adapter;
   std::size_t input_points = 0;
@@ -228,6 +231,23 @@ int main(int argc, char** argv) {
     std::string top1;
     for (const auto& token : paths.front().tokens) top1 += token.candidate.surface;
     const auto top1_ed = edit_distance(codepoints(top1), codepoints(item.expected));
+    const auto expected_points = codepoints(item.expected);
+    std::size_t oracle_distance_5 = expected_points.size();
+    std::size_t oracle_distance_10 = expected_points.size();
+    bool exact_5 = false, exact_10 = false;
+    for (std::size_t rank = 0; rank < paths.size(); ++rank) {
+      std::string candidate_surface;
+      for (const auto& token : paths[rank].tokens) candidate_surface += token.candidate.surface;
+      const auto distance = edit_distance(codepoints(candidate_surface), expected_points);
+      if (rank == 0 && distance == 0) ++candidate_exact_at_1;
+      if (rank < 5) { oracle_distance_5 = std::min(oracle_distance_5, distance); exact_5 = exact_5 || distance == 0; }
+      if (rank < 10) { oracle_distance_10 = std::min(oracle_distance_10, distance); exact_10 = exact_10 || distance == 0; }
+    }
+    candidate_paths_total += paths.size();
+    if (exact_5) ++candidate_exact_at_5;
+    if (exact_10) ++candidate_exact_at_10;
+    candidate_oracle_distance_at_5 += oracle_distance_5;
+    candidate_oracle_distance_at_10 += oracle_distance_10;
     top1_distance += top1_ed;
     if (top1_ed == 0) ++exact_top1;
 
@@ -294,6 +314,12 @@ int main(int argc, char** argv) {
       << ",\"cases\":" << cases.size()
       << ",\"input_codepoints\":" << input_points
       << ",\"reference_codepoints\":" << reference_points
+      << ",\"candidate_generation\":{\"mean_paths\":" << (cases.empty() ? 0.0 : static_cast<double>(candidate_paths_total) / cases.size())
+      << ",\"surface_exact_recall_at_1\":" << (cases.empty() ? 0.0 : static_cast<double>(candidate_exact_at_1) / cases.size())
+      << ",\"surface_exact_recall_at_5\":" << (cases.empty() ? 0.0 : static_cast<double>(candidate_exact_at_5) / cases.size())
+      << ",\"surface_exact_recall_at_10\":" << (cases.empty() ? 0.0 : static_cast<double>(candidate_exact_at_10) / cases.size())
+      << ",\"oracle_cer_at_5\":" << (reference_points ? static_cast<double>(candidate_oracle_distance_at_5) / reference_points : 0.0)
+      << ",\"oracle_cer_at_10\":" << (reference_points ? static_cast<double>(candidate_oracle_distance_at_10) / reference_points : 0.0) << "}"
       << ",\"decoder_top1\":{\"cer\":" << cer_top1
       << ",\"sentence_exact\":" << (cases.empty() ? 0.0 : static_cast<double>(exact_top1) / cases.size()) << "}"
       << ",\"surge_core\":{\"cer\":" << cer_surge
