@@ -19,6 +19,8 @@ jobs:
         run: ctest --test-dir build --output-on-failure
       - name: Run bounded decode microbenchmark
         run: ./build/kana_decoder_bench
+      - name: Run bounded SURGE runtime microbenchmark
+        run: ./build/kana_decoder_surge_bench 50
       - name: Verify Japanese reference Pack
         run: python3 tools/verify_pack.py packs/ja-lite
       - name: Run Python Pack and license policy tests
