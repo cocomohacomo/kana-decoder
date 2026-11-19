@@ -120,6 +120,8 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
      }
     }
     bool surge_resolved=false;
+    std::string ngram_winner;
+    double ngram_gap=0.0;
     if(opt.surge_left_context_gate&&!state.history.empty()){
      std::vector<std::pair<std::string,double>> surface_evidence;
      for(const auto* candidate_ptr:candidates){
@@ -133,8 +135,11 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
      }
      std::stable_sort(surface_evidence.begin(),surface_evidence.end(),
       [](const auto& a,const auto& b){return a.second>b.second;});
-     surge_resolved=surface_evidence.size()>=2&&
-      surface_evidence[0].second-surface_evidence[1].second>=opt.surge_context_margin;
+     if(surface_evidence.size()>=2){
+      ngram_gap=surface_evidence[0].second-surface_evidence[1].second;
+      surge_resolved=ngram_gap>=opt.surge_context_margin;
+      if(surge_resolved)ngram_winner=surface_evidence[0].first;
+     }
     }
     for(const auto* candidate_ptr:candidates){
     const auto& candidate=*candidate_ptr;
@@ -149,8 +154,8 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     const double morph=-static_cast<double>(candidate.word_cost)-
                        static_cast<double>(candidate.connection_cost)-static_cast<double>(transition);
     const double context_evidence=opt.surge_left_context_gate
-      ? (surge_resolved&&scorer.has_left_context_evidence(candidate.id,state.history)
-          ? scorer.contextual_score(candidate.id,state.history,{}) : 0.0)
+      ? (surge_resolved&&candidate.surface==ngram_winner
+          ? ngram_gap : 0.0)
       : scorer.contextual_score(candidate.id,state.history,right_context);
     const double raw_context=opt.surge_left_context_gate
       ? context_evidence
