@@ -59,8 +59,8 @@ std::shared_ptr<const LanguagePack> load_japanese_language_pack(
   auto pack = std::make_shared<JapaneseLanguagePack>(std::move(identity));
   if (!load_language_pack(directory, pack->lexicon_data, pack->scorer_data,
                           nullptr, &pack->connections_data,
-                          &pack->corrections_data)) {
-    if (error) *error = "LANGUAGE_PACK_RESOURCE_LOAD_FAILED";
+                          &pack->corrections_data, error)) {
+    if (error && error->empty()) *error = "LANGUAGE_PACK_RESOURCE_LOAD_FAILED";
     return {};
   }
   if (pack->identity_data.language_tag != pack->adapter_data.language_tag()) {
