@@ -272,5 +272,6 @@ v0.56ではP0のCI・Pack・journal recoveryゲートが通過した。P1ではC
 - [ ] Run PR CI and the pinned Sudachi Small + UD Japanese-GSD workflow to obtain actual dev calibration and held-out test results.
 - [ ] Compare typed-entity disabled/default/calibrated policies on the same frozen test split; report CER, sentence exact, override/defer counts, runtime, and Peak RSS.
 - [x] Add typed-entity evidence count metrics to the real-data evaluator report and calibration candidate rows before expanding entity grammar coverage.
+- [x] Bind the ja-JP LanguageAdapter in the real-data SURGE evaluator so typed extraction is actually active during dev/test evaluation.
 
 This stage only makes the v0.58 typed-entity evidence weight calibratable. No preferred weight or accuracy gain is claimed until the pinned real-data workflow completes.
