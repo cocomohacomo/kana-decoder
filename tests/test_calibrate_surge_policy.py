@@ -31,7 +31,10 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
                 "print(json.dumps({'split':'dev','cases':10,"
                 "'surge_core':{'cer':cer,'sentence_exact':exact,'overrides':2,"
                 "'deferred':1,'runtime_failures':0,'decode_failures':0,'typed_entities_found':3,'typed_entity_evidence_added':2,'selected_typed_entity_evidence':1,'typed_entities_persisted':3},"
-                "'elapsed_seconds':0.2,'peak_rss_kib':1000}))\n",
+                "'elapsed_seconds':0.2,'peak_rss_kib':1000,\n"
+                "'candidate_generation':{'mean_paths':4.0,'surface_exact_recall_at_1':0.2,\n"
+                "'surface_exact_recall_at_5':0.4,'surface_exact_recall_at_10':0.5,\n"
+                "'oracle_cer_at_5':0.3,'oracle_cer_at_10':0.25}}))\n",
                 encoding="utf-8",
             )
             evaluator.chmod(0o755)
@@ -72,6 +75,7 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
             self.assertEqual(result["best_policy"]["typed_entity_evidence_added"], 2)
             self.assertEqual(result["best_policy"]["selected_typed_entity_evidence"], 1)
             self.assertEqual(result["best_policy"]["typed_entities_persisted"], 3)
+            self.assertEqual(result["best_policy"]["candidate_generation"]["surface_exact_recall_at_5"], 0.4)
             self.assertIn("normalization_renderer\t", policy.read_text(encoding="utf-8"))
 
 
