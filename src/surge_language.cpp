@@ -411,6 +411,47 @@ bool parse_japanese_number(std::string_view reading, ParsedNumber& result) {
   return true;
 }
 
+bool JapaneseLanguageAdapter::make_hypothesis(const ::kana_decoder::LatticeCandidate& candidate,
+                                               Span span, std::string_view hypothesis_id,
+                                               Hypothesis& output) const {
+  if (!span.valid() || candidate.id.empty() || candidate.surface.empty() ||
+      candidate.word_cost < 0 || candidate.connection_cost < 0) return false;
+  Hypothesis value;
+  if (!value.id.assign(hypothesis_id) || !value.candidate_id.assign(candidate.id) ||
+      !value.surface.assign(candidate.surface)) return false;
+  const std::string_view interpretation = candidate.pos.empty()
+      ? std::string_view("lexical") : std::string_view(candidate.pos);
+  if (!value.interpretation.assign(interpretation)) return false;
+  value.span = span;
+  value.score = -static_cast<double>(candidate.word_cost) -
+                static_cast<double>(candidate.connection_cost);
+  output = value;
+  return true;
+}
+
+bool JapaneseLanguageAdapter::make_numeric_entity(std::string_view reading,
+                                                   std::string_view entity_id,
+                                                   NumericEntityTarget target,
+                                                   std::string_view unit,
+                                                   Entity& output) const {
+  ParsedNumber parsed;
+  if (!parse_japanese_number(reading, parsed)) return false;
+  Entity value;
+  if (!value.id.assign(entity_id) || !value.raw.assign(reading)) return false;
+  switch (target) {
+    case NumericEntityTarget::Number: value.kind = EntityKind::Number; break;
+    case NumericEntityTarget::Percent: value.kind = EntityKind::Percent; break;
+    case NumericEntityTarget::Currency: value.kind = EntityKind::Currency; break;
+    case NumericEntityTarget::Unit: value.kind = EntityKind::Unit; break;
+  }
+  if ((target != NumericEntityTarget::Number) && !value.unit.assign(unit)) return false;
+  value.value = parsed.mantissa;
+  value.decimal_places = parsed.decimal_places;
+  value.valid = true;
+  output = value;
+  return true;
+}
+
 bool render_entity(const Entity& entity, NumericStyle style, std::string& output) {
   if (!entity.valid) return false;
   output.clear();
