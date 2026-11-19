@@ -705,7 +705,7 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - Morphology aggregate / Context aggregateは互換診断値として保持。SURGE Clusterのraw evidenceと適用bonusは分離して記録。
 - 同一読み範囲で表層が異なる候補Claim間にContradictsを生成し、QuestionRouterを介してQuestion / QuestionAspect / Interest / Focusを生成。
 - N-bestに残る未確定候補群をChaosClusterのmemberとPatternHypothesisとして保持。確定候補だけに早期収束させず、対立候補をprovisionalのまま残す。
-- ClaimValidity / EvidenceValidityをSemanticDeltaに含め、DependencyEngineに時間状態predicateを評価させる。パケットごとに代表Claimを時間再評価し、全候補の有効期間記録は保持する。
+- ClaimValidity / EvidenceValidityをSemanticDeltaに含め、DependencyEngineに時間状態predicateを同一transaction内で評価させる。選択Claim IDを返し、時点・Focus・情報更新時の明示的TemporalReassessmentRecordは `SurgeNormalizationRuntime::reassess_claim` で要求できる。全候補の有効期間記録は保持する。
 - NORMALIZATION_PROPOSAL / NORMALIZATION_COMMIT / NORMALIZATION_STREAM_PREFIX_COMMIT / NORMALIZATION_STREAM_FINAL_COMMITをEventJournalへ記録。stream appendは暫定、prefix/best commitは明示的な確定操作とする。
 
 ### Resource guardrails
