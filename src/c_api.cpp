@@ -242,8 +242,18 @@ int kd_streaming_commit_best(kd_streaming_session* p,char* output,size_t capacit
 }
 int kd_streaming_reset(kd_streaming_session* p) {
     if (!p) return KD_ERR_INVALID_ARGUMENT;
-    try { p->session.reset(); p->snapshot={}; return 0; }
-    catch (...) { return KD_ERR_INTERNAL; }
+    try {
+        // A reset starts a new recognition context, not merely an empty input
+        // buffer. Replace the ephemeral SURGE journal so old Claims, Questions,
+        // Focus and Chaos hypotheses cannot leak into the next session.
+        const auto path = temporary_surge_journal_path();
+        auto fresh_surge = make_surge_runtime(path, path, true);
+        if (!fresh_surge) return KD_ERR_INTERNAL;
+        p->surge = std::move(fresh_surge);
+        p->session.reset();
+        p->snapshot = {};
+        return 0;
+    } catch (...) { return KD_ERR_INTERNAL; }
 }
 
 int kd_ngram_add_unigram(kd_ngram_scorer* p, const char* id, uint32_t n) {
