@@ -350,6 +350,8 @@ std::string ContextGraph::fingerprint(const SemanticDelta& d)const{
  for(const auto& v:d.claim_validity_updates)o<<"V "<<std::quoted(v.claim_id)<<' '<<std::quoted(v.valid_from)<<' '<<std::quoted(v.valid_until)<<' '<<std::quoted(v.basis_evidence_id)<<' '<<v.revision<<' '<<std::quoted(v.review_evidence_id)<<' '<<std::quoted(v.reviewer_id)<<'\n';
  for(const auto& v:d.evidence_validity_updates)o<<"EV "<<std::quoted(v.evidence_id)<<' '<<std::quoted(v.valid_from)<<' '<<std::quoted(v.valid_until)<<' '<<std::quoted(v.basis_evidence_id)<<' '<<v.revision<<' '<<std::quoted(v.review_evidence_id)<<' '<<std::quoted(v.reviewer_id)<<'\n';
  if(d.focus) { o<<"F "<<encode_focus(d.focus->focus)<<'\n'; }
+ for(const auto& event:d.journal_events)
+  o<<"J "<<std::quoted(event.event_id)<<' '<<std::quoted(event.kind)<<' '<<std::quoted(event.payload)<<'\\n';
  return hash_text(o.str());
 }
 std::vector<JournalEvent> ContextGraph::encode(const SemanticDelta& d,const std::string& fp)const{
@@ -495,6 +497,7 @@ bool ContextGraph::replay(){
 bool ContextGraph::prepare_transaction(const SemanticDelta& d, State& staged,
     std::vector<JournalEvent>& events, std::string& error) const {
  events.clear(); error.clear();
+ if(d.journal_events.size()>1){error="ADAPTER_JOURNAL_EVENT_COUNT_EXCEEDED";return false;}
  if(d.delta_id.empty()||d.idempotency_key.empty()||
     (d.nodes.empty()&&d.relations.empty()&&d.scope_spans.empty()&&d.claim_validity_updates.empty()&&d.evidence_validity_updates.empty()&&d.journal_events.empty()&&!d.focus)){
   error="DELTA_EMPTY_OR_ID_INVALID";return false;
