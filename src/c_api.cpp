@@ -75,6 +75,8 @@ int kd_engine_set_surge_journal(kd_engine* p, const char* path) {
     try {
         auto runtime = make_surge_runtime(path, path, false);
         if (!runtime) return KD_ERR_INTERNAL;
+        if (p->pack && !runtime->set_language_adapter(&p->pack->adapter()))
+            return KD_ERR_INTERNAL;
         p->surge = std::move(runtime);
         return 0;
     } catch (...) { return KD_ERR_INTERNAL; }
@@ -267,7 +269,9 @@ int kd_streaming_reset(kd_streaming_session* p) {
         // Focus and Chaos hypotheses cannot leak into the next session.
         const auto path = temporary_surge_journal_path();
         auto fresh_surge = make_surge_runtime(path, path, true);
-        if (!fresh_surge) return KD_ERR_INTERNAL;
+        if (!fresh_surge ||
+            !fresh_surge->set_language_adapter(&p->pack->adapter()))
+            return KD_ERR_INTERNAL;
         p->surge = std::move(fresh_surge);
         p->session.reset();
         p->snapshot = {};
