@@ -15,6 +15,7 @@
           "id": { "$ref": "#/$defs/id" },
           "span": { "$ref": "#/$defs/span" },
           "surface": { "type": "string", "maxLength": 191 },
+          "candidate_id": { "$ref": "#/$defs/id" },
           "interpretation": { "type": "string", "maxLength": 47 },
           "score": { "type": "number" },
           "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
@@ -41,7 +42,25 @@
     "semantic_frames": { "type": "array", "maxItems": 16 },
     "syntax_relations": { "type": "array", "maxItems": 64 },
     "orthographic_hypotheses": { "type": "array", "maxItems": 32 },
-    "entities": { "type": "array", "maxItems": 16 },
+    "entities": {
+      "type": "array", "maxItems": 16,
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "value", "valid"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "kind": { "enum": ["number", "percent", "currency", "date", "time", "range", "unit", "identifier"] },
+          "raw": { "type": "string", "maxLength": 191 },
+          "unit": { "type": "string", "maxLength": 47 },
+          "value": { "type": "integer" },
+          "secondary": { "type": "integer" },
+          "tertiary": { "type": "integer" },
+          "decimal_places": { "type": "integer", "minimum": 0, "maximum": 9 },
+          "valid": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      }
+    },
     "evidence": {
       "type": "array", "maxItems": 64,
       "items": {
