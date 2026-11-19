@@ -57,6 +57,7 @@ int main() {
   assert(result.metrics.claims == 2);
   assert(result.metrics.evidence == 10);
   assert(result.metrics.entities == 2);
+  assert(result.metrics.clusters >= 3); // root + interpretation + surface
   assert(result.metrics.contradictions == 1);
   assert(result.metrics.questions == 1);
   assert(result.metrics.chaos_members == 1);
@@ -140,8 +141,28 @@ int main() {
     kana_decoder::SurgeNormalizationRuntime calibrated_runtime(calibrated_config);
     std::string calibrated_error;
     assert(calibrated_runtime.open(calibrated_error));
+    kana_decoder::DecodedPath calibrated_decoder_first;
+    calibrated_decoder_first.score = -1.0;
+    kana_decoder::DecodedToken calibrated_first_token;
+    calibrated_first_token.start = 0;
+    calibrated_first_token.end = 5;
+    calibrated_first_token.candidate.id = "decoder-top";
+    calibrated_first_token.candidate.surface = "交渉";
+    calibrated_first_token.candidate.pos = "名詞";
+    calibrated_first_token.lexical_score = -1.0;
+    calibrated_first_token.morphology_score = -1.0;
+    calibrated_first_token.cluster_raw_evidence = -10.0;
+    calibrated_first_token.has_cluster_evidence = true;
+    calibrated_decoder_first.tokens.push_back(calibrated_first_token);
+    kana_decoder::DecodedPath calibrated_core_preferred;
+    calibrated_core_preferred.score = -2.0;
+    auto calibrated_second_token = calibrated_first_token;
+    calibrated_second_token.candidate.id = "core-preferred";
+    calibrated_second_token.candidate.surface = "高尚";
+    calibrated_second_token.cluster_raw_evidence = 10.0;
+    calibrated_core_preferred.tokens.push_back(calibrated_second_token);
     const auto calibrated = calibrated_runtime.normalize("こうしょう",
-        {decoder_first, core_preferred}, true);
+        {calibrated_decoder_first, calibrated_core_preferred}, true);
     assert(calibrated.committed);
     assert(calibrated.output == "交渉");
   }
