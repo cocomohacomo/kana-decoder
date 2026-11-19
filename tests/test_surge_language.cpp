@@ -190,6 +190,36 @@ int main() {
                                 structured_options, structured_output));
   assert(structured_output == "3〜5");
 
+  const std::string partial_date = "にせんにじゅうろくねんじゅういちがつにじゅうににち";
+  const std::string partial_reading = "きょうは" + partial_date +
+      "のごごさんじにじゅっぷんです";
+  std::vector<EntitySpan> extracted_entities;
+  assert(ja_adapter.extract_entities(partial_reading, kMaxEntities, extracted_entities));
+  assert(extracted_entities.size() == 2);
+  assert(extracted_entities[0].span.start == 4 && extracted_entities[0].span.end == 29);
+  assert(extracted_entities[0].entity.kind == EntityKind::Date);
+  assert(extracted_entities[1].span.start == 30 && extracted_entities[1].span.end == 41);
+  assert(extracted_entities[1].entity.kind == EntityKind::Time);
+
+  ::kana_decoder::DecodedPath partial_path;
+  const auto add_token = [&](std::size_t start, std::size_t end,
+                             const std::string& id, const std::string& surface) {
+    ::kana_decoder::DecodedToken token;
+    token.start = start;
+    token.end = end;
+    token.candidate.id = id;
+    token.candidate.surface = surface;
+    partial_path.tokens.push_back(token);
+  };
+  add_token(0, 4, "partial-prefix", "今日は");
+  add_token(4, 29, "partial-date", "日付");
+  add_token(29, 30, "partial-particle", "の");
+  add_token(30, 41, "partial-time", "時刻");
+  add_token(41, 43, "partial-suffix", "です");
+  assert(ja_adapter.render_path(partial_path, partial_reading,
+                                structured_options, structured_output));
+  assert(structured_output == "今日は2026年11月22日の15時20分です");
+
   Entity date;
   assert(date.id.assign("date-1"));
   date.kind = EntityKind::Date;
