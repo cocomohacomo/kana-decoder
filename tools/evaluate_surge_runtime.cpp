@@ -12,6 +12,7 @@
 #include <iomanip>
 #include <iostream>
 #include <map>
+#include <limits>
 #include <set>
 #include <string>
 #if !defined(_WIN32)
@@ -232,8 +233,8 @@ int main(int argc, char** argv) {
     for (const auto& token : paths.front().tokens) top1 += token.candidate.surface;
     const auto top1_ed = edit_distance(codepoints(top1), codepoints(item.expected));
     const auto expected_points = codepoints(item.expected);
-    std::size_t oracle_distance_5 = expected_points.size();
-    std::size_t oracle_distance_10 = expected_points.size();
+    std::size_t oracle_distance_5 = std::numeric_limits<std::size_t>::max();
+    std::size_t oracle_distance_10 = std::numeric_limits<std::size_t>::max();
     bool exact_5 = false, exact_10 = false;
     for (std::size_t rank = 0; rank < paths.size(); ++rank) {
       std::string candidate_surface;
