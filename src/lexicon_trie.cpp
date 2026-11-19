@@ -15,6 +15,11 @@ bool LexiconTrie::add(const std::string& reading,const LatticeCandidate& candida
  for(const auto&ch:chars){auto it=nodes_[node].next.find(ch);if(it==nodes_[node].next.end()){
   std::size_t next=nodes_.size();nodes_[node].next.emplace(ch,next);nodes_.push_back(Node{});node=next;
  }else node=it->second;}
+ if(!candidate.id.empty()&&!candidate.pos.empty()) {
+  auto found_pos=candidate_pos_.find(candidate.id);
+  if(found_pos==candidate_pos_.end()) candidate_pos_.emplace(candidate.id,candidate.pos);
+  else if(found_pos->second!=candidate.pos) found_pos->second.clear();
+ }
  auto& values=nodes_[node].values;
  auto duplicate=std::find_if(values.begin(),values.end(),[&](const LatticeCandidate&v){return v.id==candidate.id&&v.surface==candidate.surface;});
  if(duplicate!=values.end())return false;
@@ -41,6 +46,10 @@ bool LexiconTrie::load_tsv(const std::string& path,std::size_t* loaded){
  }
  if(!in.eof())return false;
  *this=std::move(parsed);if(loaded)*loaded=count;return true;
+}
+std::string LexiconTrie::candidate_pos(const std::string& candidate_id) const {
+ auto found=candidate_pos_.find(candidate_id);
+ return found==candidate_pos_.end()?std::string{}:found->second;
 }
 std::vector<LatticeEdge> LexiconTrie::build_lattice(
  const std::string& reading,std::size_t max_matches,bool fallback,
