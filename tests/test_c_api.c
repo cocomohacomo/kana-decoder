@@ -12,6 +12,7 @@ int main(void) {
     remove(journal);
     assert(kd_engine_set_surge_journal(engine, journal) == 0);
     assert(kd_engine_load_pack(engine, KANA_DECODER_PACK_DIR) == 0);
+    assert(kd_engine_load_pack(engine, KANA_DECODER_PACK_DIR) == KD_ERR_INVALID_ARGUMENT);
     assert(kd_engine_decode(engine, "あめ", output, sizeof(output)) == 0);
     assert(strcmp(output, "雨") == 0);
     assert(kd_engine_decode(engine, "あめ", output, 1) == KD_ERR_BUFFER_TOO_SMALL);
@@ -53,6 +54,8 @@ int main(void) {
     memset(provisional, 0, sizeof(provisional));
     assert(kd_streaming_append(session, "あ", provisional, sizeof(provisional), &revision) == 0);
     assert(revision == 5 && strcmp(provisional, "あ") == 0);
+    assert(kd_streaming_append(session, "め", provisional, sizeof(provisional), &revision) == 0);
+    assert(revision == 6 && strcmp(provisional, "雨") == 0);
     kd_streaming_session_destroy(session);
     remove(journal);
     return 0;
