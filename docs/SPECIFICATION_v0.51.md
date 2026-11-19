@@ -45,7 +45,7 @@ After UnifiedDecision selects the interpretation path and each token's surface h
 ## 5. Conformance
 
 Added tests cover:
-- generic engine header no longer declaring Japanese decoder types;
+- a Python conformance guard verifies Japanese decoder declarations stay out of generic public headers;
 - Japanese adapter candidate scoring through provider-neutral Candidate;
 - numeric reading rendering;
 - Japanese statement/question punctuation;
