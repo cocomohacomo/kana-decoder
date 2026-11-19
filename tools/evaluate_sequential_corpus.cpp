@@ -190,6 +190,9 @@ struct CandidateSurvivalMetrics {
     std::size_t morphology_shortlist = 0;
     std::size_t scored = 0;
     std::size_t final_aligned = 0;
+    std::size_t nbest_aligned = 0;
+    std::size_t nbest_recoverable = 0;
+    std::size_t scored_not_in_nbest = 0;
     std::size_t lattice_missing = 0;
     std::size_t shortlist_drop = 0;
     std::size_t expansion_drop = 0;
@@ -245,15 +248,26 @@ void evaluate_candidate_survival(
                     break;
                 }
             }
+            const auto matches_gold = [&](const kana_decoder::DecodedPath& path) {
+                return std::any_of(path.tokens.begin(), path.tokens.end(),
+                    [&](const kana_decoder::DecodedToken& token) {
+                        return token.start == gold.start && token.end == gold.end
+                            && token.candidate.surface == gold.surface;
+                    });
+            };
             const bool aligned = std::any_of(best.begin(), best.end(),
                 [&](const kana_decoder::DecodedToken& token) {
                     return token.start == gold.start && token.end == gold.end
                         && token.candidate.surface == gold.surface;
                 });
+            const bool present_in_nbest = std::any_of(paths.begin(), paths.end(), matches_gold);
             if (in_lattice) ++metrics.lattice_present;
             if (in_shortlist) ++metrics.morphology_shortlist;
             if (was_scored) ++metrics.scored;
             if (aligned) ++metrics.final_aligned;
+            if (present_in_nbest) ++metrics.nbest_aligned;
+            if (present_in_nbest && !aligned) ++metrics.nbest_recoverable;
+            if (was_scored && !present_in_nbest) ++metrics.scored_not_in_nbest;
             if (!in_lattice) ++metrics.lattice_missing;
             else if (!in_shortlist) ++metrics.shortlist_drop;
             else if (!was_scored && score_trace_capped) ++metrics.trace_censored;
@@ -277,6 +291,10 @@ void print_candidate_survival(const CandidateSurvivalMetrics& m) {
         << ",\"scored_coverage_pct\":" << pct(m.scored)
         << ",\"final_aligned\":" << m.final_aligned
         << ",\"final_alignment_pct\":" << pct(m.final_aligned)
+        << ",\"nbest_aligned\":" << m.nbest_aligned
+        << ",\"nbest_alignment_pct\":" << pct(m.nbest_aligned)
+        << ",\"nbest_recoverable\":" << m.nbest_recoverable
+        << ",\"scored_not_in_nbest\":" << m.scored_not_in_nbest
         << ",\"lattice_missing\":" << m.lattice_missing
         << ",\"shortlist_drop\":" << m.shortlist_drop
         << ",\"expansion_drop\":" << m.expansion_drop
