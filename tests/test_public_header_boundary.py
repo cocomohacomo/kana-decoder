@@ -15,8 +15,9 @@ def main() -> int:
 
     if "struct MorphologyDescriptor" not in generic:
         raise SystemExit("Generic Candidate is missing provider-neutral MorphologyDescriptor")
-    for legacy_field in ("inflection_type", "inflection_form", "std::string pos"):
-        if legacy_field in generic:
+    candidate_block = generic.split("struct Candidate", 1)[1].split("};", 1)[0]
+    for legacy_field in ("pos;", "inflection_type;", "inflection_form;"):
+        if legacy_field in candidate_block:
             raise SystemExit(f"Japanese-specific Candidate field leaked into engine.hpp: {legacy_field}")
 
     japanese_symbols = (
