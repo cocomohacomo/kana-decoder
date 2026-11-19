@@ -240,7 +240,9 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     }();
     delta.nodes.push_back({{record.entity_id, ::surge::NodeKind::Entity,
         record.entity_content.empty() ? "lexical;surface=" + token.candidate.surface +
-            ";pos=" + token.candidate.pos + ";reading=" + token_reading :
+            ";pos=" + token.candidate.pos + ";inflection_type=" +
+            token.candidate.inflection_type + ";inflection_form=" +
+            token.candidate.inflection_form + ";reading=" + token_reading :
             record.entity_content, {}}});
 
     const std::string evidence_prefix = record.claim_id + "/evidence/";
@@ -252,6 +254,8 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
               << ";candidate=" << token.candidate.id
               << ";surface=" << token.candidate.surface
               << ";pos=" << token.candidate.pos
+              << ";inflection_type=" << token.candidate.inflection_type
+              << ";inflection_form=" << token.candidate.inflection_form
               << ";reading=" << token_reading
               << ";score=" << std::setprecision(17) << score
               << ";detail=" << detail
@@ -289,7 +293,9 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
       return result;
     }
     delta.nodes.push_back({{record.claim_id, ::surge::NodeKind::Claim,
-        "candidate interpretation: " + token.candidate.surface + " [" + token.candidate.pos + "]",
+        "candidate interpretation: " + token.candidate.surface + " [" + token.candidate.pos +
+            ";inflection=" + token.candidate.inflection_type + "/" +
+            token.candidate.inflection_form + "]",
         record.evidence_ids}});
     if (!path_candidate_keys.front().empty() &&
         item.first == path_candidate_keys.front().front()) {
