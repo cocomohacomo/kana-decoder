@@ -61,7 +61,14 @@ int main() {
   assert(result.metrics.questions == 1);
   assert(result.metrics.chaos_members == 1);
   assert(result.metrics.state_version > 0);
+  assert(result.selected_claim_ids.size() == 1);
   assert(runtime.graph_node_count() >= 10);
+
+  ::surge::TemporalReassessmentRecord temporal_record;
+  std::string temporal_error;
+  assert(runtime.reassess_claim(result.selected_claim_ids.front(),
+      "9999-01-01T00:00:00Z", temporal_record, temporal_error));
+  assert(temporal_record.claim_temporal_state == ::surge::ClaimTemporalState::Valid);
 
   std::string commit_error;
   assert(runtime.commit_output("32", 7, true, commit_error));
