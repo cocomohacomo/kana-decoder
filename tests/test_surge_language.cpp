@@ -122,6 +122,13 @@ int main() {
   assert(parsed_time.value == 15 && parsed_time.secondary == 20);
   assert(ja_adapter.render_entity(parsed_time, NumericStyle::Arabic, rendered));
   assert(rendered == "15時20分");
+  Entity parsed_time_seconds;
+  assert(ja_adapter.make_entity("ごごさんじにじゅっぷんごびょう",
+      "parsed-time-seconds-1", EntityTarget::Time, {}, parsed_time_seconds));
+  assert(parsed_time_seconds.value == 15 && parsed_time_seconds.secondary == 20 &&
+         parsed_time_seconds.tertiary == 5);
+  assert(ja_adapter.render_entity(parsed_time_seconds, NumericStyle::Arabic, rendered));
+  assert(rendered == "15時20分05秒");
   Entity invalid_parsed_time;
   assert(!ja_adapter.make_entity("にじゅうごじ",
       "invalid-time-1", EntityTarget::Time, {}, invalid_parsed_time));
