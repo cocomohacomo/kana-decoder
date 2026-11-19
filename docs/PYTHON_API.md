@@ -53,3 +53,22 @@ The wrapper raises:
 - ValueError or TypeError for invalid Python arguments.
 
 Set KANA_DECODER_LIBRARY or pass library_path when the library is not discoverable. Pack loading is local and offline.
+
+
+## SURGE journal persistence
+
+The default engine creates an isolated temporary SURGE journal and removes it when
+the engine closes. To retain context and decision history across engine restarts,
+pass a caller-managed path:
+
+```python
+with KanaDecoder(
+    "packs/ja-lite",
+    surge_journal_path="state/normalization.surge-journal",
+) as decoder:
+    print(decoder.decode("きょうと"))
+```
+
+The journal is local and offline. The application owns its backup, retention and
+deletion policy. Do not share one writable journal concurrently across independent
+engine instances; EventJournal enforces a single writer.
