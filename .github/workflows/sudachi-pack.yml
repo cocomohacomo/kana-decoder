@@ -203,6 +203,7 @@ jobs:
             --corpus "$RUNNER_TEMP/context-corpus/tokenized.tsv" \
             --train-sequences "$RUNNER_TEMP/context-corpus/compiled/train_sequences.tsv" \
             --source-lock "licenses/ud-japanese-gsd-source-lock.json" \
+            --max-rss-mib 1792 \
             --output-policy "$RUNNER_TEMP/surge-core-decision-policy.tsv" \
             --output-report "$RUNNER_TEMP/surge-core-policy-calibration.json"
           /usr/bin/time -v -o "$RUNNER_TEMP/surge-core-runtime-time.log" \
