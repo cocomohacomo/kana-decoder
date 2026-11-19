@@ -139,7 +139,7 @@ bool SurgeNormalizationRuntime::ensure_context_cluster(std::string& error) {
 }
 
 SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
-    const std::string& reading, const std::vector<DecodedPath>& paths) {
+    const std::string& reading, const std::vector<DecodedPath>& paths, bool finalize) {
   std::lock_guard<std::mutex> lock(mutex_);
   SurgeNormalizationResult result;
   if (!opened_ || !graph_ || !chaos_ || !journal_) {
@@ -428,7 +428,8 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   const auto journal_result = journal_->commit(prefix + "/output-transaction",
       prefix + "/output-idempotency", journal_->state_version(),
       {{decision_id, "NORMALIZATION_DECISION", commit_payload.str()},
-       {commit_id, "NORMALIZATION_COMMIT", commit_payload.str()}});
+       {commit_id, finalize ? "NORMALIZATION_COMMIT" : "NORMALIZATION_PROPOSAL",
+        commit_payload.str()}});
   if (!journal_result.committed) {
     result.error = "SURGE_OUTPUT_COMMIT_FAILED:" + journal_result.error;
     return result;
@@ -438,6 +439,29 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   result.output = std::move(output);
   result.metrics.state_version = journal_result.state_version;
   return result;
+}
+
+bool SurgeNormalizationRuntime::commit_output(const std::string& output,
+    std::uint64_t source_revision, bool final, std::string& error) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (!opened_ || !journal_ || output.empty()) {
+    error = "SURGE_OUTPUT_COMMIT_REQUEST_INVALID";
+    return false;
+  }
+  const auto sequence = sequence_++;
+  const auto id = "norm/" + id_component(config_.context_id) + "/" +
+      std::to_string(sequence) + "/stream-commit";
+  std::ostringstream payload;
+  payload << "context=" << config_.context_id << ";source_revision=" << source_revision
+          << ";final=" << (final ? "true" : "false") << ";output=" << output;
+  const auto committed = journal_->commit(id, id + "/key", journal_->state_version(),
+      {{id, final ? "NORMALIZATION_STREAM_FINAL_COMMIT" :
+                    "NORMALIZATION_STREAM_PREFIX_COMMIT", payload.str()}});
+  if (!committed.committed) {
+    error = "SURGE_STREAM_COMMIT_FAILED:" + committed.error;
+    return false;
+  }
+  return true;
 }
 
 std::uint64_t SurgeNormalizationRuntime::state_version() const {
