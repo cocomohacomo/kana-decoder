@@ -89,11 +89,14 @@ struct CandidateScoreTrace {
 };
 struct LatticeMatchTrace {
  std::size_t start=0,end=0;
+ std::size_t available_candidate_count=0,retained_candidate_count=0,unique_surface_count=0;
  std::vector<LatticeCandidate> candidates;
 };
 struct LatticePositionTrace {
  std::size_t start=0;
  std::size_t dictionary_match_count=0;
+ std::size_t available_dictionary_match_count=0,pruned_dictionary_match_count=0;
+ std::size_t available_candidate_count=0,retained_candidate_count=0,pruned_candidate_count=0;
  bool fallback_enabled=false;
  bool fallback_generated=false;
  bool fallback_suppressed_by_dictionary=false;

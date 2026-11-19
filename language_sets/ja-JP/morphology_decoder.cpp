@@ -3,6 +3,20 @@
 #include <cstdint>
 #include <cmath>
 #include <limits>
+namespace {
+std::int64_t candidate_cost(const kana_decoder::LatticeCandidate& c){return static_cast<std::int64_t>(c.word_cost)+c.connection_cost;}
+std::vector<const kana_decoder::LatticeCandidate*> retain_surface_diverse(const std::vector<kana_decoder::LatticeCandidate>& source,std::size_t limit){
+ std::vector<const kana_decoder::LatticeCandidate*> ranked;for(const auto& c:source)ranked.push_back(&c);std::stable_sort(ranked.begin(),ranked.end(),[](const auto* a,const auto* b){return candidate_cost(*a)<candidate_cost(*b);});
+ std::vector<const kana_decoder::LatticeCandidate*> out;std::vector<std::string> surfaces;out.reserve(std::min(limit,ranked.size()));
+ for(const auto* c:ranked){if(out.size()>=limit)break;if(std::find(surfaces.begin(),surfaces.end(),c->surface)!=surfaces.end())continue;surfaces.push_back(c->surface);out.push_back(c);}
+ if(out.size()<limit)for(const auto* c:ranked){if(out.size()>=limit)break;if(std::find(out.begin(),out.end(),c)==out.end())out.push_back(c);}
+ std::stable_sort(out.begin(),out.end(),[](const auto* a,const auto* b){return candidate_cost(*a)<candidate_cost(*b);});return out;
+}
+std::vector<const kana_decoder::LatticeEdge*> retain_span_diverse(std::vector<const kana_decoder::LatticeEdge*> edges,std::size_t limit){
+ std::stable_sort(edges.begin(),edges.end(),[](const auto* a,const auto* b){return a->end<b->end;});if(edges.size()<=limit)return edges;
+ std::vector<const kana_decoder::LatticeEdge*> out;out.reserve(limit);if(limit==1){out.push_back(edges.back());return out;}for(std::size_t i=0;i<limit;++i)out.push_back(edges[i*(edges.size()-1)/(limit-1)]);return out;
+}
+}
 namespace kana_decoder {
 std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  const std::vector<LatticeEdge>& lattice,const MaskedNgramScorer& scorer,
@@ -58,29 +72,9 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  };
  for(std::size_t pos=0;pos<length;++pos){
   if(beams[pos].empty())continue;
-  auto edges=at[pos];
-  std::stable_sort(edges.begin(),edges.end(),[](const LatticeEdge*a,const LatticeEdge*b){
-   if(a->end!=b->end)return a->end<b->end;
-   return a->candidates.size()<b->candidates.size();
-  });
-  if(edges.size()>edge_limit)edges.resize(edge_limit);
+  auto edges=retain_span_diverse(at[pos],edge_limit);
   for(const auto* edge:edges){
-   std::vector<const LatticeCandidate*> candidates;
-   candidates.reserve(std::min(candidate_limit,edge->candidates.size()));
-   auto less_cost=[](const LatticeCandidate* a,const LatticeCandidate* b){
-    return static_cast<std::int64_t>(a->word_cost)+a->connection_cost<
-           static_cast<std::int64_t>(b->word_cost)+b->connection_cost;
-   };
-   for(const auto& candidate:edge->candidates){
-    const auto* candidate_ptr=&candidate;
-    auto where=std::find_if(candidates.begin(),candidates.end(),
-     [&](const LatticeCandidate* current){return less_cost(candidate_ptr,current);});
-    if(candidates.size()<candidate_limit)candidates.insert(where,candidate_ptr);
-    else if(where!=candidates.end()){
-     candidates.insert(where,candidate_ptr);
-     candidates.pop_back();
-    }
-   }
+   std::vector<const LatticeCandidate*> candidates=retain_surface_diverse(edge->candidates,candidate_limit);
    const auto morphology_candidates=candidates;
    for(const auto& state:beams[pos]){
     candidates=morphology_candidates;

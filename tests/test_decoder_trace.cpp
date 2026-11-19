@@ -4,6 +4,7 @@
 #include <cmath>
 #include <iostream>
 #include <limits>
+#include <algorithm>
 int main() {
  using namespace kana_decoder;
  LexiconTrie lexicon;
@@ -28,6 +29,26 @@ int main() {
  assert(unknown_generation[0].dictionary_match_count == 0);
  assert(unknown_generation[0].fallback_generated);
  assert(!unknown_generation[0].fallback_suppressed_by_dictionary);
+ // Diverse surfaces survive candidate caps even when duplicates are cheaper.
+ LexiconTrie diverse_lexicon;
+ assert(diverse_lexicon.add("あ",{"dup-cheap","同一",-1000,0,1,1}));
+ assert(diverse_lexicon.add("あ",{"dup-next","同一",-900,0,1,1}));
+ for(int i=0;i<8;++i)assert(diverse_lexicon.add("あ",{"surface-"+std::to_string(i),"別"+std::to_string(i),-800+i,0,1,1}));
+ auto diverse_lattice=diverse_lexicon.build_lattice("あ",16,false);
+ assert(diverse_lattice.size()==1&&diverse_lattice.front().candidates.size()==8);
+ std::vector<std::string> retained_surfaces;
+ for(const auto& c:diverse_lattice.front().candidates)if(std::find(retained_surfaces.begin(),retained_surfaces.end(),c.surface)==retained_surfaces.end())retained_surfaces.push_back(c.surface);
+ assert(retained_surfaces.size()==8);
+ // Prefix-edge pruning samples the full matched span range.
+ LexiconTrie span_lexicon;std::string nested_reading;
+ for(int i=1;i<=20;++i){nested_reading+="あ";assert(span_lexicon.add(nested_reading,{"prefix-"+std::to_string(i),"候補"+std::to_string(i),-100*i,0,1,1}));}
+ std::vector<LatticePositionTrace> span_trace;
+ auto span_lattice=span_lexicon.build_lattice(nested_reading,16,false,&span_trace);
+ assert(!span_lattice.empty()&&!span_trace.empty());
+ assert(span_trace.front().available_dictionary_match_count==20);
+ assert(span_trace.front().dictionary_match_count==16&&span_trace.front().pruned_dictionary_match_count==4);
+ assert(span_trace.front().pruned_candidate_count==4);
+ bool longest=false;for(const auto& m:span_trace.front().dictionary_matches)longest=longest||m.end==20;assert(longest);
  MaskedNgramScorer scorer;
  scorer.add_unigram("rain", 10);
  scorer.add_unigram("candy", 1);
