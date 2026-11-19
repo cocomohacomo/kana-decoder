@@ -51,3 +51,19 @@ The Japanese Language Set target is still compiled into the overall kana-decoder
 ## 7. Scope boundary
 
 All changes in this stage are limited to the kana-decoder repository and its PR branch. The separate SURGE main repository is not modified.
+
+
+## 8. v0.45.1 Japanese recognition source ownership update
+
+The following implementation files are now compiled only by `kana_decoder_ja_language_set`:
+- `decoder.cpp`: Japanese lattice construction and decode entry point.
+- `morphology_decoder.cpp`: bounded lattice path search.
+- `lexicon_trie.cpp`: reading trie and lattice edge generation.
+- `scoring.cpp`: word/context n-gram scoring and connection matrix.
+- `correction.cpp`: bounded kana correction proposal generation and decode.
+- `pack_loader.cpp`: Japanese dictionary/scorer/connection/correction resource loading.
+- `japanese_language_pack.cpp`: Japanese Language Pack provider.
+
+The generic `src/engine.cpp` retains UTF-8 validation, ambiguity rendering and generic dependency graph behavior; Japanese `decode_reading` and lattice construction have been removed from it. Static and shared host libraries consume the same Japanese object target. This is an internal build/source boundary, not a stable external plugin ABI.
+
+Verification remains pending until branch CI and golden-output parity tests complete. Do not infer accuracy, speed or memory improvement from relocation.
