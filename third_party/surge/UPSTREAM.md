@@ -18,3 +18,20 @@ kana-decoder adapter event kinds `NORMALIZATION_COMMIT`,
 must advance ContextGraph's recovered shared state version exactly once. All
 other vendored Core source files and headers are copied from the pinned upstream
 commit. Do not update the pin without revalidating journal replay conformance.
+
+
+## Decision API integration delta
+
+The following new files are sourced from SURGE PR #139, branch
+`feat/language-runtime-core`, head commit
+`7e8ba7c80df8bcc4c487ccf14d7b99abbe1200b3`:
+
+- `include/surge/decision.hpp`
+- `src/decision.cpp`
+
+They provide the Core-owned RecognitionDecision and NormalizationDecision
+contracts and deterministic bounded candidate comparison. These files are
+vendored before PR #139 is merged; once upstream is merged, update the pinned
+commit and remove this temporary source-delta note after verifying byte parity.
+The local adapter integration in `src/surge_runtime.cpp` remains kana-decoder
+specific and is not part of upstream SURGE Core.
