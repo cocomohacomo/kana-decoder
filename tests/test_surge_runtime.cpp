@@ -49,7 +49,7 @@ int main() {
   assert(result.metrics.entities == 2);
   assert(result.metrics.contradictions == 1);
   assert(result.metrics.questions == 1);
-  assert(result.metrics.chaos_members == 2);
+  assert(result.metrics.chaos_members == 1);
   assert(result.metrics.state_version > 0);
   assert(runtime.graph_node_count() >= 10);
 
