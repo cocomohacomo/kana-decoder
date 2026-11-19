@@ -332,3 +332,25 @@ SURGE main repository remains untouched; its vendored snapshot was not modified.
 - [ ] 最新ブランチのCI build/test完了
 - [ ] golden corpusの移管前後完全一致
 - [ ] 対象エッジPCでPeak RSS/latency/CPU実測
+
+
+## 15. Japanese recognition pipeline migration (v0.45.1)
+
+The Japanese decoder entry point/lattice construction, morphology search, lexicon trie, n-gram scorer, connection model, correction candidate generation and Pack resource loader were moved from the generic `src/` tree into `language_sets/ja-JP/`. The generic `src/engine.cpp` no longer defines Japanese `decode_reading`; it retains UTF-8 validation, ambiguity rendering and generic dependency graph operations.
+
+CMake compiles these Japanese sources with the Japanese Pack provider in the `kana_decoder_ja_language_set` OBJECT target. Both static and shared libraries consume the same object target. The moved source implementations preserve their existing code in this migration; no algorithmic quality gain is claimed.
+
+### Source ownership after migration
+- [x] Japanese lattice decoder entry point
+- [x] Bounded morphology path search
+- [x] Lexicon trie and lattice edge generation
+- [x] N-gram scorer and connection matrix
+- [x] Correction proposal generation
+- [x] Japanese Pack resource loader
+- [x] Shared static/shared object target with PIC
+- [ ] Build and all test suites pass on latest HEAD
+- [ ] Golden corpus byte-identical output verified
+- [ ] Held-out CER / exact match / candidate recall measured
+- [ ] Edge PC Peak RSS / CPU / p95 latency measured
+
+The migration is not yet the final Language Set boundary: public/common types remain in `engine.hpp`, some host-facing code still passes Japanese resources directly, and the external ABI/second language Pack are not implemented.
