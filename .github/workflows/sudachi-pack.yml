@@ -196,7 +196,6 @@ jobs:
           cat "$RUNNER_TEMP/sequential-runtime-time.log"
           python tools/check_memory_budget.py --log "$RUNNER_TEMP/sequential-runtime-time.log" --max-rss-mib 1792
           python -m py_compile tools/calibrate_surge_policy.py
-          python -m py_compile tools/calibrate_surge_policy.py
           python tools/calibrate_surge_policy.py \
             --evaluator "$RUNNER_TEMP/kana-runtime-build/kana_decoder_surge_eval" \
             --pack "$RUNNER_TEMP/ja-jp-sudachi-small" \
