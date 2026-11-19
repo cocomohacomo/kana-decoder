@@ -556,9 +556,20 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   }
 
   if (finalize && ambiguous) {
-    std::string commit_error;
-    if (!commit_output(output, journal_->state_version(), true, commit_error)) {
-      result.error = "SURGE_OUTPUT_COMMIT_FAILED:" + commit_error;
+    // normalize() already holds mutex_; commit directly instead of calling
+    // the public locking wrapper commit_output() and deadlocking.
+    const auto stream_sequence = sequence_++;
+    const std::string stream_id = "norm/" + id_component(config_.context_id) + "/" +
+        std::to_string(stream_sequence) + "/stream-commit";
+    std::ostringstream stream_payload;
+    stream_payload << "context=" << config_.context_id
+                   << ";source_revision=" << journal_->state_version()
+                   << ";final=true;output=" << output;
+    const auto stream_commit = journal_->commit(stream_id, stream_id + "/key",
+        journal_->state_version(), {{stream_id, "NORMALIZATION_STREAM_FINAL_COMMIT",
+                                     stream_payload.str()}});
+    if (!stream_commit.committed) {
+      result.error = "SURGE_OUTPUT_COMMIT_FAILED:" + stream_commit.error;
       return result;
     }
   }
