@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cmath>
+#include <limits>
 namespace kana_decoder {
 std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  const std::vector<LatticeEdge>& lattice,const MaskedNgramScorer& scorer,
@@ -85,6 +86,7 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     bool cluster_resolved=false;
     std::string cluster_winner;
     double cluster_gap=0.0;
+    double cluster_override_bonus=0.0;
     if(opt.surge_cluster_model&&!state.history.empty()){
      struct SurfaceScore { std::string surface; double score; };
      std::vector<SurfaceScore> surface_scores;
@@ -105,6 +107,21 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
       cluster_gap=surface_scores[0].score-surface_scores[1].score;
       cluster_resolved=cluster_gap>=opt.surge_cluster_model->gap_threshold();
       if(cluster_resolved)cluster_winner=surface_scores[0].surface;
+     }
+     if(cluster_resolved&&opt.surge_cluster_weight>0.0){
+      double best_morph=-std::numeric_limits<double>::infinity();
+      double winner_morph=-std::numeric_limits<double>::infinity();
+      for(const auto& candidate:edge->candidates){
+       if(candidate.id.empty()||candidate.surface.empty())continue;
+       const auto transition=(connections&&state.has_last)
+        ? connections->cost(state.last_right_id,candidate.left_id):0;
+       const double score=-static_cast<double>(candidate.word_cost)-
+        static_cast<double>(candidate.connection_cost)-static_cast<double>(transition);
+       best_morph=std::max(best_morph,score);
+       if(candidate.surface==cluster_winner)winner_morph=std::max(winner_morph,score);
+      }
+      if(std::isfinite(best_morph)&&std::isfinite(winner_morph))
+       cluster_override_bonus=(std::max(0.0,best_morph-winner_morph)+cluster_gap)*opt.surge_cluster_weight;
      }
      if(!supported.empty()){
       std::stable_sort(supported.begin(),supported.end(),
@@ -162,7 +179,7 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
       : scorer.score(candidate.id,state.history,right_context);
     const double ngram_context=raw_context*opt.context_weight;
     const double cluster_context=(cluster_resolved&&candidate.surface==cluster_winner)
-      ? cluster_gap*opt.surge_cluster_weight : 0.0;
+      ? cluster_override_bonus : 0.0;
     const double ctx=ngram_context+cluster_context;
     const double local=morph+ctx;
     if(trace && trace->size()<trace_limit) trace->push_back(CandidateScoreTrace{
