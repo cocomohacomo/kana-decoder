@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Contract test for N-best candidate recall and oracle CER metrics."""
 import json
+from pathlib import Path
 import subprocess
 import sys
 
@@ -52,7 +53,21 @@ def main():
     assert wrong_partition == classification["candidate_available_surge_wrong"], classification
     assert classification["candidate_available"] == round(recall10 * cases), classification
     assert payload["cases"] > 0
-    print("SURGE candidate Recall@N contract tests passed")
+
+    token_corpus = Path(corpus).with_name("ja-token-aligned-gold.tsv")
+    token_result = subprocess.run(
+        [evaluator, pack, str(token_corpus), "general", train, policy],
+        text=True, capture_output=True, check=False,
+    )
+    assert token_result.returncode == 0, token_result.stderr
+    token_payload = json.loads(token_result.stdout)
+    token_metrics = token_payload["token_aligned_candidate_generation"]
+    assert token_metrics["gold_tokens"] == 4, token_metrics
+    token_recall1 = token_metrics["recall_at_1"]
+    token_recall5 = token_metrics["recall_at_5"]
+    token_recall10 = token_metrics["recall_at_10"]
+    assert 0.0 <= token_recall1 <= token_recall5 <= token_recall10 <= 1.0, token_metrics
+    print("SURGE candidate Recall@N and token-alignment contract tests passed")
 
 
 if __name__ == "__main__":
