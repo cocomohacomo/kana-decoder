@@ -116,5 +116,28 @@ int main() {
   assert(adapter.render_path(te_paths.front(), "たべて", render_options, rendered));
   assert(rendered == "食べて");
 
+  LatticeCandidate te_particle = candidate("ja-particle-te", "て", -20);
+  te_particle.pos = "助詞/接続助詞";
+  assert(lexicon.add("て", te_particle));
+  const auto te_chain = decode_reading("まわって", lexicon, scorer);
+  assert(!te_chain.empty());
+  assert(te_chain.front().tokens.size() == 2);
+  assert(te_chain.front().tokens[0].candidate.surface == "回っ");
+  assert(te_chain.front().tokens[1].candidate.surface == "て");
+  assert(adapter.render_path(te_chain.front(), "まわって", render_options, rendered));
+  assert(rendered == "回って");
+
+  LatticeCandidate auxiliary = candidate("ja-aux-iru", "いる", -30);
+  auxiliary.pos = "助動詞";
+  assert(lexicon.add("いる", auxiliary));
+  const auto auxiliary_chain = decode_reading("たべている", lexicon, scorer);
+  assert(!auxiliary_chain.empty());
+  assert(auxiliary_chain.front().tokens.size() == 2);
+  assert(auxiliary_chain.front().tokens[0].candidate.surface == "食べて");
+  assert(auxiliary_chain.front().tokens[1].candidate.surface == "いる");
+  assert(adapter.render_path(auxiliary_chain.front(), "たべている",
+                             render_options, rendered));
+  assert(rendered == "食べている");
+
   return 0;
 }
