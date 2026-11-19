@@ -17,10 +17,10 @@ namespace kana_decoder {
 struct SurgeRuntimeConfig {
   std::string journal_path;
   std::string context_id{"kana-normalization"};
-  std::size_t max_journal_events{4096};
-  std::size_t max_journal_transactions{2048};
-  std::size_t max_journal_payload_bytes{256U * 1024U};
-  std::size_t max_journal_identity_bytes{4U * 1024U * 1024U};
+  std::size_t max_journal_events{65536};
+  std::size_t max_journal_transactions{8192};
+  std::size_t max_journal_payload_bytes{32U * 1024U * 1024U};
+  std::size_t max_journal_identity_bytes{16U * 1024U * 1024U};
   std::size_t max_candidates_per_decode{64};
   bool remove_journal_on_destroy{false};
 };
