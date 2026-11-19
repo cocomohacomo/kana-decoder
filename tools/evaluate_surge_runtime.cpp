@@ -117,30 +117,12 @@ int main(int argc, char** argv) {
     return 2;
   }
 
-  const auto journal = (std::filesystem::temp_directory_path() /
-      "kana-decoder-surge-real-data-eval.journal").string();
-  std::error_code ignored;
-  std::filesystem::remove(journal, ignored);
-  kana_decoder::SurgeRuntimeConfig config;
-  config.journal_path = journal;
-  config.context_id = "real-data-evaluation";
-  config.max_journal_events = std::max<std::size_t>(65536, cases.size() * 128);
-  config.max_journal_transactions = std::max<std::size_t>(8192, cases.size() * 32);
-  config.max_journal_payload_bytes = 64U * 1024U * 1024U;
-  config.max_journal_identity_bytes = 32U * 1024U * 1024U;
-  config.remove_journal_on_destroy = true;
-  kana_decoder::SurgeNormalizationRuntime runtime(config);
-  std::string error;
-  if (!runtime.open(error)) {
-    std::cerr << "failed to open SURGE runtime: " << error << "\n";
-    return 2;
-  }
-
+  std::size_t runtime_failures = 0;
   std::size_t exact_top1 = 0, exact_surge = 0, top1_distance = 0, surge_distance = 0;
   std::size_t reference_points = 0, overrides = 0, deferred = 0, decode_failures = 0;
   std::size_t input_points = 0;
   const auto started = std::chrono::steady_clock::now();
-  for (const auto& item : cases) {
+  for (std::size_t case_index = 0; case_index < cases.size(); ++case_index) {\n    const auto& item = cases[case_index];
     input_points += codepoints(item.reading).size();
     reference_points += codepoints(item.expected).size();
     const auto paths = kana_decoder::decode_reading(item.reading, lexicon, scorer, {},
@@ -155,6 +137,24 @@ int main(int argc, char** argv) {
     top1_distance += top1_ed;
     if (top1_ed == 0) ++exact_top1;
 
+    const auto journal = (std::filesystem::temp_directory_path() /
+        ("kana-decoder-surge-real-data-eval-" + std::to_string(case_index) + ".journal")).string();
+    kana_decoder::SurgeRuntimeConfig config;
+    config.journal_path = journal;
+    config.context_id = "real-data-evaluation-" + std::to_string(case_index);
+    config.max_journal_events = 512;
+    config.max_journal_transactions = 128;
+    config.max_journal_payload_bytes = 1024U * 1024U;
+    config.max_journal_identity_bytes = 512U * 1024U;
+    config.remove_journal_on_destroy = true;
+    kana_decoder::SurgeNormalizationRuntime runtime(config);
+    std::string runtime_error;
+    if (!runtime.open(runtime_error)) {
+      ++runtime_failures;
+      ++deferred;
+      surge_distance += codepoints(item.expected).size();
+      continue;
+    }
     const auto normalized = runtime.normalize(item.reading, paths, true);
     if (!normalized.committed) {
       ++deferred;
