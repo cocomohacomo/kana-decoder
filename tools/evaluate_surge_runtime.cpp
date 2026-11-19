@@ -10,7 +10,7 @@
 #include <iostream>
 #include <map>
 #include <string>
-#include <sys/resource.h>
+#if !defined(_WIN32)\n#include <sys/resource.h>\n#endif
 #include <vector>
 
 namespace {
