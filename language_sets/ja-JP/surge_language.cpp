@@ -1,6 +1,7 @@
 #include "kana_decoder/japanese_language.hpp"
 
 #include <cmath>
+#include <cctype>
 #include <cstring>
 #include <limits>
 #include <string>
@@ -455,6 +456,87 @@ bool JapaneseLanguageAdapter::make_numeric_entity(std::string_view reading,
 bool JapaneseLanguageAdapter::render_entity(const Entity& entity, NumericStyle style,
     std::string& output) const {
   return kana_decoder::surge::render_entity(entity, style, output);
+}
+
+bool JapaneseLanguageAdapter::render_path(
+    const ::kana_decoder::DecodedPath& path, std::string_view reading,
+    const SurfaceRenderOptions& options, std::string& output) const {
+  if (path.tokens.empty() || reading.empty() ||
+      !::kana_decoder::is_valid_utf8(std::string(reading))) return false;
+
+  const auto slice = [&](std::size_t start, std::size_t end, std::string& value) {
+    if (start >= end) return false;
+    std::size_t codepoint = 0;
+    std::size_t byte_start = std::string_view::npos;
+    std::size_t byte_end = std::string_view::npos;
+    for (std::size_t i = 0; i < reading.size();) {
+      if (codepoint == start) byte_start = i;
+      if (codepoint == end) { byte_end = i; break; }
+      const auto c = static_cast<unsigned char>(reading[i]);
+      i += c < 0x80 ? 1 : (c & 0xe0) == 0xc0 ? 2 :
+           (c & 0xf0) == 0xe0 ? 3 : 4;
+      ++codepoint;
+    }
+    if (byte_end == std::string_view::npos && codepoint == end) byte_end = reading.size();
+    if (byte_start == std::string_view::npos || byte_end == std::string_view::npos ||
+        byte_end <= byte_start) return false;
+    value.assign(reading.substr(byte_start, byte_end - byte_start));
+    return true;
+  };
+  const auto ascii_word = [](char c) {
+    const auto value = static_cast<unsigned char>(c);
+    return value < 0x80 && std::isalnum(value) != 0;
+  };
+  const auto punctuation_prefix = [](const std::string& value) {
+    return value.rfind("。", 0) == 0 || value.rfind("、", 0) == 0 ||
+           value.rfind("！", 0) == 0 || value.rfind("？", 0) == 0 ||
+           value.rfind(",", 0) == 0 || value.rfind(".", 0) == 0 ||
+           value.rfind("!", 0) == 0 || value.rfind("?", 0) == 0;
+  };
+
+  std::string rendered;
+  std::size_t previous_end = 0;
+  for (const auto& token : path.tokens) {
+    if (token.start < previous_end || token.start >= token.end ||
+        token.candidate.surface.empty()) return false;
+    std::string surface = token.candidate.surface;
+    if (options.normalize_numbers) {
+      std::string token_reading;
+      if (!slice(token.start, token.end, token_reading)) return false;
+      Entity numeric;
+      std::string numeric_surface;
+      if (make_numeric_entity(token_reading, "render-number-" +
+              std::to_string(token.start), NumericEntityTarget::Number, {}, numeric) &&
+          render_entity(numeric, options.numeric_style, numeric_surface)) {
+        surface.swap(numeric_surface);
+      }
+    }
+    if (options.space_latin_boundaries && !rendered.empty() && !surface.empty()) {
+      const char previous = rendered.back();
+      const char current = surface.front();
+      const bool boundary = (ascii_word(previous) && static_cast<unsigned char>(current) >= 0x80 &&
+                             !punctuation_prefix(surface)) ||
+                            (static_cast<unsigned char>(previous) >= 0x80 && ascii_word(current));
+      if (boundary) rendered.push_back(' ');
+    }
+    rendered += surface;
+    previous_end = token.end;
+  }
+  if (options.append_terminal_punctuation) {
+    const auto punctuation = terminal_punctuation(options.discourse_act, options.punctuation_style);
+    if (!punctuation.empty()) {
+      const bool already_terminated = rendered.size() >= 1 &&
+          (rendered.back() == '.' || rendered.back() == '!' || rendered.back() == '?');
+      const bool japanese_terminated = rendered.size() >= 3 &&
+          (rendered.compare(rendered.size() - 3, 3, "。") == 0 ||
+           rendered.compare(rendered.size() - 3, 3, "！") == 0 ||
+           rendered.compare(rendered.size() - 3, 3, "？") == 0);
+      if (!already_terminated && !japanese_terminated) rendered += punctuation;
+    }
+  }
+  if (rendered.empty()) return false;
+  output.swap(rendered);
+  return true;
 }
 
 bool render_entity(const Entity& entity, NumericStyle style, std::string& output) {
