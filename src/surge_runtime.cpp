@@ -335,7 +335,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   if (alternatives.size() > 16) alternatives.resize(16);
 
   surge::ChaosProvenance provenance{"kana-decoder", "1", "normalization-v1", timestamp};
-  if (!alternatives.empty()) {
+  if (!alternatives.empty() || !contradictions.empty()) {
     surge::ChaosCluster existing_chaos;
     if (!chaos_->get(chaos_cluster_id_, existing_chaos)) {
       const auto created = chaos_->create(prefix + "/chaos-create",
