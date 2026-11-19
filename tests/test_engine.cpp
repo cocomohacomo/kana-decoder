@@ -220,7 +220,7 @@ int main(){
  assert(session.reading()=="あめ"&&snapshot.revision==2);
  StreamingSnapshot stale_snapshot=snapshot;session.reset();assert(session.reading().empty());
  std::string stale_output;assert(!session.commit_best(stale_snapshot,stale_output));
- assert(session.append("あめ",trie,lattice_scorer,snapshot,dop));
+ assert(append_stream(session,"あめ",trie,lattice_scorer,snapshot,dop));
  std::string committed;assert(session.commit_best(snapshot,committed));
  assert(committed=="雨"&&!snapshot.provisional&&snapshot.revision==5);
  assert(session.reading().empty());
