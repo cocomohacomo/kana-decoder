@@ -39,6 +39,9 @@ struct SurgeRuntimeMetrics {
   std::size_t contradictions{0};
   std::size_t questions{0};
   std::size_t chaos_members{0};
+  std::size_t typed_entities_found{0};
+  std::size_t typed_entity_evidence_added{0};
+  std::size_t typed_entities_persisted{0};
   std::size_t focus_retrieved_claims{0};
   std::size_t focus_evidence_added{0};
   std::size_t dependency_triggered{0};
