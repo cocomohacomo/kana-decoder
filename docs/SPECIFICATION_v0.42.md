@@ -108,10 +108,10 @@ Default runtime profile:
 | Alternative refs in Chaos PatternHypothesis | 16 |
 | N-best paths | 8 |
 | Input reading | 256 codepoints |
-| Journal events | 4,096 |
-| Journal transactions | 2,048 |
-| One journal payload | 256 KiB |
-| Retained journal identity index | 4 MiB |
+| Journal events | 65,536 |
+| Journal transactions | 8,192 |
+| Retained journal payload bytes | 32 MiB |
+| Retained journal identity index | 16 MiB |
 
 The default C API engine uses a unique ephemeral journal in the OS temporary
 directory and removes it on engine destruction. Applications that need restart
