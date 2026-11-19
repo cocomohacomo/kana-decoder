@@ -591,3 +591,11 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - SURGE Clusterと多次数N-gramは同一Beam履歴に基づいて同時利用可能。形態素接続行列は従来どおり接続/POS関連の別Evidenceとして維持する。
 - 合成C++テストで統合順位、Skip-Bigram単独のEvidence検出、未観測候補の非Evidence扱いを検証する。
 - 係数は初期値であり、実データdevで校正する。実Sudachi testでの精度改善は評価完了まで主張しない。
+
+
+## 51. 可変長N-gram履歴（v0.38）
+
+- context keyとBeam履歴を直近3候補まで拡張し、4-gram / Trigram / Bigram / Skip-Bigramの観測Evidenceを同時利用する。
+- 初期重みは4-gram 0.50、Trigram 0.30、Bigram 0.15、Skip-Bigram 0.05。未観測次数は正規化分母から除外する。
+- train系列で距離・順序を維持した各次数を構築し、推論はBeamごとの予測履歴のみを使用。
+- 既存のリソース上限を維持し、合成テストで複数次数の順位とskip証拠を確認する。
