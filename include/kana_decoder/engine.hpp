@@ -5,9 +5,7 @@
 #include <unordered_map>
 #include <vector>
 namespace kana_decoder {
-enum class OutputMode { Normal, Ambiguous, Conservative, Diagnostic };
 enum class Layer { Morphological = 0, Semantic = 1, Orthographic = 2 };
-enum class CorrectionKind { Insert, Delete, Replace, Duplicate, Phonetic };
 struct Candidate { std::string id; std::string surface; std::string pos,inflection_type,inflection_form; };
 struct AmbiguityResult { std::string output; bool ambiguous=false; double top_score=0.0; double margin=0.0; std::vector<Candidate> ranked; };
 struct HypothesisNode { std::string id; Layer layer; std::vector<std::string> dependencies; std::uint64_t revision=0; bool valid=true; };
