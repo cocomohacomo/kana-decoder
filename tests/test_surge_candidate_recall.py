@@ -53,6 +53,11 @@ def main():
     assert wrong_partition == classification["candidate_available_surge_wrong"], classification
     assert classification["candidate_available"] == round(recall10 * cases), classification
     assert payload["cases"] > 0
+    sentence_only = payload["token_aligned_candidate_generation"]
+    assert sentence_only["gold_tokens"] == 0, sentence_only
+    assert sentence_only["recall_at_1"] is None, sentence_only
+    assert sentence_only["recall_at_5"] is None, sentence_only
+    assert sentence_only["recall_at_10"] is None, sentence_only
 
     token_corpus = Path(corpus).with_name("ja-token-aligned-gold.tsv")
     token_result = subprocess.run(
