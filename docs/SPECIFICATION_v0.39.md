@@ -1,6 +1,6 @@
-# kana-decoder 仕様書 v0.39
+# kana-decoder 仕様書 v0.40
 
-- Version: 0.39.0
+- Version: 0.40.0
 - Core license: MIT
 - Runtime: CPU-only / offline
 - Focus: offline SURGE lexical context-cluster feasibility evaluation with distance-preserving causal evidence.
@@ -159,3 +159,12 @@ No v0.32 accuracy gain is claimed until the new CI and full Pack workflow comple
 - Cluster-only評価ではword N-gramとPOS N-gramを無効化し、N-gram-only / cluster-only / combinedの寄与を分離する。
 - POS N-gramは接続行列と情報が相関する可能性がある。devで選ばれた重みを固定し、test結果を使った再調整は禁止する。
 - 現段階ではN-gram学習モデルはCI評価時にtrain splitから構築し、Language Packへ同梱しない。製品配布用モデルの圧縮・更新方式は別途検証する。
+
+
+## 15. v0.40 Evidence競合制御と統合校正
+
+- dev校正時にWord N-gram / POS N-gram / SURGE Clusterの寄与を同時に探索し、Morphology・N-gram単独・Cluster単独・Combinedを同一dev splitで比較する。
+- 校正値はcontext weight {0,1,2}、margin {0,0.1,0.5}、alpha {0.1,0.5}、POS weight {0,0.15}、Cluster weight {0,0.5,1,2}の144構成。
+- Clusterモデルをdev-calibrateにも明示的に渡し、Cluster weight=0で無効化、>0で有効化する。test時は凍結した5値校正ファイルを使用。
+- devで形態素ベースラインを超えない場合は全Evidence weightを0に戻す。testは一切校正に使用しない。
+- testレポートはMorphology / N-gram / Cluster / dev選択Combinedを分離表示する。
