@@ -689,3 +689,40 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - LanguageState固定フットプリントはテストで256 KiB以下を確認。N-best rerankerは8 path上限を超える入力を拒否。
 - JSON SchemaはJSON parse検証済み。
 - この段階では実Packの再ランキングを実行していない。実際のN-gram/POS/Cluster/Semantic/Syntax EvidenceをHypothesisへ供給するアダプター接続とdev校正は次段階。v0.41によるCER改善は主張しない。
+
+
+## 59. SURGE Coreを唯一の正文化コンテキスト基盤とする統合リファクタ v0.42
+
+### アーキテクチャ変更
+- SURGE upstream commit `c8a0b5a5f8cf714b74892d1263bd53088fe51be3`（Core 0.9.11 / Spec 1.0）を `third_party/surge` にMITライセンスでvendoring。ネットワーク取得を必要とせず、完全オフラインでビルド可能にした。
+- `EventJournal`、`ContextGraph`、`ChaosClusterLedger` を同一Journal上に構成。ContextGraphが再生時にAdapter固有のNORMALIZATION_* eventを正しくversion計上するよう、vendored Coreのreplayを拡張。
+- 旧LanguageStateは互換・単体primitiveテスト用に残すが、C/Python製品デコードの権威状態としては使用しない。製品APIはSURGE Core runtimeを必ず通過する。
+- C APIのbatch decode / N-best / Streaming append / prefix commit / final commitをSURGE runtime経由に変更。Python APIにcaller-managed `surge_journal_path` を追加。既定はengine/sessionごとの一時Journal、明示パス指定時は再起動後も回復可能。
+
+### 認識候補からSURGE Coreへの写像
+- 各N-best候補をEntity / Claimへ変換し、候補ごとのEvidenceをSupports関係で接続。Claimは文脈ClusterとEntityにAboutで接続。
+- DecodedTokenから独立したEvidence sourceを出力するようDecoderを改修: LEXICAL、TRANSITION、WORD_NGRAM、POS_NGRAM、SURGE_CLUSTER。実際に観測された根拠がある場合のみ該当Evidenceを生成し、ゼロ埋めの疑似Evidenceは生成しない。
+- Morphology aggregate / Context aggregateは互換診断値として保持。SURGE Clusterのraw evidenceと適用bonusは分離して記録。
+- 同一読み範囲で表層が異なる候補Claim間にContradictsを生成し、QuestionRouterを介してQuestion / QuestionAspect / Interest / Focusを生成。
+- N-bestに残る未確定候補群をChaosClusterのmemberとPatternHypothesisとして保持。確定候補だけに早期収束させず、対立候補をprovisionalのまま残す。
+- ClaimValidity / EvidenceValidityをSemanticDeltaに含め、DependencyEngineに時間状態predicateを評価させる。パケットごとに代表Claimを時間再評価し、全候補の有効期間記録は保持する。
+- NORMALIZATION_PROPOSAL / NORMALIZATION_COMMIT / NORMALIZATION_STREAM_PREFIX_COMMIT / NORMALIZATION_STREAM_FINAL_COMMITをEventJournalへ記録。stream appendは暫定、prefix/best commitは明示的な確定操作とする。
+
+### Resource guardrails
+- 1 decodeあたりunique candidate 64、Contradicts relation 16、Chaos alternative refs 16、N-best 8、reading 256 codepoints。
+- 既定Journal budget: 65,536 events、8,192 transactions、retained payload 32 MiB、identity index 16 MiB。超過・不正参照・stale state versionはfail-closed。
+- 長期Journalのsnapshot compaction / retention-driven graph pruningは未実装。上限到達時に暗黙の切り捨ては行わず、呼出元へ失敗を返す。
+
+### 検証
+- GitHub Actions run 44497259486: C++ Build成功、CTest 25/25、Python 71 tests（66 pass / 5 skip）、Japanese reference Pack検証成功、license policy tests成功。
+- 同run bounded benchmark: N-gram resolve 5,742.29 ns/op、decoder decode 3,601.74 ns/op。既存benchは低レベルdecoderを測定し、SURGE journal/graph runtimeの全コストを表すものではない。
+- 新規 `surge_core_normalization_integration` は独立5 Evidence source、Entity/Claim、同一spanの矛盾、Question routing、Focus、Chaos PatternHypothesis、時間再評価、final commit、Journal close/reopen replayを検証。
+- C ABIとPython integrationはcaller-managed journalを通したdecode / N-best / streaming lifecycleを検証。Python ctypes共有ライブラリで発生したGraph relation map iterator invalidationを修正し、route対象IDを先にsnapshotすることで再発を防止。
+- この段階のCIはja-lite reference Packの整合性検証であり、Sudachi full corpusのCER / RTF / Peak RSS再測定ではない。統合runtimeの品質改善・性能改善は未確認であり、数値を主張しない。
+
+### 未完了の次段階
+1. SURGE共通RecognitionDecision APIへEvidence集約・候補ランキングを移し、decoder固有ロジックから切り離す。
+2. SemanticFrame / SyntaxRelation / ScopeSpanを実際の言語解析結果から生成するAdapter。
+3. 日付・時刻・範囲・単位・通貨の文脈認識とOrthographicHypothesis選択を統合。
+4. Snapshot compaction、bounded retrieval、importance/interest/conflict-aware forgettingで長期Journal/Graphの成長を制御。
+5. SURGE runtimeを経由するfull Pack causal evaluationを追加し、CER / sentence exact / RSS / RTF / streaming revision rateを比較。
