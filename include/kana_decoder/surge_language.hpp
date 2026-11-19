@@ -256,6 +256,8 @@ class LanguageAdapter {
   virtual bool make_numeric_entity(std::string_view reading, std::string_view entity_id,
                                    NumericEntityTarget target, std::string_view unit,
                                    Entity& output) const = 0;
+  virtual bool render_entity(const Entity& entity, NumericStyle style,
+                             std::string& output) const = 0;
 };
 
 class JapaneseLanguageAdapter final : public LanguageAdapter {
@@ -267,6 +269,8 @@ class JapaneseLanguageAdapter final : public LanguageAdapter {
   bool make_numeric_entity(std::string_view reading, std::string_view entity_id,
                            NumericEntityTarget target, std::string_view unit,
                            Entity& output) const override;
+  bool render_entity(const Entity& entity, NumericStyle style,
+                     std::string& output) const override;
 };
 struct ParsedNumber {
   std::int64_t mantissa = 0;
