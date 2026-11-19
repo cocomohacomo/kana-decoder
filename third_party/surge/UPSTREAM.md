@@ -23,15 +23,17 @@ commit. Do not update the pin without revalidating journal replay conformance.
 ## Decision API integration delta
 
 The following new files are sourced from SURGE PR #139, branch
-`feat/language-runtime-core`, head commit
-`7e8ba7c80df8bcc4c487ccf14d7b99abbe1200b3`:
+`feat/language-runtime-core`, branch `feat/language-runtime-core` (current UnifiedDecision implementation):
 
 - `include/surge/decision.hpp`
 - `src/decision.cpp`
 
-They provide the Core-owned RecognitionDecision and NormalizationDecision
-contracts, deterministic bounded candidate comparison, family-weight calibration,
-fail-closed handling of non-finite contributions and accumulated scores, and a hard cap on family-weight entries. These files are
+They provide the Core-owned UnifiedDecision contract, which evaluates
+interpretation candidates and their source/rendered surface hypotheses in one
+decision call and one trace/disposition boundary. It also provides deterministic
+bounded candidate comparison, family-weight calibration, fail-closed handling
+of non-finite contributions and accumulated scores, and a hard cap on family
+weight entries. These files are
 vendored before PR #139 is merged; once upstream is merged, update the pinned
 commit and remove this temporary source-delta note after verifying byte parity.
 The local adapter integration in `src/surge_runtime.cpp` remains kana-decoder
