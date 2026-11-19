@@ -199,3 +199,13 @@ No v0.32 accuracy gain is claimed until the new CI and full Pack workflow comple
 - 診断はtest splitの凍結済みdev選択policyで一度だけ実行し、dev校正の各候補構成では実行しない。通常decoder API、候補選択、Language Pack形式は変更しない。
 - CandidateScoreTraceは既存の最大4096件/文の上限を使用。ラティス自体も既存のedge/candidate上限下で生成される。
 - この診断値は原因切り分け用であり、正解情報を用いた候補ランキング性能の値を通常推論精度と混同しない。
+
+
+## v0.40.4 N-best回復可能性の分離診断
+
+- v0.40.3の `final_selection_drop` は、正解候補が最良パスに含まれないことを示すが、N-best内の別パスに残っているケースと、探索・最終N-best形成の段階で消失したケースを区別できなかった。
+- test splitの凍結済みpolicyで返された全N-best path（最大8件）をdecode完了後に走査し、正解tokenのspan/surfaceが1件以上のpathに含まれるかを集計する。
+- `nbest_aligned` はいずれかのN-best pathに存在する正解token数、`nbest_recoverable` はN-bestには存在するがbest pathには存在しない数、`scored_not_in_nbest` はCandidateScoreTraceで展開が確認されたが返却N-best pathには残らない数とする。
+- `nbest_aligned = final_aligned + nbest_recoverable` を必須不変条件としてテストする。
+- `scored_not_in_nbest` はBeam枝刈りだけでなく、返却path上限や異なるtoken segmentationの影響も含み得るため、直ちにBeam pruning原因と断定しない。詳細な原因分離は次段階のpath-level traceで行う。
+- 診断はdecode完了後に行い、gold tokenを候補生成・スコアリング・Beam選択へ渡さない。通常デコード、Pack形式、ABI、メモリ上限は変更しない。
