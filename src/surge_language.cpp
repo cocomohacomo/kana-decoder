@@ -100,6 +100,22 @@ bool LanguageState::add_entity(const Entity& value) {
   return true;
 }
 
+bool LanguageState::add_evidence(const Evidence& value) {
+  if (evidence_count_ >= evidence_.size() || value.id.empty() || value.source.empty() ||
+      value.dependency_count > kMaxDependenciesPerEvidence ||
+      !find_hypothesis(value.hypothesis_id.str()) ||
+      !valid_score(value.score) || !valid_confidence(value.confidence) ||
+      (value.valid_until_revision != 0 && value.valid_until_revision < value.valid_from_revision) ||
+      has_id(evidence_, evidence_count_, value.id.str())) return false;
+  for (std::size_t i = 0; i < value.dependency_count; ++i) {
+    if (!find_evidence(value.dependency_ids[i].str())) return false;
+    for (std::size_t j = 0; j < i; ++j)
+      if (value.dependency_ids[i].equals(value.dependency_ids[j].str())) return false;
+  }
+  evidence_[evidence_count_++] = value;
+  return true;
+}
+
 bool LanguageState::add_constraint(const Constraint& value) {
   if (constraint_count_ >= constraints_.size() || value.id.empty() || value.rule.empty() ||
       !valid_score(value.weight) || has_id(constraints_, constraint_count_, value.id.str())) return false;
@@ -121,7 +137,8 @@ bool LanguageState::add_decision(const Decision& value) {
     if (value.compared_hypotheses[i].equals(value.selected_hypothesis.str())) selected_compared = true;
   }
   if (value.compared_count > 0 && !selected_compared) return false;
-  for (std::size_t i = 0; i < value.evidence_count; ++i) if (value.evidence_ids[i].empty()) return false;
+  for (std::size_t i = 0; i < value.evidence_count; ++i)
+    if (!find_evidence(value.evidence_ids[i].str())) return false;
   decisions_[decision_count_++] = value;
   return true;
 }
@@ -156,6 +173,44 @@ const Entity* LanguageState::find_entity(std::string_view id) const {
   for (std::size_t i = 0; i < entity_count_; ++i)
     if (entities_[i].id.equals(id)) return &entities_[i];
   return nullptr;
+}
+
+const Evidence* LanguageState::find_evidence(std::string_view id) const {
+  for (std::size_t i = 0; i < evidence_count_; ++i)
+    if (evidence_[i].id.equals(id)) return &evidence_[i];
+  return nullptr;
+}
+
+bool LanguageState::aggregate_evidence(std::string_view hypothesis_id, std::uint64_t revision,
+                                       const EvidencePolicy& policy, double& score) const {
+  if (!find_hypothesis(hypothesis_id)) return false;
+  std::array<double, 10> best{};
+  std::array<bool, 10> present{};
+  double weighted_sum = 0.0;
+  double weight_sum = 0.0;
+  for (std::size_t i = 0; i < policy.kind_weights.size(); ++i) {
+    if (!std::isfinite(policy.kind_weights[i]) || policy.kind_weights[i] < 0.0) return false;
+  }
+  for (std::size_t i = 0; i < evidence_count_; ++i) {
+    const auto& item = evidence_[i];
+    if (!item.hypothesis_id.equals(hypothesis_id) || revision < item.valid_from_revision ||
+        (item.valid_until_revision != 0 && revision > item.valid_until_revision)) continue;
+    const auto kind = static_cast<std::size_t>(item.kind);
+    if (kind >= best.size()) return false;
+    const double contribution = item.score * item.confidence;
+    if (!present[kind] || contribution > best[kind]) {
+      best[kind] = contribution;
+      present[kind] = true;
+    }
+  }
+  for (std::size_t i = 0; i < best.size(); ++i) {
+    if (!present[i] || policy.kind_weights[i] == 0.0) continue;
+    weighted_sum += best[i] * policy.kind_weights[i];
+    weight_sum += policy.kind_weights[i];
+  }
+  if (weight_sum == 0.0) return false;
+  score = weighted_sum / weight_sum;
+  return std::isfinite(score);
 }
 
 std::size_t LanguageState::memory_bytes() const {
