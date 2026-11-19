@@ -33,23 +33,37 @@ Input Kana Stream
 -> SURGE Stream Ingress
 -> selected Language Set
 -> candidate lattice / lexicon / morphology / n-gram / syntax / semantic evidence
--> SURGE Recognition Core (Claims, Evidence, ContextGraph, Question/Interest/Focus, Dependency, Chaos Cluster)
--> RecognitionDecision
--> NormalizationHypothesis generation
--> SURGE NormalizationDecision
--> Language Set surface renderer
--> Core validation, source/output span alignment and journal commit
+-> SURGE Core ingress and Cluster classification/retention
+-> replaceable Language Set candidate/evidence providers and surface renderer
+-> SURGE UnifiedDecision (interpretation + surface hypotheses in one transaction)
+-> Core validation, source/output span alignment, temporal reassessment and journal commit
 -> kana-decoder output transport
 
-Recognition and normalization are related but distinct decisions:
-- Recognition determines the lexical/semantic interpretation.
-- Normalization determines the appropriate written representation of that interpretation.
-- Rendering realizes the selected representation into output characters.
-- Rendering cannot silently replace the semantic or lexical interpretation.
+Recognition and normalization are not separate decision engines. SURGE exposes one
+UnifiedDecision call and one decision trace/commit boundary:
+- The interpretation phase ranks lexical/semantic candidate paths.
+- The surface phase ranks original and Language Set-rendered realizations for the selected path.
+- Both phases share one Core policy, provenance model, budget, disposition and transaction.
+- If surface selection defers or rejects, the unified decision returns no partial selected surfaces.
+- Rendering cannot silently replace the semantic or lexical interpretation. A rendering conflict returns to the Core as evidence and can trigger Question/Interest/Focus reassessment.
 
-The Core may defer either decision independently. A contradiction discovered during rendering returns as a typed conflict and can trigger Question/Focus reassessment.
+The phases remain separately inspectable in the unified trace, but there is no
+independent RecognitionDecision or NormalizationDecision API or host-side selector.
 
-## 4. Normalization coverage
+## 4. Clustered input retention
+
+All incoming information is retained in SURGE's internal cluster graph rather
+than treated as disposable decoder-local scores. The input stream is anchored
+under a context cluster. SURGE classifies and retains candidate interpretations
+in typed interpretation clusters and source/rendered surface hypotheses in
+surface-realization clusters. Cluster membership is explicit through graph
+Containment relations; Claims, Evidence, Entities, provenance, validity and
+contradiction relations remain queryable after the input event. Unresolved
+alternatives are retained in Chaos Cluster and can be revisited through
+Question/Interest/Focus and temporal reassessment. Cluster classification and
+retention are Core responsibilities, not a parallel kana-decoder memory.
+
+## 5. Normalization coverage
 
 The Japanese Language Set must own:
 - kanji/kana/katakana/Latin/digit/symbol/punctuation candidate generation;
@@ -62,6 +76,7 @@ The Japanese Language Set must own:
 
 The SURGE Core must own:
 - NormalizationHypothesis identity and lifecycle;
+- UnifiedDecision combining interpretation and surface selection;
 - evidence provenance, validity and deduplication;
 - context-conditioned selection and defer/reassess;
 - ambiguity retention in Chaos Cluster;
@@ -69,7 +84,7 @@ The SURGE Core must own:
 - revision and final commit authority;
 - resource caps and deterministic fallback.
 
-## 5. Migration sources
+## 6. Migration sources
 
 Move the following application-owned elements into SURGE Runtime or Japanese Language Set:
 - src/surge_language.cpp and its public header;
@@ -89,17 +104,18 @@ Keep in kana-decoder only:
 - corpus preparation and evaluation/benchmark harnesses;
 - compatibility conversion commands during migration, with no parallel production runtime.
 
-## 6. Pack replacement and session guarantees
+## 7. Pack replacement and session guarantees
 
 A session pins Language Set ID, version, digest, ABI and normalization policy. A pack replacement is activated only at a safe session boundary. Historical claims/evidence retain their original pack provenance. Reprocessing under another pack creates new evidence and explicit revisions; it never rewrites historical records.
 
 A data-only Language Set must be replaceable without rebuilding kana-decoder or SURGE Core. Native modules, if needed, must use the stable SURGE Language Runtime ABI. The default deployment remains offline, CPU-only and bounded by explicit memory, candidate, lattice, output and per-event time limits.
 
-## 7. Required tests
+## 8. Required tests
 
 - Japanese pack conversion preserves all dictionary, morphology, connection, n-gram and normalization resources.
 - Kanji/kana/katakana/Latin/digit/symbol/punctuation selection is context-sensitive and traceable.
-- Semantic choice and orthographic choice remain independently inspectable.
+- UnifiedDecision chooses interpretation and surface realization in one transaction; phase-level traces remain inspectable.
+- Every input candidate is assigned to a typed SURGE Cluster and retained with evidence/provenance; no host-local shadow memory is used.
 - Renderer conflicts return to Core and can trigger reassessment.
 - Source/output alignment remains valid after streaming revisions and journal replay.
 - Identical input, pack digest and policy produce deterministic output.
@@ -109,7 +125,7 @@ A data-only Language Set must be replaceable without rebuilding kana-decoder or 
 - Existing C/Python APIs remain compatible.
 - CER, sentence exact match, RTF, peak RSS, pack size, load time and switching cost are measured against the current baseline.
 
-## 8. Completion criteria
+## 9. Completion criteria
 
 Language and Normalization Adapter migration is complete only when all language-specific recognition and surface realization execute through SURGE Language Runtime and a replaceable Language Set; Core owns both recognition and normalization decisions; kana-decoder is a transport/compatibility/evaluation host; and cross-language pack replacement passes executable conformance tests.
 
