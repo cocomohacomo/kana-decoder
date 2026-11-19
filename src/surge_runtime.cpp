@@ -32,6 +32,18 @@ std::string utc_now() {
   return buffer;
 }
 
+std::size_t utf8_codepoint_count(const std::string& input) {
+  if (!::surge::is_valid_utf8(input)) return 0;
+  std::size_t count = 0;
+  for (std::size_t i = 0; i < input.size();) {
+    const auto c = static_cast<unsigned char>(input[i]);
+    i += c < 0x80 ? 1 : (c & 0xe0) == 0xc0 ? 2 :
+         (c & 0xf0) == 0xe0 ? 3 : 4;
+    ++count;
+  }
+  return count;
+}
+
 std::string codepoint_slice(const std::string& input, std::size_t start, std::size_t end) {
   if (!::surge::is_valid_utf8(input) || start >= end) return {};
   std::size_t cp = 0, byte_start = std::string::npos, byte_end = std::string::npos;
@@ -94,7 +106,7 @@ bool SurgeNormalizationRuntime::open(std::string& error) {
   std::lock_guard<std::mutex> lock(mutex_);
   if (opened_) return true;
   if (config_.journal_path.empty() || config_.context_id.empty() ||
-      config_.max_candidates_per_decode == 0 || config_.max_candidates_per_decode > 64 ||
+      config_.context_id.size() > 128 || config_.max_candidates_per_decode == 0 || config_.max_candidates_per_decode > 64 ||
       config_.max_journal_events == 0 || config_.max_journal_transactions == 0 ||
       config_.max_journal_payload_bytes < 1024 || config_.max_journal_identity_bytes < 1024) {
     error = "SURGE_RUNTIME_CONFIG_INVALID";
@@ -146,7 +158,8 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     result.error = "SURGE_RUNTIME_NOT_OPEN";
     return result;
   }
-  if (reading.empty() || !::surge::is_valid_utf8(reading) || paths.empty() ||
+  if (reading.empty() || !::surge::is_valid_utf8(reading) ||
+      utf8_codepoint_count(reading) > 256 || paths.empty() ||
       paths.size() > 8 || paths.front().tokens.empty()) {
     result.error = "SURGE_NORMALIZATION_INPUT_INVALID";
     return result;
