@@ -539,9 +539,11 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     }();
     delta.nodes.push_back({{record.entity_id, ::surge::NodeKind::Entity,
         record.entity_content.empty() ? "lexical;surface=" + token.candidate.surface +
-            ";pos=" + token.candidate.pos + ";inflection_type=" +
-            token.candidate.inflection_type + ";inflection_form=" +
-            token.candidate.inflection_form + ";reading=" + token_reading :
+            ";morphology_language=" + token.candidate.morphology.language_tag +
+            ";part_of_speech=" + token.candidate.morphology.part_of_speech +
+            ";inflection_class=" + token.candidate.morphology.inflection_class +
+            ";inflection_form=" + token.candidate.morphology.inflection_form +
+            ";reading=" + token_reading :
             record.entity_content, {}}});
 
     const std::string evidence_prefix = record.claim_id + "/evidence/";
@@ -552,9 +554,10 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
       content << "producer=kana-decoder;source=" << source
               << ";candidate=" << token.candidate.id
               << ";surface=" << token.candidate.surface
-              << ";pos=" << token.candidate.pos
-              << ";inflection_type=" << token.candidate.inflection_type
-              << ";inflection_form=" << token.candidate.inflection_form
+              << ";morphology_language=" << token.candidate.morphology.language_tag
+              << ";part_of_speech=" << token.candidate.morphology.part_of_speech
+              << ";inflection_class=" << token.candidate.morphology.inflection_class
+              << ";inflection_form=" << token.candidate.morphology.inflection_form
               << ";reading=" << token_reading
               << ";score=" << std::setprecision(17) << score
               << ";detail=" << detail
@@ -592,9 +595,11 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
       return result;
     }
     delta.nodes.push_back({{record.claim_id, ::surge::NodeKind::Claim,
-        "candidate interpretation: " + token.candidate.surface + " [" + token.candidate.pos +
-            ";inflection=" + token.candidate.inflection_type + "/" +
-            token.candidate.inflection_form + "]",
+        "candidate interpretation: " + token.candidate.surface +
+            " [language=" + token.candidate.morphology.language_tag +
+            ";pos=" + token.candidate.morphology.part_of_speech +
+            ";inflection_class=" + token.candidate.morphology.inflection_class +
+            ";inflection_form=" + token.candidate.morphology.inflection_form + "]",
         record.evidence_ids}});
     if (!best_claims.empty() && item.first == best_claims.front()) {
       delta.nodes.push_back({{record.dependency_id, ::surge::NodeKind::Dependency,
