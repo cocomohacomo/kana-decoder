@@ -105,12 +105,19 @@ bool SurgeClusterModel::load_tsv(const std::string& path) {
  const double threshold=std::strtod(metadata["gap_threshold"].c_str(),&end);
  if(end==metadata["gap_threshold"].c_str()||*end!='\0'||!std::isfinite(threshold)||
     threshold<0.0||threshold>1000000.0) return false;
+ std::map<std::string,std::uint64_t> evidence_sums;
  for(const auto& item:parsed.evidence_) {
   const auto sep=item.first.find('\x1f');
   const auto second=item.first.find('\x1f',sep+1);
   const auto key=item.first.substr(0,second);
   if(!parsed.totals_.count(key)) return false;
+  evidence_sums[key]+=item.second;
  }
+ for(const auto& item:parsed.totals_) {
+  const auto sum=evidence_sums.find(item.first);
+  if(sum==evidence_sums.end()||sum->second!=item.second) return false;
+ }
+ if(evidence_sums.size()!=parsed.totals_.size()) return false;
  for(const auto& item:parsed.token_cluster_) {
   if(!clusters.count(item.second)) return false;
  }
