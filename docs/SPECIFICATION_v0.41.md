@@ -51,7 +51,7 @@ The initial aggregator groups evidence by kind and takes the strongest confidenc
 
 Decision evidence references must resolve to stored Evidence. Evidence kinds cover lexical, N-gram, POS, morphology, syntax, semantics, discourse, entities, orthography and user policy.
 
-## 5. Entity normalization primitives"
+## 5. Entity normalization primitives
 
 The initial renderer accepts typed entities, and the Japanese adapter now also parses a bounded subset of spoken Japanese integer/decimal readings. It is not a general speech recognizer or unrestricted natural-language number parser.
 
@@ -116,10 +116,16 @@ The dedicated surge_language_foundation_tests target covers:
 - Fixed-capacity overflow.
 - Punctuation policy variants.
 
-## 11. Next implementation stages
+## 11. Evidence-aware N-best reranking
 
-1. Path-level N-best trace and candidate recovery ranking, guided by measured 1,631 recoverable test tokens.
-2. Evidence provenance IDs and dependency-aware validity/retraction.
+Hypothesis may bind a language candidate ID in addition to its span and surface. The optional rerank_paths API matches returned N-best tokens to these hypotheses using exact span/candidate-ID/surface identity, computes revision-valid evidence aggregates and reorders at most eight paths. It normalizes the decoder path score by token count before applying the configured evidence weight. The function does not modify path scores, candidate generation, or the default decode path. The evidence weight must be calibrated on dev data and frozen before held-out evaluation.
+
+The measured test run motivating this API contained 1,631 tokens whose gold candidate appeared in N-best but not in the best path. The reranker is a capability for testing evidence-supported recovery, not an assertion that these gold tokens can be recovered at inference time. Only hypotheses with actual evidence are eligible for the evidence adjustment; unsupported alternatives are not assigned synthetic evidence.
+
+## 12. Next implementation stages
+
+1. Connect actual Word/POS/Cluster/Semantic/Syntax evidence producers to Hypothesis records and calibrate path-level reranking on dev, then evaluate once on held-out test.
+2. Dependency-aware invalidation/retraction and persistence of Evidence/Decision/Revision.
 3. Japanese language adapter: extend number-word grammar, unit/date/time/range recognition and script policy.
 4. Syntax/semantic adapter using dictionary POS, inflection and connection data.
 5. StreamingSession integration for provisional normalization, revision and commit.
