@@ -1,4 +1,4 @@
-#include "kana_decoder/surge_language.hpp"
+#include "kana_decoder/japanese_language.hpp"
 
 #include <cmath>
 #include <cstring>
@@ -411,7 +411,7 @@ bool parse_japanese_number(std::string_view reading, ParsedNumber& result) {
   return true;
 }
 
-bool JapaneseLanguageAdapter::make_hypothesis(const ::kana_decoder::LatticeCandidate& candidate,
+bool JapaneseLanguageAdapter::make_hypothesis(const ::kana_decoder::Candidate& candidate,
                                                Span span, std::string_view hypothesis_id,
                                                Hypothesis& output) const {
   if (!span.valid() || candidate.id.empty() || candidate.surface.empty()) return false;
