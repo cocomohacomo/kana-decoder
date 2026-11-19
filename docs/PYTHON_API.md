@@ -44,7 +44,7 @@ A streaming session owns a native snapshot and remains usable if the original Ka
 
 ## Structured values and errors
 
-decode_nbest returns immutable DecodedPath values containing a raw ranking score and immutable DecodedToken values. Token spans are Unicode code-point offsets in the original reading. Scores are not calibrated probabilities.
+decode_nbest returns immutable DecodedPath values containing a raw ranking score and immutable DecodedToken values. The first path's `text` is the SURGE-normalized output; its token surfaces remain the raw recognition hypotheses for diagnostics. Token spans are Unicode code-point offsets in the original reading. Scores are not calibrated probabilities.
 
 The wrapper raises:
 - KanaDecoderError for native API failures;
