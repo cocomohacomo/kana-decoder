@@ -12,7 +12,7 @@ namespace kana_decoder::surge {
 class JapaneseLanguageAdapter final : public LanguageAdapter {
  public:
   std::string_view language_tag() const override { return "ja-JP"; }
-  bool make_hypothesis(const ::kana_decoder::Candidate& candidate,
+  bool make_hypothesis(const ::kana_decoder::Candidate& candidate, double candidate_score,
                        Span span, std::string_view hypothesis_id,
                        Hypothesis& output) const override;
   bool make_numeric_entity(std::string_view reading, std::string_view entity_id,
