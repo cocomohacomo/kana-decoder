@@ -1,6 +1,7 @@
 #pragma once
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -103,6 +104,24 @@ struct LatticePositionTrace {
  bool fallback_suppressed_by_dictionary=false;
  std::vector<LatticeMatchTrace> dictionary_matches;
 };
+class SurgeClusterModel {
+public:
+ bool load_tsv(const std::string& path);
+ double evidence_score(const std::string& candidate,
+                       const std::vector<std::string>& history,
+                       bool* has_evidence=nullptr) const;
+ double gap_threshold() const { return gap_threshold_; }
+ std::size_t membership_count() const { return token_cluster_.size(); }
+ std::size_t evidence_count() const { return evidence_.size(); }
+private:
+ std::unordered_map<std::string,std::uint32_t> token_cluster_;
+ std::map<std::string,std::uint32_t> evidence_;
+ std::map<std::string,std::uint32_t> totals_;
+ double gap_threshold_=0.0;
+ std::size_t vocab_size_=1;
+ static std::string evidence_key(std::uint32_t,std::uint32_t,const std::string&);
+ static std::string total_key(std::uint32_t,std::uint32_t);
+};
 struct DecoderOptions {
  std::size_t beam_width=8;
  std::size_t max_edges_per_position=16;
@@ -110,6 +129,8 @@ struct DecoderOptions {
  std::size_t max_paths=8;
  double context_weight=1.0;
  bool surge_left_context_gate=false;
+ const SurgeClusterModel* surge_cluster_model=nullptr;
+ double surge_cluster_weight=1.0;
  double surge_context_margin=0.5;
  // Deterministic per-decode resource ceilings. Exceeding a ceiling rejects
  // the decode rather than returning a silently truncated/low-quality result.
