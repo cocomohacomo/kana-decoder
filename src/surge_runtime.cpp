@@ -225,7 +225,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
         kana_decoder::surge::Entity numeric;
         if (config_.language_adapter->make_entity(
                 token_reading, "number-" + suffix,
-                kana_decoder::surge::NumericEntityTarget::Number, {}, numeric) &&
+                kana_decoder::surge::EntityTarget::Number, {}, numeric) &&
             config_.language_adapter->render_entity(
                 numeric, kana_decoder::surge::NumericStyle::GroupedArabic,
                 record.normalized_surface)) {
