@@ -423,12 +423,10 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
         ? token.candidate.surface : found->second.normalized_surface;
   }
   commit_payload << output;
-  const auto decision_id = prefix + "/decision";
-  const auto commit_id = prefix + "/commit";
+  const auto commit_id = prefix + (finalize ? "/commit" : "/proposal");
   const auto journal_result = journal_->commit(prefix + "/output-transaction",
       prefix + "/output-idempotency", journal_->state_version(),
-      {{decision_id, "NORMALIZATION_DECISION", commit_payload.str()},
-       {commit_id, finalize ? "NORMALIZATION_COMMIT" : "NORMALIZATION_PROPOSAL",
+      {{commit_id, finalize ? "NORMALIZATION_COMMIT" : "NORMALIZATION_PROPOSAL",
         commit_payload.str()}});
   if (!journal_result.committed) {
     result.error = "SURGE_OUTPUT_COMMIT_FAILED:" + journal_result.error;
