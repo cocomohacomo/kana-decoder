@@ -1,6 +1,11 @@
 #include "kana_decoder/c_api.h"
 #include "kana_decoder/engine.hpp"
+#include "kana_decoder/surge_runtime.hpp"
 #include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <filesystem>
+#include <memory>
 #include <cstring>
 #include <new>
 #include <string>
@@ -13,6 +18,7 @@ struct kd_engine {
     kana_decoder::MaskedNgramScorer scorer;
     kana_decoder::ConnectionModel connections;
     bool loaded = false;
+    std::unique_ptr<kana_decoder::SurgeNormalizationRuntime> surge;
 };
 struct kd_decode_result { std::vector<kana_decoder::DecodedPath> paths; };
 struct kd_streaming_session {
@@ -21,8 +27,30 @@ struct kd_streaming_session {
     kana_decoder::ConnectionModel connections;
     kana_decoder::StreamingSession session;
     kana_decoder::StreamingSnapshot snapshot;
+    std::unique_ptr<kana_decoder::SurgeNormalizationRuntime> surge;
     explicit kd_streaming_session(std::size_t limit) : session(limit) {}
 };
+
+namespace {
+std::string temporary_surge_journal_path() {
+    static std::atomic<std::uint64_t> counter{0};
+    const auto ticks = std::chrono::steady_clock::now().time_since_epoch().count();
+    const auto name = "kana-decoder-surge-" + std::to_string(ticks) + "-" +
+        std::to_string(counter.fetch_add(1, std::memory_order_relaxed)) + ".journal";
+    return (std::filesystem::temp_directory_path() / name).string();
+}
+std::unique_ptr<kana_decoder::SurgeNormalizationRuntime> make_surge_runtime(
+    const std::string& path, const std::string& context, bool remove_on_destroy) {
+    kana_decoder::SurgeRuntimeConfig config;
+    config.journal_path = path;
+    config.context_id = context;
+    config.remove_journal_on_destroy = remove_on_destroy;
+    auto runtime = std::make_unique<kana_decoder::SurgeNormalizationRuntime>(std::move(config));
+    std::string error;
+    if (!runtime->open(error)) return {};
+    return runtime;
+}
+}
 
 extern "C" {
 uint32_t kd_c_api_version(void) { return KD_C_API_VERSION; }
@@ -31,8 +59,26 @@ kd_ngram_scorer* kd_ngram_scorer_create(void) {
 }
 void kd_ngram_scorer_destroy(kd_ngram_scorer* p) { delete p; }
 
-kd_engine* kd_engine_create(void) { return new (std::nothrow) kd_engine(); }
+kd_engine* kd_engine_create(void) {
+    try {
+        auto* engine = new (std::nothrow) kd_engine();
+        if (!engine) return nullptr;
+        const auto path = temporary_surge_journal_path();
+        engine->surge = make_surge_runtime(path, path, true);
+        if (!engine->surge) { delete engine; return nullptr; }
+        return engine;
+    } catch (...) { return nullptr; }
+}
 void kd_engine_destroy(kd_engine* p) { delete p; }
+int kd_engine_set_surge_journal(kd_engine* p, const char* path) {
+    if (!p || !path || !*path) return KD_ERR_INVALID_ARGUMENT;
+    try {
+        auto runtime = make_surge_runtime(path, path, false);
+        if (!runtime) return KD_ERR_INTERNAL;
+        p->surge = std::move(runtime);
+        return 0;
+    } catch (...) { return KD_ERR_INTERNAL; }
+}
 
 int kd_engine_load_pack(kd_engine* p, const char* dir) {
     if (!p || !dir || !*dir) return KD_ERR_INVALID_ARGUMENT;
@@ -55,10 +101,14 @@ int kd_engine_load_pack(kd_engine* p, const char* dir) {
 int kd_engine_decode(kd_engine* p, const char* reading, char* out, size_t cap) {
     if (!p || !p->loaded || !reading || !out || !cap) return KD_ERR_INVALID_ARGUMENT;
     try {
-        auto paths = kana_decoder::decode_reading(reading, p->lexicon, p->scorer, {}, &p->connections);
-        if (paths.empty() || paths.front().tokens.empty()) return KD_ERR_INVALID_ARGUMENT;
-        std::string result;
-        for (const auto& token : paths.front().tokens) result += token.candidate.surface;
+        kana_decoder::DecoderOptions options;
+        options.max_paths = 8;
+        options.beam_width = 8;
+        auto paths = kana_decoder::decode_reading(reading, p->lexicon, p->scorer, options, &p->connections);
+        if (paths.empty() || paths.front().tokens.empty() || !p->surge) return KD_ERR_INVALID_ARGUMENT;
+        const auto normalized = p->surge->normalize(reading, paths, true);
+        if (!normalized.committed) return KD_ERR_INTERNAL;
+        const std::string& result = normalized.output;
         if (result.size() + 1 > cap) return KD_ERR_BUFFER_TOO_SMALL;
         std::memcpy(out, result.c_str(), result.size() + 1);
         return 0;
@@ -76,7 +126,9 @@ kd_decode_result* kd_engine_decode_nbest(const kd_engine* engine,const char* rea
         options.max_paths=max_paths ? max_paths : 8;
         options.beam_width=std::max<std::size_t>(options.beam_width,options.max_paths);
         auto paths=kana_decoder::decode_reading(reading,engine->lexicon,engine->scorer,options,&engine->connections);
-        if (paths.empty()) return nullptr;
+        if (paths.empty() || !engine->surge) return nullptr;
+        const auto normalized = engine->surge->normalize(reading, paths, true);
+        if (!normalized.committed) return nullptr;
         auto* result=new (std::nothrow) kd_decode_result();
         if (!result) return nullptr;
         result->paths=std::move(paths);
@@ -114,6 +166,9 @@ kd_streaming_session* kd_streaming_session_create(const kd_engine* engine,size_t
         result->lexicon = engine->lexicon;
         result->scorer = engine->scorer;
         result->connections = engine->connections;
+        const auto path = temporary_surge_journal_path();
+        result->surge = make_surge_runtime(path, path, true);
+        if (!result->surge) { delete result; return nullptr; }
         return result;
     } catch (...) { return nullptr; }
 }
@@ -138,7 +193,10 @@ int kd_streaming_append(kd_streaming_session* p,const char* chunk,char* output,s
         auto trial_snapshot=p->snapshot;
         if (!trial_session.append(chunk,p->lexicon,p->scorer,trial_snapshot,{},&p->connections))
             return KD_ERR_INVALID_ARGUMENT;
-        const std::string result=best_surface(trial_snapshot);
+        if (!p->surge) return KD_ERR_INTERNAL;
+        const auto normalized = p->surge->normalize(trial_snapshot.reading, trial_snapshot.paths, false);
+        if (!normalized.committed) return KD_ERR_INTERNAL;
+        const std::string result=normalized.output;
         const int copied=copy_stream_output(result,output,capacity);
         if (copied) return copied;
         p->session=std::move(trial_session);
@@ -154,6 +212,9 @@ int kd_streaming_commit_common_prefix(kd_streaming_session* p,char* output,size_
         auto trial_snapshot=p->snapshot;
         std::string committed;
         if (!trial_session.commit_common_prefix(trial_snapshot,committed)) return KD_ERR_INVALID_ARGUMENT;
+        if (!p->surge) return KD_ERR_INTERNAL;
+        std::string surge_error;
+        if (!p->surge->commit_output(committed, trial_snapshot.revision, false, surge_error)) return KD_ERR_INTERNAL;
         const int copied=copy_stream_output(committed,output,capacity);
         if (copied) return copied;
         p->session=std::move(trial_session);
@@ -169,6 +230,9 @@ int kd_streaming_commit_best(kd_streaming_session* p,char* output,size_t capacit
         auto trial_snapshot=p->snapshot;
         std::string committed;
         if (!trial_session.commit_best(trial_snapshot,committed)) return KD_ERR_INVALID_ARGUMENT;
+        if (!p->surge) return KD_ERR_INTERNAL;
+        std::string surge_error;
+        if (!p->surge->commit_output(committed, trial_snapshot.revision, true, surge_error)) return KD_ERR_INTERNAL;
         const int copied=copy_stream_output(committed,output,capacity);
         if (copied) return copied;
         p->session=std::move(trial_session);
