@@ -19,6 +19,8 @@ class ApiTests(unittest.TestCase):
   L.kd_c_api_version.restype=ctypes.c_uint32
   L.kd_engine_create.restype=ctypes.c_void_p
   L.kd_engine_destroy.argtypes=[ctypes.c_void_p]
+  L.kd_engine_set_surge_journal.argtypes=[ctypes.c_void_p,ctypes.c_char_p]
+  L.kd_engine_set_surge_journal.restype=ctypes.c_int
   L.kd_engine_load_pack.argtypes=[ctypes.c_void_p,ctypes.c_char_p];L.kd_engine_load_pack.restype=ctypes.c_int
   L.kd_engine_decode_nbest.argtypes=[ctypes.c_void_p,ctypes.c_char_p,ctypes.c_size_t];L.kd_engine_decode_nbest.restype=ctypes.c_void_p
   L.kd_decode_result_destroy.argtypes=[ctypes.c_void_p]
@@ -29,8 +31,12 @@ class ApiTests(unittest.TestCase):
  @classmethod
  def tearDownClass(cls): pass
  def test_nbest_metadata(self):
+  import tempfile
   L=self.lib;self.assertEqual(L.kd_c_api_version(),1);engine=L.kd_engine_create();self.assertTrue(engine)
+  temp=tempfile.TemporaryDirectory()
   try:
+   journal=str(pathlib.Path(temp.name)/"surge.journal").encode()
+   self.assertEqual(L.kd_engine_set_surge_journal(engine,journal),0)
    self.assertEqual(L.kd_engine_load_pack(engine,str(PACK).encode()),0)
    result=L.kd_engine_decode_nbest(engine,"あめ".encode(),8);self.assertTrue(result)
    try:
@@ -42,5 +48,7 @@ class ApiTests(unittest.TestCase):
     self.assertEqual(token.surface.decode(), "雨")
     self.assertTrue(token.candidate_id and token.pos is not None)
    finally:L.kd_decode_result_destroy(result)
-  finally:L.kd_engine_destroy(engine)
+  finally:
+   L.kd_engine_destroy(engine)
+   temp.cleanup()
 if __name__=="__main__":unittest.main()
