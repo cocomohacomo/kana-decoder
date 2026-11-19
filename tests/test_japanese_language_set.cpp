@@ -97,8 +97,9 @@ int main() {
   assert(inflected_paths.front().tokens.size() == 1);
   const auto& inflected_token = inflected_paths.front().tokens.front();
   assert(inflected_token.candidate.surface == "回っ");
-  assert(inflected_token.candidate.inflection_type == "五段-ラ行");
-  assert(inflected_token.candidate.inflection_form == "連用形-促音便");
+  assert(inflected_token.candidate.morphology.language_tag == "ja-JP");
+  assert(inflected_token.candidate.morphology.inflection_class == "五段-ラ行");
+  assert(inflected_token.candidate.morphology.inflection_form == "連用形-促音便");
   surge::JapaneseLanguageAdapter adapter;
   surge::SurfaceRenderOptions render_options;
   std::string rendered;
