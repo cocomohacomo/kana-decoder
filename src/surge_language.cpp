@@ -414,8 +414,7 @@ bool parse_japanese_number(std::string_view reading, ParsedNumber& result) {
 bool JapaneseLanguageAdapter::make_hypothesis(const ::kana_decoder::LatticeCandidate& candidate,
                                                Span span, std::string_view hypothesis_id,
                                                Hypothesis& output) const {
-  if (!span.valid() || candidate.id.empty() || candidate.surface.empty() ||
-      candidate.word_cost < 0 || candidate.connection_cost < 0) return false;
+  if (!span.valid() || candidate.id.empty() || candidate.surface.empty()) return false;
   Hypothesis value;
   if (!value.id.assign(hypothesis_id) || !value.candidate_id.assign(candidate.id) ||
       !value.surface.assign(candidate.surface)) return false;
