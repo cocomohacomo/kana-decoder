@@ -144,6 +144,14 @@ bool SurgeNormalizationRuntime::open(std::string& error) {
   return true;
 }
 
+bool SurgeNormalizationRuntime::set_language_adapter(
+    const surge::LanguageAdapter* adapter) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (!opened_ || !adapter || adapter->language_tag().empty()) return false;
+  config_.language_adapter = adapter;
+  return true;
+}
+
 bool SurgeNormalizationRuntime::ensure_context_cluster(std::string& error) {
   if (graph_->nodes().count(context_cluster_id_) != 0) return true;
   ::surge::SemanticDelta delta;
@@ -213,20 +221,17 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
         result.error = "SURGE_CANDIDATE_SPAN_OUT_OF_RANGE";
         return result;
       }
-      kana_decoder::surge::ParsedNumber parsed;
-      if (kana_decoder::surge::parse_japanese_number(token_reading, parsed)) {
+      if (config_.language_adapter) {
         kana_decoder::surge::Entity numeric;
-        numeric.id.assign("number-" + suffix);
-        numeric.raw.assign(token_reading);
-        numeric.kind = kana_decoder::surge::EntityKind::Number;
-        numeric.value = parsed.mantissa;
-        numeric.decimal_places = parsed.decimal_places;
-        numeric.valid = true;
-        if (kana_decoder::surge::render_entity(numeric,
-              kana_decoder::surge::NumericStyle::GroupedArabic, record.normalized_surface)) {
+        if (config_.language_adapter->make_numeric_entity(
+                token_reading, "number-" + suffix,
+                kana_decoder::surge::NumericEntityTarget::Number, {}, numeric) &&
+            config_.language_adapter->render_entity(
+                numeric, kana_decoder::surge::NumericStyle::GroupedArabic,
+                record.normalized_surface)) {
           record.entity_content = "numeric;raw=" + token_reading +
-              ";mantissa=" + std::to_string(parsed.mantissa) +
-              ";decimal_places=" + std::to_string(parsed.decimal_places) +
+              ";value=" + std::to_string(numeric.value) +
+              ";decimal_places=" + std::to_string(numeric.decimal_places) +
               ";normalized=" + record.normalized_surface;
         }
       }
