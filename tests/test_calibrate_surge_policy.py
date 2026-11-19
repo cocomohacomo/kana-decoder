@@ -76,6 +76,7 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
             self.assertEqual(result["best_policy"]["selected_typed_entity_evidence"], 1)
             self.assertEqual(result["best_policy"]["typed_entities_persisted"], 3)
             self.assertEqual(result["best_policy"]["candidate_generation"]["surface_exact_recall_at_5"], 0.4)
+            self.assertEqual(result["best_policy"]["candidate_generation"]["surge_exact_given_candidate_at_10"], 0.6)
             self.assertIn("normalization_renderer\t", policy.read_text(encoding="utf-8"))
 
 
