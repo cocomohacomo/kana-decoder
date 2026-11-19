@@ -154,6 +154,7 @@ No v0.32 accuracy gain is claimed until the new CI and full Pack workflow comple
 
 - Word N-gramとPOS N-gramを別の経験記憶として学習し、候補ID履歴と品詞履歴をBeamごとに分離保持する。
 - POS系列は辞書候補IDから一意に解決できる品詞だけを採用する。候補IDの品詞が競合する場合はそのIDのPOS Evidenceを生成しない。
+- 候補ID→品詞索引は明示的なbuild_candidate_pos_index()呼び出し時だけ生成する。通常の辞書ロード・デコードでは索引を構築せず、追加メモリを消費しない。
 - POS N-gramの寄与はdev splitで0.0 / 0.15 / 0.30から校正し、SURGEの文脈ゲート・word N-gram smoothingと合わせて216構成を比較する。
 - Cluster-only評価ではword N-gramとPOS N-gramを無効化し、N-gram-only / cluster-only / combinedの寄与を分離する。
 - POS N-gramは接続行列と情報が相関する可能性がある。devで選ばれた重みを固定し、test結果を使った再調整は禁止する。
