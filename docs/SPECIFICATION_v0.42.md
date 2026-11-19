@@ -92,7 +92,7 @@ per token while preserving the evidence needed for later re-evaluation.
 - Common-prefix commit: append `NORMALIZATION_STREAM_PREFIX_COMMIT`.
 - Final commit: append `NORMALIZATION_STREAM_FINAL_COMMIT`.
 - Batch decode: persist proposal and explicit final commit.
-- N-best API: persist a final decision event with the selected path and alternatives.
+- N-best API: persist a final decision event with the selected path and alternatives. The first path's normalized text is exposed separately from its raw candidate-token trace.
 
 Adapter-owned event kinds are recognized by the vendored ContextGraph replay
 logic. Each custom event is one EventJournal transaction and advances the shared
