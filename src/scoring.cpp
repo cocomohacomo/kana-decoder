@@ -12,7 +12,7 @@ bool parse_u32_strict(const std::string& text,std::uint32_t& value){if(text.empt
 }
 namespace kana_decoder {
 std::string MaskedNgramScorer::key(const std::string&a,const std::string&b){return a+"\x1f"+b;}
-std::string MaskedNgramScorer::context_key(const std::vector<std::string>&c){std::string o;std::size_t b=c.size()>2?c.size()-2:0;for(std::size_t i=b;i<c.size();++i){if(!o.empty())o+="\x1e";o+=c[i];}return o;}
+std::string MaskedNgramScorer::context_key(const std::vector<std::string>&c){std::string o;std::size_t b=c.size()>3?c.size()-3:0;for(std::size_t i=b;i<c.size();++i){if(!o.empty())o+="\x1e";o+=c[i];}return o;}
 void MaskedNgramScorer::add_left_bigram(const std::string&l,const std::string&c,std::uint32_t n){sat_add(left_counts_[key(l,c)],n);sat_add(left_context_totals_[l],n);}
 void MaskedNgramScorer::add_right_bigram(const std::string&c,const std::string&r,std::uint32_t n){sat_add(right_counts_[key(c,r)],n);sat_add(right_context_totals_[r],n);}
 void MaskedNgramScorer::add_left_ngram(const std::vector<std::string>&l,const std::string&c,std::uint32_t n){auto ctx=context_key(l);sat_add(left_counts_[key(ctx,c)],n);sat_add(left_context_totals_[ctx],n);}
@@ -96,44 +96,45 @@ double MaskedNgramScorer::contextual_score(const std::string& c,const std::vecto
  const double alpha=smoothing_alpha_;
  const double vocab=static_cast<double>(std::max<std::size_t>(1,unigram_counts_.size()));
  double left_sum=0.0,left_weight=0.0;
- auto add_left_order=[&](const std::string& context,double weight) {
-  if(context.empty()) return;
-  const auto count_it=left_counts_.find(key(context,c));
-  const auto total_it=left_context_totals_.find(context);
-  if(count_it==left_counts_.end()||total_it==left_context_totals_.end()) return;
-  left_sum+=weight*std::log((static_cast<double>(count_it->second)+alpha)/
-    (static_cast<double>(total_it->second)+alpha*vocab));
+ auto add_order=[&](const std::vector<std::string>& history,double weight) {
+  if(history.empty()) return;
+  const auto context=context_key(history);
+  const auto count=left_counts_.find(key(context,c));
+  const auto total=left_context_totals_.find(context);
+  if(count==left_counts_.end()||total==left_context_totals_.end()) return;
+  left_sum+=weight*std::log((static_cast<double>(count->second)+alpha)/(static_cast<double>(total->second)+alpha*vocab));
   left_weight+=weight;
  };
  if(!l.empty()) {
-  if(l.size()>1) add_left_order(context_key(l),0.60);
-  add_left_order(context_key({l.back()}),0.30);
-  if(l.size()>1) {
-   const auto skip=skip_counts_.find(key(l[l.size()-2],c));
-   const auto total=skip_context_totals_.find(l[l.size()-2]);
+  const std::size_t n=l.size();
+  if(n>=3) add_order({l[n-3],l[n-2],l[n-1]},0.50);
+  if(n>=2) add_order({l[n-2],l[n-1]},0.30);
+  add_order({l[n-1]},0.15);
+  if(n>=2) {
+   const auto skip=skip_counts_.find(key(l[n-2],c));
+   const auto total=skip_context_totals_.find(l[n-2]);
    if(skip!=skip_counts_.end()&&total!=skip_context_totals_.end()) {
-    left_sum+=0.10*std::log((static_cast<double>(skip->second)+alpha)/
-      (static_cast<double>(total->second)+alpha*vocab));
-    left_weight+=0.10;
+    left_sum+=0.05*std::log((static_cast<double>(skip->second)+alpha)/(static_cast<double>(total->second)+alpha*vocab));
+    left_weight+=0.05;
    }
   }
  }
  double result=left_weight>0.0?left_sum/left_weight:0.0;
  if(!r.empty()) {
-  std::vector<std::string> window(r.begin(),r.begin()+static_cast<std::ptrdiff_t>(std::min<std::size_t>(2,r.size())));
-  std::string context=context_key(window);
-  auto i=right_counts_.find(key(c,context));
-  if(i==right_counts_.end()&&window.size()>1){context=window.front();i=right_counts_.find(key(c,context));}
-  auto total=right_context_totals_.find(context);
+  std::vector<std::string> window(r.begin(),r.begin()+static_cast<std::ptrdiff_t>(std::min<std::size_t>(3,r.size())));
+  const auto context=context_key(window);
+  const auto count=right_counts_.find(key(c,context));
+  const auto total=right_context_totals_.find(context);
   const double denominator=total==right_context_totals_.end()?0.0:static_cast<double>(total->second);
-  const double count=i==right_counts_.end()?0.0:static_cast<double>(i->second);
-  result+=std::log((count+alpha)/(denominator+alpha*vocab));
+  const double observed=count==right_counts_.end()?0.0:static_cast<double>(count->second);
+  result+=std::log((observed+alpha)/(denominator+alpha*vocab));
  }
  return result;
 }
 bool MaskedNgramScorer::has_left_context_evidence(const std::string& candidate,const std::vector<std::string>& left) const {
  if(candidate.empty()||left.empty()) return false;
- if(left_counts_.find(key(context_key(left),candidate))!=left_counts_.end()) return true;
+ if(left.size()>=3&&left_counts_.find(key(context_key({left[left.size()-3],left[left.size()-2],left.back()}),candidate))!=left_counts_.end()) return true;
+ if(left.size()>=2&&left_counts_.find(key(context_key({left[left.size()-2],left.back()}),candidate))!=left_counts_.end()) return true;
  if(left_counts_.find(key(context_key({left.back()}),candidate))!=left_counts_.end()) return true;
  return left.size()>1&&skip_counts_.find(key(left[left.size()-2],candidate))!=skip_counts_.end();
 }
