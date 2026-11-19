@@ -86,7 +86,7 @@ int main() {
   assert(lexical.source.assign("dictionary"));
   lexical.kind = EvidenceKind::Lexical;
   lexical.score = 0.8; lexical.confidence = 1.0;
-  lexical.valid_from_revision = 0; lexical.valid_until_revision = 3;
+  lexical.valid_from_revision = 0; lexical.valid_until_revision = 0;
   assert(state.add_evidence(lexical));
 
   Evidence lexical_duplicate = lexical;
