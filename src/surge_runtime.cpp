@@ -296,7 +296,6 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   }
 
   std::string output;
-  std::map<std::string, std::string> selected_surfaces;
   std::vector<std::string> normalization_trace;
   for (const auto& token : paths[selected_path_index].tokens) {
     const auto key = candidate_key(token);
@@ -334,7 +333,6 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     const bool use_rendered = normalization.selected_candidate_id == "surface-rendered";
     const std::string surface = use_rendered
         ? found->second.normalized_surface : token.candidate.surface;
-    selected_surfaces.emplace(key, surface);
     normalization_trace.push_back(key + "=" + normalization.selected_candidate_id);
     output += surface;
   }
