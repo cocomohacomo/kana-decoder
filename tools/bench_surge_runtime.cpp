@@ -16,7 +16,8 @@ int main(int argc, char** argv) {
   token.end = 6;
   token.candidate.id = "number-kanji";
   token.candidate.surface = "三十二";
-  token.candidate.pos = "名詞,数";
+  token.candidate.morphology.language_tag = "ja-JP";
+  token.candidate.morphology.part_of_speech = "名詞,数";
   token.lexical_score = -3.0;
   token.transition_score = -0.5;
   token.ngram_score = -0.7;
