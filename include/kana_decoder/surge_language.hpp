@@ -127,6 +127,12 @@ struct Entity {
   bool valid = false;
 };
 
+struct EntitySpan {
+  Span span;
+  Entity entity;
+  Text rendered_surface;
+};
+
 struct Evidence {
   Id id;
   Id hypothesis_id;
@@ -275,6 +281,15 @@ class LanguageAdapter {
   }
   virtual bool render_entity(const Entity& entity, NumericStyle style,
                              std::string& output) const = 0;
+  // Returns bounded, non-overlapping typed entities whose spans are measured
+  // in UTF-8 code points. Empty output is a valid "no entities" result.
+  virtual bool extract_entities(std::string_view reading, std::size_t max_entities,
+                                std::vector<EntitySpan>& output) const {
+    (void)reading;
+    (void)max_entities;
+    output.clear();
+    return true;
+  }
   virtual bool render_path(const ::kana_decoder::DecodedPath& path,
                            std::string_view reading,
                            const SurfaceRenderOptions& options,
