@@ -25,7 +25,8 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
                 "for line in pathlib.Path(sys.argv[5]).read_text().splitlines():\n"
                 "    key, value = line.split('\\t')\n"
                 "    policy[key] = float(value)\n"
-                "cer = 0.5 - 0.1 * policy['ngram'] - 0.1 * policy['context_cluster']\n"
+                "cer = (0.5 - 0.1 * policy['ngram'] - 0.1 * policy['context_cluster']\n"
+                "       - 0.01 * policy['typed_entity'])\n"
                 "exact = 0.1 + 0.05 * policy['pos_ngram']\n"
                 "print(json.dumps({'split':'dev','cases':10,"
                 "'surge_core':{'cer':cer,'sentence_exact':exact,'overrides':2,"
@@ -59,12 +60,12 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
             )
             result = json.loads(report.read_text(encoding="utf-8"))
             self.assertEqual(result["split"], "dev")
-            self.assertEqual(len(result["candidates"]), 5)
+            self.assertEqual(len(result["candidates"]), 8)
             self.assertEqual(
                 result["source_lock_sha256"],
                 hashlib.sha256(lock.read_bytes()).hexdigest(),
             )
-            self.assertEqual(result["best_policy"]["name"], "ngram_context")
+            self.assertEqual(result["best_policy"]["name"], "typed_entity_strong")
             self.assertTrue(policy.is_file())
             self.assertIn("normalization_renderer\t", policy.read_text(encoding="utf-8"))
 
