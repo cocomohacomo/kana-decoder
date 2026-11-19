@@ -212,7 +212,7 @@ jobs:
               "corpus_manifest": json.loads((temp / "context-corpus/compiled/corpus_manifest.json").read_text(encoding="utf-8")),
           }
           (temp / "surge-evaluation-source-lock.json").write_text(
-              json.dumps(source_lock, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+              json.dumps(source_lock, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
           PY
           python tools/calibrate_surge_policy.py \
             --evaluator "$RUNNER_TEMP/kana-runtime-build/kana_decoder_surge_eval" \
@@ -282,5 +282,18 @@ jobs:
           path: |
             ${{ runner.temp }}/surge-cluster-model.tsv
             ${{ runner.temp }}/surge-cluster-model.tsv.manifest.json
+          if-no-files-found: error
+          retention-days: 30
+ 
+      - name: Upload SURGE runtime evaluation reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: surge-runtime-real-corpus-evaluation
+          path: |
+            ${{ runner.temp }}/surge-evaluation-source-lock.json
+            ${{ runner.temp }}/surge-runtime-policy.tsv
+            ${{ runner.temp }}/surge-runtime-dev-calibration.json
+            ${{ runner.temp }}/surge-runtime-test-evaluation.json
+            ${{ runner.temp }}/surge-runtime-test-time.log
           if-no-files-found: error
           retention-days: 30
