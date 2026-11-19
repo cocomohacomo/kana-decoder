@@ -525,10 +525,15 @@ int main(int argc, char** argv) {
         print_metrics("dev_selected_surge_policy", combined);
     }
     CandidateSurvivalMetrics survival;
-    kana_decoder::DecoderOptions survival_options = combined_options;
-    if (!cluster_enabled) {
-        survival_options = surge_options;
-    }
+    kana_decoder::DecoderOptions survival_options;
+    survival_options.surge_left_context_gate = true;
+    survival_options.pos_ngram_scorer = &trained_pos_scorer;
+    survival_options.pos_context_weight = selected_pos_weight;
+    survival_options.context_weight = selected_weight;
+    survival_options.surge_context_margin = selected_margin;
+    survival_options.surge_cluster_model =
+        cluster_enabled && selected_cluster_weight > 0.0 ? &cluster_model : nullptr;
+    survival_options.surge_cluster_weight = selected_cluster_weight;
     evaluate_candidate_survival(sentences, lexicon, trained_scorer,
                                 connections, survival_options, survival);
     print_candidate_survival(survival);
