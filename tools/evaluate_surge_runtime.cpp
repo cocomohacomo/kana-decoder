@@ -10,6 +10,7 @@
 #include <iomanip>
 #include <iostream>
 #include <map>
+#include <set>
 #include <string>
 #if !defined(_WIN32)
 #include <sys/resource.h>
@@ -76,12 +77,14 @@ bool load_decision_policy(const std::string& path,
   std::ifstream input(path);
   if (!input) return false;
   std::string line;
+  std::set<std::string> seen;
   std::size_t line_number = 0;
   while (std::getline(input, line)) {
     ++line_number;
     if (line.empty() || line[0] == '#') continue;
     const auto fields = split_tabs(line);
-    if (fields.size() != 2) return false;
+    if (fields.size() != 2 || fields[0].empty() || !seen.insert(fields[0]).second)
+      return false;
     try {
       std::size_t consumed = 0;
       const double value = std::stod(fields[1], &consumed);
