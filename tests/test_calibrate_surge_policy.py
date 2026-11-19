@@ -43,7 +43,7 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
                 "'recall_at_5':0.7,'recall_at_10':0.8,"
                 "'miss_attribution_at_10':{'exact_span_and_surface':80,"
                 "'span_match_surface_mismatch':5,'surface_match_span_mismatch':10,"
-                "'no_surface_candidate':5}}))\n",
+                "'no_surface_candidate':5}}}))\n",
                 encoding="utf-8",
             )
             evaluator.chmod(0o755)
