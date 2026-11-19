@@ -33,7 +33,8 @@ int main() {
   kanji_token.end = 6;
   kanji_token.candidate.id = "number-kanji";
   kanji_token.candidate.surface = "三十二";
-  kanji_token.candidate.pos = "名詞,数";
+  kanji_token.candidate.morphology.language_tag = "ja-JP";
+  kanji_token.candidate.morphology.part_of_speech = "名詞,数";
   kanji_token.morphology_score = -5.0;
   kanji_token.context_score = -5.0;
   kanji_token.lexical_score = -4.0;
@@ -113,7 +114,8 @@ int main() {
     first_token.end = 5;
     first_token.candidate.id = "decoder-top";
     first_token.candidate.surface = "交渉";
-    first_token.candidate.pos = "名詞";
+    first_token.candidate.morphology.language_tag = "ja-JP";
+    first_token.candidate.morphology.part_of_speech = "名詞";
     first_token.lexical_score = -1.0;
     first_token.morphology_score = -1.0;
     first_token.cluster_raw_evidence = -10.0;
@@ -190,7 +192,8 @@ int main() {
     numeric_token.end = 6;
     numeric_token.candidate.id = "numeric-reading";
     numeric_token.candidate.surface = "三十二";
-    numeric_token.candidate.pos = "名詞,数";
+    numeric_token.candidate.morphology.language_tag = "ja-JP";
+    numeric_token.candidate.morphology.part_of_speech = "名詞,数";
     numeric_path.tokens.push_back(numeric_token);
     const auto rendered = renderer_runtime.normalize("さんじゅうに", {numeric_path}, true);
     assert(rendered.committed);
@@ -217,7 +220,8 @@ int main() {
     calibrated_first_token.end = 5;
     calibrated_first_token.candidate.id = "decoder-top";
     calibrated_first_token.candidate.surface = "交渉";
-    calibrated_first_token.candidate.pos = "名詞";
+    calibrated_first_token.candidate.morphology.language_tag = "ja-JP";
+    calibrated_first_token.candidate.morphology.part_of_speech = "名詞";
     calibrated_first_token.lexical_score = -1.0;
     calibrated_first_token.morphology_score = -1.0;
     calibrated_first_token.cluster_raw_evidence = -10.0;
