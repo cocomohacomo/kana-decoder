@@ -104,7 +104,7 @@ int kd_engine_decode(kd_engine* p, const char* reading, char* out, size_t cap) {
         kana_decoder::DecoderOptions options;
         options.max_paths = 8;
         options.beam_width = 8;
-        auto paths = kana_decoder::decode_reading(reading, p->pack->lexicon(), p->pack->ngram_scorer(), options, &p->pack->connections());
+        auto paths = p->pack->decode(reading, options);
         if (paths.empty() || paths.front().tokens.empty() || !p->surge) return KD_ERR_INVALID_ARGUMENT;
         const auto normalized = p->surge->normalize(reading, paths, false);
         if (!normalized.committed) return KD_ERR_INTERNAL;
@@ -128,7 +128,7 @@ kd_decode_result* kd_engine_decode_nbest(const kd_engine* engine,const char* rea
         kana_decoder::DecoderOptions options;
         options.max_paths=max_paths ? max_paths : 8;
         options.beam_width=std::max<std::size_t>(options.beam_width,options.max_paths);
-        auto paths=kana_decoder::decode_reading(reading,engine->pack->lexicon(),engine->pack->ngram_scorer(),options,&engine->pack->connections());
+        auto paths=engine->pack->decode(reading,options);
         if (paths.empty() || !engine->surge) return nullptr;
         const auto normalized = engine->surge->normalize(reading, paths, true);
         if (!normalized.committed) return nullptr;
@@ -209,7 +209,7 @@ int kd_streaming_append(kd_streaming_session* p,const char* chunk,char* output,s
     try {
         auto trial_session=p->session;
         auto trial_snapshot=p->snapshot;
-        if (!trial_session.append(chunk,p->pack->lexicon(),p->pack->ngram_scorer(),trial_snapshot,{},&p->pack->connections()))
+        if (!p->pack->append(trial_session,chunk,trial_snapshot,{}))
             return KD_ERR_INVALID_ARGUMENT;
         if (!p->surge) return KD_ERR_INTERNAL;
         const auto normalized = p->surge->normalize(trial_snapshot.reading, trial_snapshot.paths, false);
