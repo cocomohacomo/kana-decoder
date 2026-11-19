@@ -57,8 +57,6 @@ struct SemanticDelta {
   std::optional<SetFocus> focus;
   std::vector<ClaimValidity> claim_validity_updates;
   std::vector<EvidenceValidity> evidence_validity_updates;
-  // Adapter-owned journal events committed atomically with this semantic delta.
-  std::vector<JournalEvent> journal_events;
 };
 struct DependencyTrigger { std::string dependency_id, prerequisite_id, dependent_id; };
 struct DependencyEvaluationRecord {
@@ -95,6 +93,13 @@ class ContextGraph {
   explicit ContextGraph(EventJournal& shared_journal);
   bool open();
   DeltaResult apply(const SemanticDelta& delta);
+  // Core-owned classification: persist a member beneath a deterministic typed
+  // child cluster, creating the cluster and parent edge in the same delta.
+  bool append_cluster_membership(SemanticDelta& delta,
+      const std::string& parent_cluster_id, const std::string& classification,
+      const std::string& partition_key, const std::string& member_node_id,
+      const std::string& relation_prefix, std::string& assigned_cluster_id,
+      std::string& error) const;
   bool reassess_claim(const std::string& claim_id, const std::string& reference_at,
                       std::uint64_t expected_state_version,
                       TemporalReassessmentRecord& result, std::string& error);
