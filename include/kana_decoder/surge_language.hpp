@@ -13,6 +13,8 @@ constexpr std::size_t kMaxCandidateSets = 16;
 constexpr std::size_t kMaxFrames = 16;
 constexpr std::size_t kMaxRelations = 64;
 constexpr std::size_t kMaxEntities = 16;
+constexpr std::size_t kMaxEvidence = 64;
+constexpr std::size_t kMaxDependenciesPerEvidence = 4;
 constexpr std::size_t kMaxConstraints = 32;
 constexpr std::size_t kMaxDecisions = 32;
 constexpr std::size_t kMaxRevisions = 32;
@@ -55,6 +57,10 @@ struct Span {
 
 enum class HypothesisStatus : std::uint8_t { Active, Deferred, Selected, Rejected, Expired };
 enum class Script : std::uint8_t { Kanji, Hiragana, Katakana, Latin, ArabicNumeral, Symbol, Mixed };
+enum class EvidenceKind : std::uint8_t {
+  Lexical, Ngram, PartOfSpeech, Morphological, Syntactic, Semantic,
+  Discourse, Entity, Orthographic, UserPolicy
+};
 enum class EntityKind : std::uint8_t { Number, Percent, Currency, Date, Time, Range, Unit, Identifier };
 enum class ConstraintKind : std::uint8_t { Morphology, Syntax, Semantic, Orthographic, Domain, UserPolicy };
 enum class DiscourseAct : std::uint8_t { Statement, Question, Exclamation, ListItem, Continuation };
@@ -117,6 +123,24 @@ struct Entity {
   bool valid = false;
 };
 
+struct Evidence {
+  Id id;
+  Id hypothesis_id;
+  EvidenceKind kind = EvidenceKind::Lexical;
+  Label source;
+  double score = 0.0;
+  double confidence = 0.0;
+  std::uint64_t valid_from_revision = 0;
+  std::uint64_t valid_until_revision = 0;
+  std::array<Id, kMaxDependenciesPerEvidence> dependency_ids{};
+  std::uint8_t dependency_count = 0;
+};
+
+struct EvidencePolicy {
+  std::array<double, 10> kind_weights{{1.0, 1.0, 1.0, 1.0, 1.0,
+                                       1.0, 1.0, 1.0, 1.0, 1.0}};
+};
+
 struct Constraint {
   Id id;
   ConstraintKind kind = ConstraintKind::Semantic;
@@ -162,6 +186,7 @@ class LanguageState {
   bool add_syntax_relation(const SyntaxRelation& value);
   bool add_orthographic_hypothesis(const OrthographicHypothesis& value);
   bool add_entity(const Entity& value);
+  bool add_evidence(const Evidence& value);
   bool add_constraint(const Constraint& value);
   bool add_decision(const Decision& value);
   bool add_revision(const Revision& value);
@@ -169,9 +194,13 @@ class LanguageState {
 
   const Hypothesis* find_hypothesis(std::string_view id) const;
   const Entity* find_entity(std::string_view id) const;
+  const Evidence* find_evidence(std::string_view id) const;
+  bool aggregate_evidence(std::string_view hypothesis_id, std::uint64_t revision,
+                         const EvidencePolicy& policy, double& score) const;
   std::size_t hypothesis_count() const { return hypothesis_count_; }
   std::size_t candidate_set_count() const { return candidate_set_count_; }
   std::size_t entity_count() const { return entity_count_; }
+  std::size_t evidence_count() const { return evidence_count_; }
   std::size_t decision_count() const { return decision_count_; }
   std::size_t revision_count() const { return revision_count_; }
   std::size_t commit_span_count() const { return commit_span_count_; }
@@ -186,13 +215,14 @@ class LanguageState {
   std::array<SyntaxRelation, kMaxRelations> relations_{};
   std::array<OrthographicHypothesis, kMaxHypotheses> orthography_{};
   std::array<Entity, kMaxEntities> entities_{};
+  std::array<Evidence, kMaxEvidence> evidence_{};
   std::array<Constraint, kMaxConstraints> constraints_{};
   std::array<Decision, kMaxDecisions> decisions_{};
   std::array<Revision, kMaxRevisions> revisions_{};
   std::array<CommitSpan, kMaxCommitSpans> commits_{};
   std::size_t hypothesis_count_ = 0, candidate_set_count_ = 0, frame_count_ = 0;
   std::size_t relation_count_ = 0, orthography_count_ = 0, entity_count_ = 0;
-  std::size_t constraint_count_ = 0, decision_count_ = 0, revision_count_ = 0;
+  std::size_t evidence_count_ = 0, constraint_count_ = 0, decision_count_ = 0, revision_count_ = 0;
   std::size_t commit_span_count_ = 0;
 };
 
