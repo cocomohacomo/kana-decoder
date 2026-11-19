@@ -55,9 +55,8 @@ bool SurgeClusterModel::load_tsv(const std::string& path) {
  if(!std::getline(input,line)||line!="KANA_SURGE_CLUSTER\t1") return false;
  std::map<std::string,std::string> metadata;
  std::set<std::uint32_t> clusters;
- std::size_t memberships=0,evidence_records=0,total_records=0,line_count=1;
+ std::size_t memberships=0,evidence_records=0,total_records=0;
  while(std::getline(input,line)) {
-  ++line_count;
   if(line.empty()||line.size()>4096||line.find('\r')!=std::string::npos) return false;
   std::vector<std::string> f;
   split_fields(line,f);
@@ -113,7 +112,12 @@ bool SurgeClusterModel::load_tsv(const std::string& path) {
  for(const auto& item:parsed.token_cluster_) {
   if(!clusters.count(item.second)) return false;
  }
+ char* alpha_end=nullptr;
+ const double alpha=std::strtod(metadata["smoothing_alpha"].c_str(),&alpha_end);
+ if(alpha_end==metadata["smoothing_alpha"].c_str()||*alpha_end!='\0'||
+    !std::isfinite(alpha)||alpha<=0.0||alpha>100.0) return false;
  parsed.gap_threshold_=threshold;
+ parsed.smoothing_alpha_=alpha;
  parsed.vocab_size_=std::max<std::size_t>(1,memberships*4U);
  *this=std::move(parsed);
  return true;
@@ -124,7 +128,7 @@ double SurgeClusterModel::evidence_score(const std::string& candidate,
  if(candidate.empty()||history.empty()) return 0.0;
  double sum=0.0;
  std::size_t observations=0;
- const double alpha=0.5;
+ const double alpha=smoothing_alpha_;
  const double vocab=static_cast<double>(vocab_size_);
  for(std::size_t distance=1;distance<=2&&distance<=history.size();++distance) {
   const auto found_cluster=token_cluster_.find(history[history.size()-distance]);
