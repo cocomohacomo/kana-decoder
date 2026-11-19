@@ -272,6 +272,9 @@ int main(int argc, char** argv) {
         std::cerr << "failed to load Language Pack\n";
         return 2;
     }
+    // Build the optional POS lookup only for this corpus evaluator. Normal
+    // decoder users do not pay the additional index memory cost.
+    lexicon.build_candidate_pos_index();
     kana_decoder::MaskedNgramScorer trained_scorer, trained_pos_scorer;
     if (!load_training_sequences(argv[2], lexicon, trained_scorer, trained_pos_scorer)) {
         std::cerr << "failed to load training sequences\n";
