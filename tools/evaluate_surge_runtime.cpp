@@ -211,6 +211,10 @@ int main(int argc, char** argv) {
   std::size_t surge_exact_when_candidate_available_at_10 = 0;
   std::size_t candidate_oracle_distance_at_5 = 0, candidate_oracle_distance_at_10 = 0;
   std::size_t candidate_paths_total = 0;
+  std::size_t candidate_missing_cases = 0, candidate_available_runtime_failures = 0;
+  std::size_t candidate_available_deferred = 0, candidate_available_surge_exact = 0;
+  std::size_t candidate_available_surge_wrong = 0;
+  std::size_t wrong_output_matching_nbest = 0, wrong_output_outside_nbest = 0;
   std::size_t reference_points = 0, overrides = 0, deferred = 0, decode_failures = 0;
   kana_decoder::surge::JapaneseLanguageAdapter typed_entity_adapter;
   std::size_t input_points = 0;
@@ -225,6 +229,7 @@ int main(int argc, char** argv) {
         &connections);
     if (paths.empty()) {
       ++decode_failures;
+      ++candidate_missing_cases;
       const auto missing = codepoints(item.expected).size();
       top1_distance += missing;
       surge_distance += missing;
@@ -239,15 +244,19 @@ int main(int argc, char** argv) {
     std::size_t oracle_distance_5 = std::numeric_limits<std::size_t>::max();
     std::size_t oracle_distance_10 = std::numeric_limits<std::size_t>::max();
     bool exact_5 = false, exact_10 = false;
+    std::vector<std::string> raw_candidate_surfaces;
+    raw_candidate_surfaces.reserve(paths.size());
     for (std::size_t rank = 0; rank < paths.size(); ++rank) {
       std::string candidate_surface;
       for (const auto& token : paths[rank].tokens) candidate_surface += token.candidate.surface;
+      raw_candidate_surfaces.push_back(candidate_surface);
       const auto distance = edit_distance(codepoints(candidate_surface), expected_points);
       if (rank == 0 && distance == 0) ++candidate_exact_at_1;
       if (rank < 5) { oracle_distance_5 = std::min(oracle_distance_5, distance); exact_5 = exact_5 || distance == 0; }
       if (rank < 10) { oracle_distance_10 = std::min(oracle_distance_10, distance); exact_10 = exact_10 || distance == 0; }
     }
     candidate_paths_total += paths.size();
+    if (!exact_10) ++candidate_missing_cases;
     if (exact_5) ++candidate_exact_at_5;
     if (exact_10) ++candidate_exact_at_10;
     candidate_oracle_distance_at_5 += oracle_distance_5;
@@ -275,6 +284,7 @@ int main(int argc, char** argv) {
     if (!runtime.open(runtime_error)) {
       ++runtime_failures;
       ++deferred;
+      if (exact_10) ++candidate_available_runtime_failures;
       surge_distance += codepoints(item.expected).size();
       continue;
     }
@@ -285,6 +295,7 @@ int main(int argc, char** argv) {
     typed_entities_persisted += normalized.metrics.typed_entities_persisted;
     if (!normalized.committed) {
       ++deferred;
+      if (exact_10) ++candidate_available_deferred;
       surge_distance += codepoints(item.expected).size();
       continue;
     }
@@ -292,7 +303,16 @@ int main(int argc, char** argv) {
     surge_distance += surge_ed;
     if (surge_ed == 0) {
       ++exact_surge;
-      if (exact_10) ++surge_exact_when_candidate_available_at_10;
+      if (exact_10) {
+        ++surge_exact_when_candidate_available_at_10;
+        ++candidate_available_surge_exact;
+      }
+    } else if (exact_10) {
+      ++candidate_available_surge_wrong;
+      const bool matches_raw_candidate = std::find(raw_candidate_surfaces.begin(),
+          raw_candidate_surfaces.end(), normalized.output) != raw_candidate_surfaces.end();
+      if (matches_raw_candidate) ++wrong_output_matching_nbest;
+      else ++wrong_output_outside_nbest;
     }
     if (normalized.output != top1) ++overrides;
   }
@@ -328,6 +348,14 @@ int main(int argc, char** argv) {
       << ",\"surge_exact_given_candidate_at_10\":" << (candidate_exact_at_10 ? static_cast<double>(surge_exact_when_candidate_available_at_10) / candidate_exact_at_10 : 0.0)
       << ",\"oracle_cer_at_5\":" << (reference_points ? static_cast<double>(candidate_oracle_distance_at_5) / reference_points : 0.0)
       << ",\"oracle_cer_at_10\":" << (reference_points ? static_cast<double>(candidate_oracle_distance_at_10) / reference_points : 0.0) << "}"
+      << ",\"candidate_error_classification\":{\"missing_candidate\":" << candidate_missing_cases
+      << ",\"candidate_available\":" << candidate_exact_at_10
+      << ",\"candidate_available_runtime_failure\":" << candidate_available_runtime_failures
+      << ",\"candidate_available_deferred\":" << candidate_available_deferred
+      << ",\"candidate_available_surge_exact\":" << candidate_available_surge_exact
+      << ",\"candidate_available_surge_wrong\":" << candidate_available_surge_wrong
+      << ",\"wrong_output_matches_raw_nbest\":" << wrong_output_matching_nbest
+      << ",\"wrong_output_outside_raw_nbest\":" << wrong_output_outside_nbest << "}"
       << ",\"decoder_top1\":{\"cer\":" << cer_top1
       << ",\"sentence_exact\":" << (cases.empty() ? 0.0 : static_cast<double>(exact_top1) / cases.size()) << "}"
       << ",\"surge_core\":{\"cer\":" << cer_surge
