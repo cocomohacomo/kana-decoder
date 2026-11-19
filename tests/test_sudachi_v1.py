@@ -40,7 +40,7 @@ class SudachiV1Tests(unittest.TestCase):
     w=csv.writer(f);w.writerow(header);w.writerow(row)
    r=subprocess.run([sys.executable,str(IMPORTER),"lexicon","--input",str(src),"--output",str(out)],capture_output=True,text=True)
    self.assertEqual(r.returncode,0,r.stderr)
-   cols=out.read_text(encoding="utf-8").splitlines()[1].split("\\t")
+   cols=out.read_text(encoding="utf-8").splitlines()[1].split("\t")
    self.assertEqual(cols[1],"食べる")
    self.assertEqual(cols[10:12],["下一段-バ行","連用形-促音便"])
 
