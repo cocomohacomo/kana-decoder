@@ -18,7 +18,7 @@ def main():
     metrics = payload["candidate_generation"]
     required = {
         "mean_paths", "surface_exact_recall_at_1", "surface_exact_recall_at_5",
-        "surface_exact_recall_at_10", "oracle_cer_at_5", "oracle_cer_at_10",
+        "surface_exact_recall_at_10", "oracle_cer_at_5", "oracle_cer_at_10", "surge_exact_given_candidate_at_10",
     }
     assert required <= set(metrics), metrics
     recall1 = metrics["surface_exact_recall_at_1"]
@@ -27,6 +27,7 @@ def main():
     assert 0.0 <= recall1 <= recall5 <= recall10 <= 1.0, metrics
     assert metrics["mean_paths"] >= 1.0, metrics
     assert 0.0 <= metrics["oracle_cer_at_10"] <= metrics["oracle_cer_at_5"], metrics
+    assert 0.0 <= metrics["surge_exact_given_candidate_at_10"] <= 1.0, metrics
     assert payload["cases"] > 0
     print("SURGE candidate Recall@N contract tests passed")
 
