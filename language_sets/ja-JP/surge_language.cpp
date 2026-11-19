@@ -186,7 +186,8 @@ bool LanguageState::add_entity(const Entity& value) {
       has_id(entities_, entity_count_, value.id.str())) return false;
   if (value.kind == EntityKind::Date && !valid_date(value.value, value.secondary, value.tertiary)) return false;
   if (value.kind == EntityKind::Time &&
-      (value.value < 0 || value.value > 23 || value.secondary < 0 || value.secondary > 59)) return false;
+      (value.value < 0 || value.value > 23 || value.secondary < 0 ||
+       value.secondary > 59 || value.tertiary < 0 || value.tertiary > 59)) return false;
   if ((value.kind == EntityKind::Percent || value.kind == EntityKind::Currency ||
        value.kind == EntityKind::Unit) && value.unit.empty()) return false;
   if (value.kind == EntityKind::Range && value.value > value.secondary) return false;
