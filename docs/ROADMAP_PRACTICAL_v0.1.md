@@ -286,6 +286,18 @@ This stage only makes the v0.58 typed-entity evidence weight calibratable. No pr
 - [x] Propagate candidate-generation metrics into each dev calibration candidate row without using test data for selection.
 - [x] Add a black-box CTest contract asserting recall monotonicity and oracle-CER monotonicity.
 - [ ] Run latest-head CI and verify candidate metrics on the pinned Sudachi Small + UD Japanese-GSD corpus.
-- [ ] Use the metrics to classify errors into missing candidate, wrong ranking/selection, and surface realization mismatch; do not infer token-level recall from sentence-level exact coverage.
+- [x] Classify cases into missing candidate, candidate-available runtime failure/defer/exact/wrong output, and wrong output matching vs outside raw N-best.
+- [x] Enforce classification partition identities in the real-evaluator CTest and propagate the report into dev calibration rows without using it for policy selection.
+- [ ] Use pinned held-out results to prioritize dictionary/search, SURGE selection, or renderer work; do not infer token-level recall from sentence-level exact coverage.
 
 Candidate Recall@N here is sentence-level exact surface coverage over the raw concatenated N-best paths. It is a diagnostic upper bound for decoder candidate coverage, not a token-aligned morphological recall metric and not a claim of normalized-output accuracy.
+
+
+## 20. v0.61 candidate error attribution
+
+- [x] Add a sentence-level error classification report for missing top-10 candidate coverage, runtime failure, defer, exact SURGE output, and committed-but-wrong output.
+- [x] Split committed wrong outputs into outputs matching another raw N-best surface and outputs outside the raw N-best set; treat the latter as a diagnostic signal, not automatic proof of renderer error.
+- [x] Assert complete partition identities and Recall@10 consistency in the black-box evaluator test.
+- [x] Propagate error-classification metrics into each dev calibration row for diagnosis only; policy selection remains CER/exact based.
+- [ ] Verify final-head CI and inspect classification on the pinned Sudachi Small + UD Japanese-GSD corpus.
+- [ ] Use real held-out diagnostics to select the next optimization target; retain the limitation that coverage is sentence-level, not token-aligned morphological recall.
