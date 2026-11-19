@@ -68,6 +68,10 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
             self.assertEqual(result["best_policy"]["name"], "typed_entity_strong")
             self.assertTrue(policy.is_file())
             self.assertIn("typed_entity\\t1.5", policy.read_text(encoding="utf-8"))
+            self.assertEqual(result["best_policy"]["typed_entities_found"], 3)
+            self.assertEqual(result["best_policy"]["typed_entity_evidence_added"], 2)
+            self.assertEqual(result["best_policy"]["selected_typed_entity_evidence"], 1)
+            self.assertEqual(result["best_policy"]["typed_entities_persisted"], 3)
             self.assertIn("normalization_renderer\t", policy.read_text(encoding="utf-8"))
 
 
