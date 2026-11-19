@@ -15,6 +15,7 @@ class PythonApiTests(unittest.TestCase):
     paths=decoder.decode_nbest("あめ",8)
     self.assertGreaterEqual(len(paths),1)
     self.assertIsInstance(paths[0],DecodedPath)
+    self.assertEqual(paths[0].text,result)
     self.assertGreaterEqual(len(paths[0].tokens),1)
     token=paths[0].tokens[0]
     self.assertGreater(token.end_codepoint,token.start_codepoint)
