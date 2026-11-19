@@ -71,7 +71,7 @@ int main() {
   assert(currency.unit.assign("円"));
   assert(state.add_entity(currency));
   assert(render_entity(currency, NumericStyle::GroupedArabic, rendered));
-  assert(rendered == "円125,000");
+  assert(rendered == "125,000円");
 
   Entity time;
   assert(time.id.assign("time-1"));
