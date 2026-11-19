@@ -702,78 +702,76 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
 
   std::size_t structured_entity_count = 0;
   std::size_t structured_entity_evidence_count = 0;
-  if (config_.language_adapter) {
-    struct StructuredTarget {
-      ::kana_decoder::surge::EntityTarget target;
-      const char* label;
-    };
-    const StructuredTarget structured_targets[] = {
-      {::kana_decoder::surge::EntityTarget::Date, "DATE"},
-      {::kana_decoder::surge::EntityTarget::Time, "TIME"},
-      {::kana_decoder::surge::EntityTarget::Range, "RANGE"}
-    };
-    for (const auto& target : structured_targets) {
-      const std::string entity_id = prefix + "/structured-entity/" + target.label;
-      ::kana_decoder::surge::Entity entity;
-      if (!config_.language_adapter->make_entity(
-              reading, entity_id, target.target, {}, entity)) continue;
-
-      const std::string evidence_id = entity_id + "/evidence";
-      std::ostringstream entity_content;
-      entity_content << "TYPE=" << target.label
-                     << ";reading=" << entity.raw.str()
-                     << ";value=" << entity.value
-                     << ";secondary=" << entity.secondary
-                     << ";tertiary=" << entity.tertiary
-                     << ";decimal_places=" << static_cast<unsigned>(entity.decimal_places)
-                     << ";unit=" << entity.unit.str();
-      delta.nodes.push_back({{entity_id, ::surge::NodeKind::Entity,
-          entity_content.str(), {}}});
-      delta.nodes.push_back({{evidence_id, ::surge::NodeKind::Evidence,
-          "TYPE=LANGUAGE_ENTITY;entity_id=" + entity_id +
-          ";target=" + target.label + ";reading=" + reading +
-          ";source_digest=" + source_digest, {}}});
-
-      ::surge::EvidenceValidity entity_validity;
-      entity_validity.evidence_id = evidence_id;
-      entity_validity.valid_from = timestamp;
-      entity_validity.basis_evidence_id = evidence_id;
-      entity_validity.revision = 1;
-      delta.evidence_validity_updates.push_back(entity_validity);
-
-      for (const auto& claim_key : best_claims) {
-        const auto& claim_id = candidates.at(claim_key).claim_id;
-        delta.relations.push_back({{prefix + "/structured-entity-support/" +
-            id_component(evidence_id + claim_id),
-            ::surge::RelationKind::Supports, evidence_id, claim_id}});
-        delta.relations.push_back({{prefix + "/structured-entity-about/" +
-            id_component(claim_id + entity_id),
-            ::surge::RelationKind::About, claim_id, entity_id}});
-      }
-
-      std::string entity_cluster;
-      std::string cluster_error;
-      const auto partition_key = source_digest + ":" + target.label;
-      if (!graph_->append_cluster_membership(delta, context_cluster_id_,
-            "NORMALIZATION_ENTITY", partition_key, entity_id,
-            prefix + "/structured-entity-cluster/" + target.label,
-            entity_cluster, cluster_error)) {
-        result.error = "SURGE_STRUCTURED_ENTITY_CLUSTER_FAILED:" + cluster_error;
-        return result;
-      }
-      std::string evidence_cluster;
-      if (!graph_->append_cluster_membership(delta, context_cluster_id_,
-            "NORMALIZATION_ENTITY", partition_key, evidence_id,
-            prefix + "/structured-entity-evidence-cluster/" + target.label,
-            evidence_cluster, cluster_error) || evidence_cluster != entity_cluster) {
-        result.error = "SURGE_STRUCTURED_ENTITY_EVIDENCE_CLUSTER_FAILED:" + cluster_error;
-        return result;
-      }
-      ++structured_entity_count;
-      ++structured_entity_evidence_count;
-      break;
+  for (const auto& typed : typed_entities) {
+    const std::string span_key = std::to_string(typed.span.start) + ":" +
+                                 std::to_string(typed.span.end);
+    const char* label = "ENTITY";
+    switch (typed.entity.kind) {
+      case ::kana_decoder::surge::EntityKind::Date: label = "DATE"; break;
+      case ::kana_decoder::surge::EntityKind::Time: label = "TIME"; break;
+      case ::kana_decoder::surge::EntityKind::Range: label = "RANGE"; break;
+      default: break;
     }
+    const std::string entity_id = prefix + "/structured-entity/" + span_key +
+                                  "/" + label;
+    const std::string evidence_id = entity_id + "/evidence";
+    std::ostringstream entity_content;
+    entity_content << "TYPE=" << label
+                   << ";reading=" << typed.entity.raw.str()
+                   << ";value=" << typed.entity.value
+                   << ";secondary=" << typed.entity.secondary
+                   << ";tertiary=" << typed.entity.tertiary
+                   << ";decimal_places=" << static_cast<unsigned>(typed.entity.decimal_places)
+                   << ";unit=" << typed.entity.unit.str()
+                   << ";rendered=" << typed.rendered_surface.str()
+                   << ";span=" << span_key;
+    delta.nodes.push_back({{entity_id, ::surge::NodeKind::Entity,
+        entity_content.str(), {}}});
+    delta.nodes.push_back({{evidence_id, ::surge::NodeKind::Evidence,
+        "TYPE=LANGUAGE_ENTITY;entity_id=" + entity_id +
+        ";target=" + label + ";reading=" + typed.entity.raw.str() +
+        ";source_digest=" + source_digest + ";span=" + span_key, {}}});
+
+    ::surge::EvidenceValidity entity_validity;
+    entity_validity.evidence_id = evidence_id;
+    entity_validity.valid_from = timestamp;
+    entity_validity.basis_evidence_id = evidence_id;
+    entity_validity.revision = 1;
+    delta.evidence_validity_updates.push_back(entity_validity);
+
+    for (const auto& claim_key : best_claims) {
+      const auto& record = candidates.at(claim_key);
+      if (record.start < typed.span.start || record.end > typed.span.end) continue;
+      delta.relations.push_back({{prefix + "/structured-entity-support/" +
+          id_component(evidence_id + record.claim_id),
+          ::surge::RelationKind::Supports, evidence_id, record.claim_id}});
+      delta.relations.push_back({{prefix + "/structured-entity-about/" +
+          id_component(record.claim_id + entity_id),
+          ::surge::RelationKind::About, record.claim_id, entity_id}});
+    }
+
+    std::string entity_cluster;
+    std::string cluster_error;
+    const auto partition_key = source_digest + ":" + span_key + ":" + label;
+    if (!graph_->append_cluster_membership(delta, context_cluster_id_,
+          "NORMALIZATION_ENTITY", partition_key, entity_id,
+          prefix + "/structured-entity-cluster/" + span_key,
+          entity_cluster, cluster_error)) {
+      result.error = "SURGE_STRUCTURED_ENTITY_CLUSTER_FAILED:" + cluster_error;
+      return result;
+    }
+    std::string evidence_cluster;
+    if (!graph_->append_cluster_membership(delta, context_cluster_id_,
+          "NORMALIZATION_ENTITY", partition_key, evidence_id,
+          prefix + "/structured-entity-evidence-cluster/" + span_key,
+          evidence_cluster, cluster_error) || evidence_cluster != entity_cluster) {
+      result.error = "SURGE_STRUCTURED_ENTITY_EVIDENCE_CLUSTER_FAILED:" + cluster_error;
+      return result;
+    }
+    ++structured_entity_count;
+    ++structured_entity_evidence_count;
   }
+  result.metrics.typed_entities_persisted = structured_entity_count;
   commit_payload << ";structured_entity_count=" << structured_entity_count;
 
   for (auto left = candidates.begin(); left != candidates.end(); ++left) {
