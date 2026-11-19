@@ -433,22 +433,158 @@ bool JapaneseLanguageAdapter::make_hypothesis(const ::kana_decoder::Candidate& c
   return true;
 }
 
-bool JapaneseLanguageAdapter::make_numeric_entity(std::string_view reading,
-                                                   std::string_view entity_id,
-                                                   NumericEntityTarget target,
-                                                   std::string_view unit,
-                                                   Entity& output) const {
+bool JapaneseLanguageAdapter::make_entity(std::string_view reading,
+    std::string_view entity_id, EntityTarget target, std::string_view unit,
+    Entity& output) const {
+  if (reading.empty() || reading.size() > 128 || entity_id.empty()) return false;
+  auto parse_integer = [](std::string_view input, std::int64_t& result) {
+    ParsedNumber parsed;
+    if (!parse_japanese_number(input, parsed) || parsed.decimal_places != 0) return false;
+    result = parsed.mantissa;
+    return true;
+  };
+  Entity value;
+  if (!value.id.assign(entity_id)) return false;
+
+  if (target == EntityTarget::Identifier) {
+    std::string digits;
+    auto remaining = reading;
+    while (!remaining.empty()) {
+      const auto* token = match_number_token(remaining);
+      if (!token || token->kind != NumberTokenKind::Digit) return false;
+      digits.push_back(static_cast<char>('0' + token->value));
+      remaining.remove_prefix(token->text.size());
+    }
+    if (digits.empty() || !value.raw.assign(digits)) return false;
+    value.kind = EntityKind::Identifier;
+    value.valid = true;
+    output = value;
+    return true;
+  }
+
+  if (target == EntityTarget::Date) {
+    const auto year_end = reading.find("ねん");
+    if (year_end == std::string_view::npos) return false;
+    const auto month_start = year_end + std::string_view("ねん").size();
+    const auto month_end = reading.find("がつ", month_start);
+    if (month_end == std::string_view::npos) return false;
+    const auto day_start = month_end + std::string_view("がつ").size();
+    const auto day_end = reading.find("にち", day_start);
+    if (day_end == std::string_view::npos ||
+        day_end + std::string_view("にち").size() != reading.size()) return false;
+    std::int64_t year = 0, month = 0, day = 0;
+    if (!parse_integer(reading.substr(0, year_end), year) ||
+        !parse_integer(reading.substr(month_start, month_end - month_start), month)) return false;
+    const auto day_reading = reading.substr(day_start, day_end - day_start);
+    constexpr std::pair<std::string_view, std::int64_t> special_days[] = {
+      {"ついたち",1},{"ふつか",2},{"みっか",3},{"よっか",4},{"いつか",5},
+      {"むいか",6},{"なのか",7},{"ようか",8},{"ここのか",9},{"とおか",10},
+      {"じゅうよっか",14},{"じゅうくにち",19},{"はつか",20}
+    };
+    bool special = false;
+    for (const auto& item : special_days) {
+      if (day_reading == item.first) { day = item.second; special = true; break; }
+    }
+    if (!special && !parse_integer(day_reading, day)) return false;
+    if (!valid_date(year, month, day) || !value.raw.assign(reading)) return false;
+    value.kind = EntityKind::Date;
+    value.value = year;
+    value.secondary = month;
+    value.tertiary = day;
+    value.valid = true;
+    output = value;
+    return true;
+  }
+
+  if (target == EntityTarget::Time) {
+    bool pm = false, am = false;
+    auto time_reading = reading;
+    if (time_reading.substr(0, std::string_view("ごご").size()) == "ごご") {
+      pm = true;
+      time_reading.remove_prefix(std::string_view("ごご").size());
+    } else if (time_reading.substr(0, std::string_view("ごぜん").size()) == "ごぜん") {
+      am = true;
+      time_reading.remove_prefix(std::string_view("ごぜん").size());
+    }
+    const auto hour_end = time_reading.find("じ");
+    if (hour_end == std::string_view::npos) return false;
+    std::int64_t hour = 0, minute = 0;
+    if (!parse_integer(time_reading.substr(0, hour_end), hour)) return false;
+    auto tail = time_reading.substr(hour_end + std::string_view("じ").size());
+    if (!tail.empty()) {
+      const bool has_fun = tail.size() >= std::string_view("ふん").size() &&
+          tail.substr(tail.size() - std::string_view("ふん").size()) == "ふん";
+      const bool has_pun = tail.size() >= std::string_view("ぷん").size() &&
+          tail.substr(tail.size() - std::string_view("ぷん").size()) == "ぷん";
+      if (!has_fun && !has_pun) return false;
+      tail.remove_suffix(has_fun ? std::string_view("ふん").size() :
+                                   std::string_view("ぷん").size());
+      if (!parse_integer(tail, minute)) return false;
+    }
+    if (hour < 0 || hour > 24 || minute < 0 || minute > 59) return false;
+    if (pm) {
+      if (hour < 1 || hour > 12) return false;
+      if (hour != 12) hour += 12;
+    } else if (am) {
+      if (hour < 1 || hour > 12) return false;
+      if (hour == 12) hour = 0;
+    } else if (hour > 23) {
+      return false;
+    }
+    if (!value.raw.assign(reading)) return false;
+    value.kind = EntityKind::Time;
+    value.value = hour;
+    value.secondary = minute;
+    value.valid = true;
+    output = value;
+    return true;
+  }
+
+  if (target == EntityTarget::Range) {
+    const auto separator = reading.find("から");
+    if (separator == std::string_view::npos ||
+        reading.find("から", separator + std::string_view("から").size()) != std::string_view::npos)
+      return false;
+    ParsedNumber first, second;
+    if (!parse_japanese_number(reading.substr(0, separator), first) ||
+        !parse_japanese_number(reading.substr(separator + std::string_view("から").size()), second))
+      return false;
+    const auto places = std::max(first.decimal_places, second.decimal_places);
+    auto scale = [](std::int64_t& number, std::uint8_t from, std::uint8_t to) {
+      for (std::uint8_t i = from; i < to; ++i) {
+        if (number > std::numeric_limits<std::int64_t>::max() / 10 ||
+            number < std::numeric_limits<std::int64_t>::min() / 10) return false;
+        number *= 10;
+      }
+      return true;
+    };
+    if (!scale(first.mantissa, first.decimal_places, places) ||
+        !scale(second.mantissa, second.decimal_places, places) ||
+        first.mantissa > second.mantissa ||
+        !value.raw.assign(reading) || (!unit.empty() && !value.unit.assign(unit))) return false;
+    value.kind = EntityKind::Range;
+    value.value = first.mantissa;
+    value.secondary = second.mantissa;
+    value.decimal_places = places;
+    value.valid = true;
+    output = value;
+    return true;
+  }
+
   ParsedNumber parsed;
   if (!parse_japanese_number(reading, parsed)) return false;
-  Entity value;
-  if (!value.id.assign(entity_id) || !value.raw.assign(reading)) return false;
+  if (!value.raw.assign(reading)) return false;
   switch (target) {
-    case NumericEntityTarget::Number: value.kind = EntityKind::Number; break;
-    case NumericEntityTarget::Percent: value.kind = EntityKind::Percent; break;
-    case NumericEntityTarget::Currency: value.kind = EntityKind::Currency; break;
-    case NumericEntityTarget::Unit: value.kind = EntityKind::Unit; break;
+    case EntityTarget::Number: value.kind = EntityKind::Number; break;
+    case EntityTarget::Percent: value.kind = EntityKind::Percent; break;
+    case EntityTarget::Currency: value.kind = EntityKind::Currency; break;
+    case EntityTarget::Unit: value.kind = EntityKind::Unit; break;
+    case EntityTarget::Date:
+    case EntityTarget::Time:
+    case EntityTarget::Range:
+    case EntityTarget::Identifier: return false;
   }
-  if ((target != NumericEntityTarget::Number) && !value.unit.assign(unit)) return false;
+  if (target != EntityTarget::Number && !value.unit.assign(unit)) return false;
   value.value = parsed.mantissa;
   value.decimal_places = parsed.decimal_places;
   value.valid = true;
