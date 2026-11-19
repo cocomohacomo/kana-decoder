@@ -131,6 +131,8 @@ bool load_training_sequences(const std::string& path,
                 scorer.add_left_ngram({tokens[i-2], tokens[i-1]}, token, 1);
                 scorer.add_left_skipgram(tokens[i-2], token, 1);
             }
+            if (i >= 3 && !tokens[i-3].empty() && !tokens[i-2].empty() && !tokens[i-1].empty())
+                scorer.add_left_ngram({tokens[i-3], tokens[i-2], tokens[i-1]}, token, 1);
         }
     }
     return input.eof();
