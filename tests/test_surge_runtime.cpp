@@ -171,6 +171,7 @@ int main() {
   renderer_config.journal_path = renderer_journal;
   renderer_config.context_id = "language-renderer-integration-test";
   renderer_config.language_adapter = &japanese_adapter;
+  renderer_config.normalization_renderer_score = 100.0;
   renderer_config.surface_render_options.append_terminal_punctuation = true;
   renderer_config.remove_journal_on_destroy = true;
   {
