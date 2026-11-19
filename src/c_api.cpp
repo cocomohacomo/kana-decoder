@@ -101,7 +101,7 @@ int kd_engine_load_pack(kd_engine* p, const char* dir) {
 int kd_engine_decode(kd_engine* p, const char* reading, char* out, size_t cap) {
     if (!p || !p->loaded || !reading || !out || !cap) return KD_ERR_INVALID_ARGUMENT;
     try {
-        kana_decoder::DecoderOptions options;
+        kana_decoder::LanguageDecodeOptions options;
         options.max_paths = 8;
         options.beam_width = 8;
         auto paths = p->pack->decode(reading, options);
@@ -125,7 +125,7 @@ int kd_engine_decode(kd_engine* p, const char* reading, char* out, size_t cap) {
 kd_decode_result* kd_engine_decode_nbest(const kd_engine* engine,const char* reading,size_t max_paths) {
     if (!engine || !engine->loaded || !reading || !*reading || max_paths>8) return nullptr;
     try {
-        kana_decoder::DecoderOptions options;
+        kana_decoder::LanguageDecodeOptions options;
         options.max_paths=max_paths ? max_paths : 8;
         options.beam_width=std::max<std::size_t>(options.beam_width,options.max_paths);
         auto paths=engine->pack->decode(reading,options);
