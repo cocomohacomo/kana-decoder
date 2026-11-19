@@ -75,7 +75,8 @@ def main() -> int:
                      "elapsed_seconds": metrics["elapsed_seconds"],
                      "peak_rss_kib": metrics["peak_rss_kib"],
                      "candidate_generation": metrics.get("candidate_generation", {}),
-                     "candidate_error_classification": metrics.get("candidate_error_classification", {})})
+                     "candidate_error_classification": metrics.get("candidate_error_classification", {}),
+                     "token_aligned_candidate_generation": metrics.get("token_aligned_candidate_generation", {})})
         candidate.unlink(missing_ok=True)
     best_index = min(range(len(rows)), key=lambda i: (rows[i]["cer"], -rows[i]["sentence_exact"], i))
     best = rows[best_index]
