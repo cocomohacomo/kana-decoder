@@ -246,6 +246,15 @@ bool rerank_paths(std::vector<::kana_decoder::DecodedPath>& paths,
 enum class NumericStyle : std::uint8_t { Arabic, GroupedArabic };
 enum class NumericEntityTarget : std::uint8_t { Number, Percent, Currency, Unit };
 
+struct SurfaceRenderOptions {
+  NumericStyle numeric_style = NumericStyle::GroupedArabic;
+  DiscourseAct discourse_act = DiscourseAct::Statement;
+  PunctuationStyle punctuation_style = PunctuationStyle::Japanese;
+  bool normalize_numbers = true;
+  bool append_terminal_punctuation = false;
+  bool space_latin_boundaries = false;
+};
+
 class LanguageAdapter {
  public:
   virtual ~LanguageAdapter() = default;
@@ -258,6 +267,10 @@ class LanguageAdapter {
                                    Entity& output) const = 0;
   virtual bool render_entity(const Entity& entity, NumericStyle style,
                              std::string& output) const = 0;
+  virtual bool render_path(const ::kana_decoder::DecodedPath& path,
+                           std::string_view reading,
+                           const SurfaceRenderOptions& options,
+                           std::string& output) const = 0;
 };
 
 }  // namespace kana_decoder::surge
