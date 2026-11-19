@@ -162,6 +162,10 @@ int main() {
   assert(state.hypothesis_count() == 2);
   assert(state.entity_count() == 3);
   assert(state.memory_bytes() >= sizeof(LanguageState));
+  assert(state.memory_bytes() <= 256 * 1024);
+
+  std::vector<::kana_decoder::DecodedPath> too_many_paths(9);
+  assert(!rerank_paths(too_many_paths, state, policy, 2, 1.0, nullptr));
 
   ::kana_decoder::DecodedPath first_path;
   first_path.score = -200.0;
