@@ -449,6 +449,7 @@ bool JapaneseLanguageAdapter::make_entity(std::string_view reading,
   if (!value.id.assign(entity_id)) return false;
 
   if (target == EntityTarget::Identifier) {
+    if (!unit.empty()) return false;
     std::string digits;
     auto remaining = reading;
     while (!remaining.empty()) {
@@ -465,6 +466,7 @@ bool JapaneseLanguageAdapter::make_entity(std::string_view reading,
   }
 
   if (target == EntityTarget::Date) {
+    if (!unit.empty()) return false;
     const auto year_end = reading.find("ねん");
     if (year_end == std::string_view::npos) return false;
     const auto month_start = year_end + std::string_view("ねん").size();
@@ -499,6 +501,7 @@ bool JapaneseLanguageAdapter::make_entity(std::string_view reading,
   }
 
   if (target == EntityTarget::Time) {
+    if (!unit.empty()) return false;
     bool pm = false, am = false;
     auto time_reading = reading;
     if (time_reading.substr(0, std::string_view("ごご").size()) == "ごご") {
@@ -574,7 +577,9 @@ bool JapaneseLanguageAdapter::make_entity(std::string_view reading,
   }
 
   ParsedNumber parsed;
-  if (!parse_japanese_number(reading, parsed)) return false;
+  if ((target == EntityTarget::Number && !unit.empty()) ||
+      (target != EntityTarget::Number && unit.empty()) ||
+      !parse_japanese_number(reading, parsed)) return false;
   if (!value.raw.assign(reading)) return false;
   switch (target) {
     case EntityTarget::Number: value.kind = EntityKind::Number; break;
@@ -671,6 +676,20 @@ bool JapaneseLanguageAdapter::render_path(
     previous_end = token.end;
   }
   if (previous_end != reading_codepoints) return false;
+  if (options.normalize_numbers) {
+    Entity structured;
+    std::string structured_surface;
+    if (make_entity(reading, "render-date", EntityTarget::Date, {}, structured) &&
+        render_entity(structured, options.numeric_style, structured_surface)) {
+      rendered.swap(structured_surface);
+    } else if (make_entity(reading, "render-time", EntityTarget::Time, {}, structured) &&
+               render_entity(structured, options.numeric_style, structured_surface)) {
+      rendered.swap(structured_surface);
+    } else if (make_entity(reading, "render-range", EntityTarget::Range, {}, structured) &&
+               render_entity(structured, options.numeric_style, structured_surface)) {
+      rendered.swap(structured_surface);
+    }
+  }
   if (options.append_terminal_punctuation) {
     const auto punctuation = terminal_punctuation(options.discourse_act, options.punctuation_style);
     if (!punctuation.empty()) {
