@@ -19,7 +19,7 @@ The intended flow is bidirectional rather than a one-way pipeline:
 7. Entity carries typed numeric/date/time/range/unit/currency/identifier values.
 8. Revision records later reinterpretation; CommitSpan records output that has crossed the commit boundary.
 
-The generic SURGE Core owns state and provenance. Language adapters own Japanese grammar, dictionary lookup, reading conversion, number-word parsing and orthographic conventions.
+The generic SURGE Core owns state and provenance. The replaceable LanguageAdapter contract maps language-specific dictionary candidates into Hypotheses and converts recognized numeric readings into typed Entities. JapaneseLanguageAdapter provides the initial ja-JP implementation for candidate/POS mapping and bounded numeral parsing. Full syntax/semantic extraction, date/time phrase recognition and orthographic policy remain adapter extensions.
 
 ## 3. Bounded data model
 
@@ -76,11 +76,17 @@ Supported initial output rules:
 
 Invalid calendar dates, invalid clock times, reversed ranges and missing required units fail closed. Kanji numeral output, negative-number words, fractions, counters, locale-specific decimal handling, contextual unit recognition and broad date/time phrase parsing remain language-adapter work.
 
-## 6. Punctuation policy
+## 6. Language Adapter API
+
+LanguageAdapter is a replaceable C++ interface with a language tag, candidate-to-Hypothesis mapping and typed numeric-entity construction. The initial Japanese adapter preserves dictionary candidate identity, POS interpretation and signed lexical/connection cost. It also maps parsed number readings to Number/Percent/Currency/Unit entities. It deliberately does not infer semantic roles or syntax from POS alone.
+
+This keeps the generic state model language-independent while allowing future language packs to supply grammar, morphology, entity parsing and script policy without changing SURGE Core.
+
+## 7. Punctuation policy
 
 terminal_punctuation maps a discourse-act classification to Japanese, ASCII or minimal terminal punctuation. It does not infer discourse acts. Question/statement/exclamation recognition remains an upstream discourse task.
 
-## 7. Decision and revision semantics
+## 8. Decision and revision semantics
 
 A Decision must select a known Hypothesis. If compared hypotheses are supplied, the selected hypothesis must be among them. Confidence is finite and in [0,1]. Evidence IDs are bounded opaque references and must be non-empty.
 
@@ -88,11 +94,11 @@ A Revision must identify its target, replacement hypothesis and reason. The prev
 
 CommitSpan ranges must be valid and non-overlapping. The initial API records commit metadata but does not modify StreamingSession output. Streaming integration and rollback/revision policy remain a later phase.
 
-## 8. JSON Schema
+## 9. JSON Schema
 
 The exchange shape and array ceilings are documented in docs/schemas/surge-language-state.schema.json. The C++ fixed-capacity state is authoritative for runtime limits. The schema describes the portable interchange envelope, not a persistence format commitment.
 
-## 9. Resource and compatibility guarantees
+## 10. Resource and compatibility guarantees
 
 - C++17; no external runtime dependency.
 - Fixed-size arrays and inline text buffers in LanguageState.
@@ -103,7 +109,7 @@ The exchange shape and array ceilings are documented in docs/schemas/surge-langu
 - No change to existing C API or Python API.
 - Capacity overflow and invalid references fail closed.
 
-## 10. Validation
+## 11. Validation
 
 The dedicated surge_language_foundation_tests target covers:
 - Hypothesis and CandidateSet references.
@@ -116,13 +122,13 @@ The dedicated surge_language_foundation_tests target covers:
 - Fixed-capacity overflow.
 - Punctuation policy variants.
 
-## 11. Evidence-aware N-best reranking
+## 12. Evidence-aware N-best reranking
 
 Hypothesis may bind a language candidate ID in addition to its span and surface. The optional rerank_paths API matches returned N-best tokens to these hypotheses using exact span/candidate-ID/surface identity, computes revision-valid evidence aggregates and reorders at most eight paths. It normalizes the decoder path score by token count before applying the configured evidence weight. The function does not modify path scores, candidate generation, or the default decode path. The evidence weight must be calibrated on dev data and frozen before held-out evaluation.
 
 The measured test run motivating this API contained 1,631 tokens whose gold candidate appeared in N-best but not in the best path. The reranker is a capability for testing evidence-supported recovery, not an assertion that these gold tokens can be recovered at inference time. Only hypotheses with actual evidence are eligible for the evidence adjustment; unsupported alternatives are not assigned synthetic evidence.
 
-## 12. Next implementation stages
+## 13. Next implementation stages
 
 1. Connect actual Word/POS/Cluster/Semantic/Syntax evidence producers to Hypothesis records and calibrate path-level reranking on dev, then evaluate once on held-out test.
 2. Dependency-aware invalidation/retraction and persistence of Evidence/Decision/Revision.
