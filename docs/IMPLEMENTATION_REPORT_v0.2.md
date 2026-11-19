@@ -182,5 +182,6 @@ This first grid is a reproducible baseline, not a claim of optimal calibration. 
 - [x] Runtime injection and evaluator policy loading
 - [x] Deterministic dev-only calibration tool
 - [x] Held-out test evaluation with frozen policy wired into workflow
+- [x] Unit test for dev-only grid selection, deterministic tie-break and provenance hashes
 - [ ] CI verifies calibration script and policy loader end-to-end
 - [ ] Real UD Japanese-GSD dev/test metrics and resource use collected
