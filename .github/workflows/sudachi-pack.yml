@@ -33,6 +33,8 @@ on:
       - "src/scoring.cpp"
       - "src/lexicon_trie.cpp"
       - "src/morphology_decoder.cpp"
+      - "src/surge_cluster.cpp"
+      - "tests/test_surge_cluster.cpp"
       - "tools/check_memory_budget.py"
       - "tools/evaluate_surge.py"
       - "tests/test_memory_budget.py"
