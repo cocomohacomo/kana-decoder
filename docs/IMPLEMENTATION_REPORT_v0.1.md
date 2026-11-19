@@ -599,3 +599,11 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - 初期重みは4-gram 0.50、Trigram 0.30、Bigram 0.15、Skip-Bigram 0.05。未観測次数は正規化分母から除外する。
 - train系列で距離・順序を維持した各次数を構築し、推論はBeamごとの予測履歴のみを使用。
 - 既存のリソース上限を維持し、合成テストで複数次数の順位とskip証拠を確認する。
+
+
+## 52. 品詞N-gram統合（v0.39）
+
+- LexiconTrieに候補IDから品詞を引く索引を追加。候補IDに複数品詞が競合する場合は品詞Evidenceを無効化する。
+- train splitの候補ID系列から品詞系列を生成し、同じ多次数N-gram集計器でPOS Unigram / Bigram / Trigram / 4-gram / Skip-Bigramを学習。
+- Beamごとに品詞履歴を最大3件保持し、候補の品詞文脈スコアをSURGE Evidenceとして追加。デフォルトではPOS scorer pointerがnullのため既存挙動を維持。
+- Cluster-only比較ではPOS Evidenceを無効化し、N-gram / combinedで有効化して寄与を分離する。
