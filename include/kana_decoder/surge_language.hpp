@@ -250,7 +250,7 @@ struct SurfaceRenderOptions {
   NumericStyle numeric_style = NumericStyle::GroupedArabic;
   DiscourseAct discourse_act = DiscourseAct::Statement;
   PunctuationStyle punctuation_style = PunctuationStyle::Japanese;
-  bool normalize_numbers = true;
+  bool normalize_numbers = false;
   bool append_terminal_punctuation = false;
   bool space_latin_boundaries = false;
 };
