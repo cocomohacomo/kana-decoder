@@ -15,9 +15,9 @@ class JapaneseLanguageAdapter final : public LanguageAdapter {
   bool make_hypothesis(const ::kana_decoder::Candidate& candidate, double candidate_score,
                        Span span, std::string_view hypothesis_id,
                        Hypothesis& output) const override;
-  bool make_numeric_entity(std::string_view reading, std::string_view entity_id,
-                           NumericEntityTarget target, std::string_view unit,
-                           Entity& output) const override;
+  bool make_entity(std::string_view reading, std::string_view entity_id,
+                   EntityTarget target, std::string_view unit,
+                   Entity& output) const override;
   bool render_entity(const Entity& entity, NumericStyle style,
                      std::string& output) const override;
   bool render_path(const ::kana_decoder::DecodedPath& path,
