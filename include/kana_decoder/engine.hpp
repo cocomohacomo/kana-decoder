@@ -25,6 +25,7 @@ public:
  double score(const std::string&,const std::vector<std::string>&,const std::vector<std::string>&) const;
  double contextual_score(const std::string&,const std::vector<std::string>&,const std::vector<std::string>&) const;
  bool has_left_context_evidence(const std::string&,const std::vector<std::string>&) const;
+ bool has_right_context_evidence(const std::string&,const std::vector<std::string>&) const;
  double skip_contextual_score(const std::string&,const std::vector<std::string>&) const;
  AmbiguityResult resolve(const std::vector<Candidate>&,const std::vector<std::string>&,const std::vector<std::string>&,
   OutputMode,double minimum_score=-8.0,double minimum_margin=1.25,bool include_other=true,const std::string& original_reading={}) const;
@@ -77,6 +78,10 @@ struct DecodedToken {
  std::size_t start=0, end=0;
  Candidate candidate;
  double morphology_score=0.0, context_score=0.0;
+ double lexical_score=0.0, transition_score=0.0, ngram_score=0.0;
+ double cluster_score=0.0, cluster_raw_evidence=0.0, pos_score=0.0;
+ bool has_transition_evidence=false, has_ngram_evidence=false;
+ bool has_cluster_evidence=false, has_pos_evidence=false;
 };
 struct DecodedPath {
  std::vector<DecodedToken> tokens;
