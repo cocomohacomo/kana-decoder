@@ -23,5 +23,7 @@ jobs:
         run: ./build/kana_decoder_surge_bench 50
       - name: Verify Japanese reference Pack
         run: python3 tools/verify_pack.py packs/ja-lite
+      - name: Syntax-check SURGE policy calibrator
+        run: python3 -m py_compile tools/calibrate_surge_policy.py
       - name: Run Python Pack and license policy tests
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
