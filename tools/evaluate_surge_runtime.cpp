@@ -1,4 +1,5 @@
 #include "kana_decoder/engine.hpp"
+#include "kana_decoder/japanese_decoder.hpp"
 #include "kana_decoder/surge_runtime.hpp"
 
 #include <algorithm>
