@@ -184,11 +184,19 @@ jobs:
           cat "$RUNNER_TEMP/sequential-decoder-evaluation.json"
           cat "$RUNNER_TEMP/sequential-runtime-time.log"
           python tools/check_memory_budget.py --log "$RUNNER_TEMP/sequential-runtime-time.log" --max-rss-mib 1792
+          python tools/calibrate_surge_policy.py \
+            --evaluator "$RUNNER_TEMP/kana-runtime-build/kana_decoder_surge_eval" \
+            --pack "$RUNNER_TEMP/ja-jp-sudachi-small" \
+            --corpus "$RUNNER_TEMP/context-corpus/tokenized.tsv" \
+            --train-sequences "$RUNNER_TEMP/context-corpus/compiled/train_sequences.tsv" \
+            --output-policy "$RUNNER_TEMP/surge-core-decision-policy.tsv" \
+            --output-report "$RUNNER_TEMP/surge-core-policy-calibration.json"
           /usr/bin/time -v -o "$RUNNER_TEMP/surge-core-runtime-time.log" \
             "$RUNNER_TEMP/kana-runtime-build/kana_decoder_surge_eval" \
             "$RUNNER_TEMP/ja-jp-sudachi-small" \
             "$RUNNER_TEMP/context-corpus/tokenized.tsv" \
             test "$RUNNER_TEMP/context-corpus/compiled/train_sequences.tsv" \
+            "$RUNNER_TEMP/surge-core-decision-policy.tsv" \
             > "$RUNNER_TEMP/surge-core-runtime-evaluation.json"
           cat "$RUNNER_TEMP/surge-core-runtime-evaluation.json"
           cat "$RUNNER_TEMP/surge-core-runtime-time.log"
@@ -201,6 +209,8 @@ jobs:
           path: |
             ${{ runner.temp }}/surge-core-runtime-evaluation.json
             ${{ runner.temp }}/surge-core-runtime-time.log
+            ${{ runner.temp }}/surge-core-decision-policy.tsv
+            ${{ runner.temp }}/surge-core-policy-calibration.json
           if-no-files-found: error
           retention-days: 30
 
