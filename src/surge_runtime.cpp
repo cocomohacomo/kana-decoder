@@ -254,6 +254,25 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
       if (token.has_cluster_evidence)
         candidate.evidence.push_back({prefix_id + "cluster", "context_cluster", span,
             token.cluster_raw_evidence, 0.50, true});
+
+      const auto record = candidates.find(candidate_key(token));
+      if (record == candidates.end()) {
+        result.error = "SURGE_SURFACE_SOURCE_NOT_FOUND";
+        return result;
+      }
+      ::surge::DecisionSurfaceSet surface_set;
+      surface_set.source_ref = candidate_key(token);
+      surface_set.hypotheses.push_back({"surface-original", 0,
+          token.candidate.surface,
+          {{prefix_id + "surface-original", "source_surface", span, 0.0, 1.0, true}}});
+      if (!record->second.normalized_surface.empty() &&
+          record->second.normalized_surface != token.candidate.surface) {
+        surface_set.hypotheses.push_back({"surface-rendered", 1,
+            record->second.normalized_surface,
+            {{prefix_id + "surface-rendered", "language_renderer", span,
+              config_.normalization_renderer_score, 1.0, true}}});
+      }
+      candidate.surface_sets.push_back(std::move(surface_set));
     }
     recognition_candidates.push_back(std::move(candidate));
   }
@@ -262,13 +281,13 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   recognition_policy.max_evidence_per_candidate = 2048;
   recognition_policy.minimum_margin = 0.0;
   recognition_policy.family_weights = config_.recognition_family_weights;
-  const auto recognition = ::surge::RecognitionDecision::evaluate(
+  const auto decision = ::surge::UnifiedDecision::evaluate(
       recognition_candidates, recognition_policy);
-  if (recognition.disposition != ::surge::DecisionDisposition::Select) {
-    result.error = "SURGE_RECOGNITION_DEFERRED:" + recognition.reason;
+  if (decision.disposition != ::surge::DecisionDisposition::Select) {
+    result.error = "SURGE_UNIFIED_DECISION_DEFERRED:" + decision.reason;
     return result;
   }
-  const std::string selected_path_name = recognition.selected_candidate_id;
+  const std::string selected_path_name = decision.selected_candidate_id;
   if (selected_path_name.rfind("path-", 0) != 0) {
     result.error = "SURGE_RECOGNITION_RESULT_INVALID";
     return result;
@@ -300,42 +319,13 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   std::vector<std::string> normalization_trace;
   for (const auto& token : paths[selected_path_index].tokens) {
     const auto key = candidate_key(token);
-    const auto found = candidates.find(key);
-    if (found == candidates.end()) {
-      result.error = "SURGE_SELECTED_HYPOTHESIS_NOT_FOUND";
+    const auto selected_surface = decision.selected_surfaces.find(key);
+    if (selected_surface == decision.selected_surfaces.end()) {
+      result.error = "SURGE_UNIFIED_SURFACE_NOT_SELECTED";
       return result;
     }
-    ::surge::DecisionCandidate original_surface;
-    original_surface.candidate_id = "surface-original";
-    original_surface.stable_order = 0;
-    original_surface.evidence.push_back({"surface-original-evidence", "source_surface",
-        "source", 0.0, 1.0, true});
-    std::vector<::surge::DecisionCandidate> surface_hypotheses;
-    surface_hypotheses.push_back(original_surface);
-    if (!found->second.normalized_surface.empty() &&
-        found->second.normalized_surface != token.candidate.surface) {
-      ::surge::DecisionCandidate rendered_surface;
-      rendered_surface.candidate_id = "surface-rendered";
-      rendered_surface.stable_order = 1;
-      rendered_surface.evidence.push_back({"surface-rendered-evidence", "language_renderer",
-          "rendered", config_.normalization_renderer_score, 1.0, true});
-      surface_hypotheses.push_back(std::move(rendered_surface));
-    }
-    ::surge::DecisionPolicy normalization_policy;
-    normalization_policy.max_candidates = 2;
-    normalization_policy.max_evidence_per_candidate = 4;
-    normalization_policy.minimum_margin = 0.0;
-    const auto normalization = ::surge::NormalizationDecision::evaluate(
-        surface_hypotheses, normalization_policy);
-    if (normalization.disposition != ::surge::DecisionDisposition::Select) {
-      result.error = "SURGE_NORMALIZATION_DEFERRED:" + normalization.reason;
-      return result;
-    }
-    const bool use_rendered = normalization.selected_candidate_id == "surface-rendered";
-    const std::string surface = use_rendered
-        ? found->second.normalized_surface : token.candidate.surface;
-    normalization_trace.push_back(key + "=" + normalization.selected_candidate_id);
-    output += surface;
+    normalization_trace.push_back(key + "=" + selected_surface->second);
+    output += selected_surface->second;
   }
   std::ostringstream commit_payload;
   commit_payload << "context=" << config_.context_id
@@ -348,12 +338,20 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   }
   commit_payload << ";recognition_selected=" << recognition.selected_candidate_id
                  << ";recognition_reason=" << recognition.reason
-                 << ";recognition_score=" << std::setprecision(17) << recognition.selected_score
-                 << ";recognition_margin=" << recognition.margin
+                 << ";recognition_score=" << std::setprecision(17) << decision.selected_score
+                 << ";recognition_margin=" << decision.margin
                  << ";recognition_trace=";
-  for (std::size_t i = 0; i < recognition.trace.size(); ++i) {
+  for (std::size_t i = 0; i < decision.trace.size(); ++i) {
     if (i) commit_payload << ",";
     const auto& trace = recognition.trace[i];
+    commit_payload << trace.candidate_id << ":" << trace.score << ":"
+                   << trace.accepted_evidence << ":" << trace.ignored_evidence;
+  }
+  commit_payload << ";decision_reason=" << decision.reason
+                 << ";surface_trace=";
+  for (std::size_t i = 0; i < decision.surface_trace.size(); ++i) {
+    if (i) commit_payload << ",";
+    const auto& trace = decision.surface_trace[i];
     commit_payload << trace.candidate_id << ":" << trace.score << ":"
                    << trace.accepted_evidence << ":" << trace.ignored_evidence;
   }
