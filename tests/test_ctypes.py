@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise the public C ABI through ctypes against the shared library."""
-import ctypes, pathlib, sys, unittest
+import ctypes, pathlib, sys, unittest, faulthandler
+faulthandler.enable()
 LIB=pathlib.Path(sys.argv[1]).resolve() if len(sys.argv)>2 and pathlib.Path(sys.argv[1]).is_file() else None
 PACK=pathlib.Path(sys.argv[2]).resolve() if len(sys.argv)>2 and pathlib.Path(sys.argv[2]).is_dir() else None
 sys.argv=sys.argv[:1]  # hide CTest-provided paths from unittest discovery
