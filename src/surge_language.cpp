@@ -30,10 +30,6 @@ std::string grouped_digits(std::string raw, NumericStyle style) {
   return raw;
 }
 
-std::string integer_text(std::int64_t value, NumericStyle style) {
-  return grouped_digits(std::to_string(value), style);
-}
-
 std::string decimal_text(std::int64_t mantissa, std::uint8_t places, NumericStyle style) {
   std::string raw = std::to_string(mantissa);
   if (places == 0) return grouped_digits(raw, style);
@@ -48,12 +44,12 @@ std::string decimal_text(std::int64_t mantissa, std::uint8_t places, NumericStyl
   return grouped_digits((negative ? "-" : "") + integer, style) + "." + fraction;
 }
 
-enum class NumberTokenKind { Digit, SmallUnit, LargeUnit, Decimal };
+enum class NumberTokenKind { Digit, Additive, SmallUnit, LargeUnit, Decimal };
 struct NumberToken { std::string_view text; std::int64_t value; NumberTokenKind kind; };
 constexpr NumberToken kNumberTokens[] = {
-  {"ろっぴゃく",600,NumberTokenKind::Digit},{"はっぴゃく",800,NumberTokenKind::Digit},
-  {"さんびゃく",300,NumberTokenKind::Digit},{"はっせん",8000,NumberTokenKind::Digit},
-  {"さんぜん",3000,NumberTokenKind::Digit},{"いっせん",1000,NumberTokenKind::Digit},
+  {"ろっぴゃく",600,NumberTokenKind::Additive},{"はっぴゃく",800,NumberTokenKind::Additive},
+  {"さんびゃく",300,NumberTokenKind::Additive},{"はっせん",8000,NumberTokenKind::Additive},
+  {"さんぜん",3000,NumberTokenKind::Additive},{"いっせん",1000,NumberTokenKind::Additive},
   {"じゅっ",10,NumberTokenKind::SmallUnit},{"じっ",10,NumberTokenKind::SmallUnit},
   {"ひゃく",100,NumberTokenKind::SmallUnit},{"びゃく",100,NumberTokenKind::SmallUnit},
   {"ぴゃく",100,NumberTokenKind::SmallUnit},{"せん",1000,NumberTokenKind::SmallUnit},
@@ -98,6 +94,10 @@ bool parse_integer_part(std::string_view input, std::int64_t& output) {
     if (token->kind == NumberTokenKind::Digit) {
       if (pending >= 0) return false;
       pending = token->value;
+    } else if (token->kind == NumberTokenKind::Additive) {
+      if (pending >= 0 && !safe_add(group, pending)) return false;
+      pending = -1;
+      if (!safe_add(group, token->value)) return false;
     } else if (token->kind == NumberTokenKind::SmallUnit) {
       if (token->value >= last_small) return false;
       const std::int64_t multiplier = pending < 0 ? 1 : pending;
@@ -180,7 +180,7 @@ bool LanguageState::add_orthographic_hypothesis(const OrthographicHypothesis& va
 }
 
 bool LanguageState::add_entity(const Entity& value) {
-  if (entity_count_ >= entities_.size() || value.id.empty() || !value.valid ||
+  if (entity_count_ >= entities_.size() || value.id.empty() || !value.valid || value.decimal_places > 9 ||
       has_id(entities_, entity_count_, value.id.str())) return false;
   if (value.kind == EntityKind::Date && !valid_date(value.value, value.secondary, value.tertiary)) return false;
   if (value.kind == EntityKind::Time &&
