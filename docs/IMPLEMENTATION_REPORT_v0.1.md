@@ -660,3 +660,31 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - sequential evaluatorにN-best全pathのgold span/surface照合を追加。best pathにないが他のN-bestに残る `nbest_recoverable` と、score trace上では展開されたが返却N-bestに存在しない `scored_not_in_nbest` を分離。
 - `nbest_aligned = final_aligned + nbest_recoverable` を統合テストで検証する。
 - この追加は評価専用で、decodeの順位・候補・Language Packを変更しない。v0.40.4コードのCIおよび実Pack再評価は現在のActions run完了後に確定する。
+
+
+## 58. SURGE正文化基盤 v0.41
+
+### 実データ評価から得た設計根拠
+- Sudachi Small + UD Japanese-GSD test split（Actions run 44483786857）: 2,414文 / 10,317 gold tokens。文全体のかな読みを入力し、gold token境界はデコード時に与えず、decode後のalignmentにのみ使用。未来文脈なし。
+- Morphology-only CER 48.6578%、SURGE Cluster CER 46.1117%、Sentence Exact 24.6479%→25.9735%。
+- Candidate survival: lattice coverage 94.7368%（9,774/10,317）、scored/expanded 94.5139%（9,751/10,317）、best path alignment 58.3018%（6,015/10,317）、N-best alignment 74.1107%（7,646/10,317）。
+- N-bestには残るがbest pathにはない候補が1,631 token。score traceでは展開されたが返却N-bestにない候補が2,117 token。これは探索枝刈りだけを意味せず、返却path上限や異なるtoken segmentationも含む診断値。
+- Peak RSS 1,392.2 MiB、既存1,792 MiB gate内。decode failures 0、over-limit sentences 0。
+
+### 実装内容
+- 固定容量SURGE LanguageStateを追加。Hypothesis 32、CandidateSet 16×8、SemanticFrame 16×8 roles、SyntaxRelation 64、OrthographicHypothesis 32、Entity 16、Evidence 64×4 dependencies、Constraint 32、Decision 32、Revision 32、CommitSpan 16。
+- ID / Label / Textは固定長inline buffer。state insertionで重複ID、容量超過、不正span、未解決参照、非有限スコア、confidence範囲外、日付・時刻・単位の不正をfail-closed。
+- Evidenceはkind / source / score / confidence / revision validity / dependencyを保持。依存先は既存Evidenceに限定し、append-only追加で循環参照を防ぐ。
+- Evidence集約はEvidenceKind単位でconfidence加重寄与の最大値を取り、観測された種類間で重み付き平均。単一Evidence種別の重複カウントを抑制し、有効期間外は除外する。
+- Decisionは実在Evidenceを参照し、選択仮説・比較仮説・confidenceを保存。Revisionは差し替え対象・旧/新仮説・理由を保存。CommitSpanは重複範囲を拒否する。
+- Hypothesisのspan / candidate ID / surfaceを照合し、最大8件のDecodedPathをEvidenceで再ランキングする任意APIを追加。path scoreをtoken数で正規化し、devで校正するevidence_weightを適用。path score自体やDecoder既定挙動は変更しない。
+- 日本語数詞の限定パーサを追加。0〜9の読み、十/百/千/万/億/兆、300/600/800/3000/8000の代表的音便、最大9桁の小数をint64 mantissa + decimal_placesで保持する。
+- Number / Percent / Currency / Date / Time / Range / Unit / Identifierの型付きEntityと、アラビア数字・桁区切り・小数桁保持・日付・時刻・単位・通貨表記の初期レンダラーを追加。句読点はDiscourseActと出力ポリシーから選択する。談話行為自体の自動認識は未実装。
+- JSON Schemaとdocs/SPECIFICATION_v0.41.mdを追加。READMEにもv0.41を掲載。
+
+### 検証
+- Code CI Actions run 44490447895: C++ build success、CTest 24/24、Python 71 tests（66 pass / 5 skip）、日本語Reference Pack検証成功。
+- bounded benchmark: N-gram resolve 5,668.55 ns/op、decoder decode 2,798.89 ns/op。直近の同環境ベースラインとの比較はノイズを含むため、SURGE LanguageState単体の性能とは解釈しない。
+- LanguageState固定フットプリントはテストで256 KiB以下を確認。N-best rerankerは8 path上限を超える入力を拒否。
+- JSON SchemaはJSON parse検証済み。
+- この段階では実Packの再ランキングを実行していない。実際のN-gram/POS/Cluster/Semantic/Syntax EvidenceをHypothesisへ供給するアダプター接続とdev校正は次段階。v0.41によるCER改善は主張しない。
