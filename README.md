@@ -8,7 +8,7 @@
 - 接続行列、品詞・活用情報を含む候補デコード
 - C++ / C APIストリーミングセッション、暫定出力、共通接頭辞commit、best-path commit
 - 不変Language Pack snapshot、Manifest digest、Pack-mediated decode/stream append、Engine/Session間の共有参照による辞書・モデル複製の抑制
-- SURGE正文化Runtimeの数詞Entity解析・表記生成をLanguage Adapterへ委譲
+- Japanese recognition sources (lattice decoder, morphology, lexicon trie, n-gram/connection scorer, correction and Pack loader) are built in a dedicated Language Set object target\n- SURGE正文化Runtimeの数詞Entity解析・表記生成をLanguage Adapterへ委譲
 - pip install可能なPython ctypesパッケージ、N-best構造化結果、ストリーミングAPI
 - 出力バッファ不足時に入力・revision・commit状態を変更しないトランザクション動作
 - 軽度誤り補正、UTF-8検証、Pack Manifest / SHA-256 / license検証（C++側は容量上限を共有しSHA-256をストリーミング検証）
