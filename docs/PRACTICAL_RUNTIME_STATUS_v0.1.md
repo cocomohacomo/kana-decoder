@@ -2,7 +2,7 @@
 
 Updated: 2026-11-19
 Branch: `refactor/surge-core-as-runtime`
-Current contract: `SPECIFICATION_v0.53.md`
+Current contract: `SPECIFICATION_v0.54.md`
 
 ## Product acceptance target
 
@@ -22,6 +22,7 @@ The product is a kana-to-Japanese-text decoder. It accepts pure kana and emits a
 - Moved the Japanese LanguageAdapter implementation/numeric renderer and Japanese SURGE Cluster sidecar scorer into `language_sets/ja-JP/`; both are now compiled by the shared PIC-enabled Language Set object target.
 - Corrected the Sudachi V1 importer contract: POS5/POS6 are retained as conjugation type/form, explicit conjugation aliases are supported, and `*` sentinels are normalized to empty metadata.
 - Added dictionary-backed inflection/okurigana conformance cases for `回っ` and `食べて`; selected dictionary surfaces are preserved exactly by the renderer rather than regenerated heuristically.
+- Added multi-token inflection-chain tests for `回って` (`回っ` + `て`) and `食べている` (`食べて` + `いる`), verifying complete contiguous reading coverage and exact surface preservation.
 - Fixed the SURGE output persistence integration: normalization proposal/commit records are now typed Evidence nodes in the same supported `SemanticDelta` transaction and attached to a `NORMALIZATION_OUTPUT` cluster. Removed unsupported `SemanticDelta::journal_events` usage.
 
 ## Remaining work before practical release
@@ -56,6 +57,6 @@ The product is a kana-to-Japanese-text decoder. It accepts pure kana and emits a
 
 ## Verification status
 
-The v0.53 source and test changes are committed to the development branch. Latest relevant Actions run #970 is queued. The final renderer span-coverage guard, public-header guard, Sudachi V1 conjugation metadata correction, dictionary-backed inflection tests and the `SemanticDelta` build fix were committed after the earlier runs, so the current PR head still requires a fresh successful CI run. Golden-corpus parity, held-out quality, target-PC latency and Peak RSS have not yet been verified. Therefore this status does not mark practical operation as complete.
+The v0.54 source and test changes are committed to the development branch. Latest relevant Actions run #970 is queued. The final renderer span-coverage guard, public-header guard, Sudachi V1 conjugation metadata correction, dictionary-backed inflection tests and the `SemanticDelta` build fix were committed after the earlier runs, The new inflection-chain tests and output persistence fix require CI confirmation on the latest PR head. Golden-corpus parity, held-out quality, target-PC latency and Peak RSS have not yet been verified. Therefore this status does not mark practical operation as complete.
 
 The separate SURGE repository and its development branches are not modified by this work.
