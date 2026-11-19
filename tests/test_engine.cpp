@@ -99,9 +99,9 @@ int main(){
  pos_options.pos_ngram_scorer=&pos_evidence;
  pos_options.pos_context_weight=10.0;
  std::vector<LatticeEdge> pos_evidence_lattice{
-  {0,1,{{"P0_TOKEN","先行",10,0,0,1,1,"P0"}}},
-  {1,2,{{"PA_TOKEN","候補甲",10,0,0,2,2,"PA"},
-        {"PB_TOKEN","候補乙",10,0,0,3,3,"PB"}}}
+  {0,1,{{"P0_TOKEN","先行",10,0,0,1,"P0"}}},
+  {1,2,{{"PA_TOKEN","候補甲",10,0,0,2,"PA"},
+        {"PB_TOKEN","候補乙",10,0,0,3,"PB"}}}
  };
  auto pos_evidence_paths=decoder.decode(2,pos_evidence_lattice,lattice_scorer,{},pos_options);
  assert(!pos_evidence_paths.empty());
