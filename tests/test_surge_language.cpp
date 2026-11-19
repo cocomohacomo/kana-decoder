@@ -68,6 +68,11 @@ int main() {
   assert(adapted_hypothesis.candidate_id.equals("candidate-adapter"));
   assert(adapted_hypothesis.interpretation.equals("名詞/固有名詞"));
   assert(adapted_hypothesis.score == 8.0);
+  auto foreign_candidate = adapter_candidate;
+  foreign_candidate.morphology.language_tag = "en-US";
+  Hypothesis foreign_hypothesis;
+  assert(!ja_adapter.make_hypothesis(foreign_candidate, 8.0, {0, 3},
+                                     "foreign-1", foreign_hypothesis));
 
   ParsedNumber parsed;
   assert(parse_japanese_number("さんじゅうに", parsed));
