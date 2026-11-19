@@ -291,18 +291,18 @@ retrieved Claims, dependency triggers/impacts and bounded relation scanning.
 
 Implemented in kana-decoder only:
 
-- Added the read-only `LanguagePack` contract exposing pack identity, lexicon, n-gram scorer, connection model, correction resources and Language Adapter.
+- Added the read-only `LanguagePack` contract exposing pack identity, decode/stream-append providers and Language Adapter. The Japanese implementation privately owns the lexicon, n-gram scorer, connection model and correction resources.
 - Added a Japanese Pack snapshot loader. It verifies the existing manifest and payload hashes, loads resources once, records pack ID/language/version and computes a SHA-256 digest over the manifest bytes.
-- Changed the C API engine to hold `shared_ptr<const LanguagePack>` instead of owning separate dictionary/scorer/connection fields.
+- Changed the C API engine to hold `shared_ptr<const LanguagePack>` instead of owning separate dictionary/scorer/connection fields. The C API now calls only Pack-mediated decode and append operations.
 - Changed streaming sessions to pin the same immutable shared snapshot instead of copying large lexicon and model structures.
 - Rejected a second Pack load into an already-loaded engine, preventing silent pack mutation while sessions may exist.
 - Added Language Adapter entity rendering and routed Japanese numeric parsing/rendering through the adapter bound to the SURGE normalization runtime. The generic SURGE runtime no longer directly calls the Japanese number parser or renderer.
-- Added a Language Pack conformance test covering identity, digest, adapter tag, dictionary access, decoding, shared snapshot identity and numeric realization.
+- Added Language Pack conformance coverage for identity, digest, adapter tag, decode and streaming providers, shared snapshot identity and numeric realization. Added C API checks for one-time Pack pinning and adapter preservation after stream reset.
 - Added the new source to both static and shared library targets.
 
 ### Scope and limitations
 
-This is a migration boundary, not full Language Set completion. The current factory constructs the Japanese implementation only. Lattice construction, morphology decoding, most candidate scoring and non-numeric surface realization are still in the existing decoder implementation. The internal C++ interface is not yet a stable external plugin ABI. No second language pack has been implemented.
+This is a migration boundary, not full Language Set completion. The current factory constructs the Japanese implementation only. Although host code now invokes Pack-mediated decode/append operations, the Japanese lattice and morphology implementation remains physically in the kana-decoder source tree behind that provider. Most candidate scoring and non-numeric surface realization are still migration work. The internal C++ interface is not yet a stable external plugin ABI. No second language pack has been implemented.
 
 ### Verification
 
