@@ -281,6 +281,7 @@ This stage only makes the v0.58 typed-entity evidence weight calibratable. No pr
 
 - [x] Report raw decoder surface exact Candidate Recall@1, @5 and @10 over the full evaluation set.
 - [x] Report best-candidate oracle CER@5 and @10 to separate candidate generation coverage from SURGE path selection and rendering.
+- [x] Report conditional SURGE exact success given gold exact coverage in the top-10 raw candidates.
 - [x] Report mean N-best paths per case; decoder failures count as misses in Recall@N and as full-reference deletion distance in oracle CER.
 - [x] Propagate candidate-generation metrics into each dev calibration candidate row without using test data for selection.
 - [x] Add a black-box CTest contract asserting recall monotonicity and oracle-CER monotonicity.
