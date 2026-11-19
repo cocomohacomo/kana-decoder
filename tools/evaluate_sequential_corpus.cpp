@@ -412,7 +412,8 @@ int main(int argc, char** argv) {
               << ",\"dev_selected_smoothing_alpha\":" << selected_alpha
               << ",\"dev_selected_pos_context_weight\":" << selected_pos_weight
               << ",\"dev_selected_cluster_weight\":" << selected_cluster_weight
-              << ",\"dev_selected_policy\":\"" << (selected_cluster_weight > 0.0 ? (selected_weight > 0.0 ? "combined" : "cluster_only") : (selected_weight > 0.0 ? "ngram_only" : "morphology")) << "\"";
+              << ",\"dev_selected_policy\":\"" << (selected_cluster_weight > 0.0 ? (selected_weight > 0.0 ? "combined" : "cluster_only") : (selected_weight > 0.0 ? "ngram_only" : "morphology")) << "\""
+
               << ",\"source_test_tokens\":" << source_tokens
               << ",\"sentences\":" << sentences.size();
     print_metrics("morphology_only", morphology);
