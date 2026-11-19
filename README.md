@@ -64,3 +64,6 @@
 - v0.10: docs/SPECIFICATION_v0.10.md
 - v0.9以前: docs/
 - Licensing: docs/LICENSING_POLICY.md、docs/THIRD_PARTY_COMPONENTS.md
+
+
+- v0.35: 実データ評価で改善が見られたSURGEクラスタ診断モデルのsidecar serializerを追加。train-only cluster / distance-conditioned evidence / dev thresholdをバージョン付きTSVとSHA-256 manifestへ出力。現段階では実験用であり本番decoderは読み込まない。
