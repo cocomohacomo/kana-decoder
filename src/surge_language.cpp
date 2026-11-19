@@ -451,6 +451,11 @@ bool JapaneseLanguageAdapter::make_numeric_entity(std::string_view reading,
   return true;
 }
 
+bool JapaneseLanguageAdapter::render_entity(const Entity& entity, NumericStyle style,
+    std::string& output) const {
+  return kana_decoder::surge::render_entity(entity, style, output);
+}
+
 bool render_entity(const Entity& entity, NumericStyle style, std::string& output) {
   if (!entity.valid) return false;
   output.clear();
