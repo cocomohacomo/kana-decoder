@@ -1,13 +1,12 @@
 #include "kana_decoder/language_pack.hpp"
 
-#include "kana_decoder/pack_manifest.hpp"
+#include "language_pack_internal.hpp"
 #include "surge/sha256.hpp"
 
 #include <fstream>
 #include <iterator>
 #include <regex>
-#include <sstream>
-#include <utility>
+#include <string>
 
 namespace kana_decoder {
 namespace {
@@ -44,47 +43,18 @@ bool read_identity(const std::string& directory, LanguagePackIdentity& identity,
   return true;
 }
 
-class JapaneseLanguagePack final : public LanguagePack {
- public:
-  LanguagePackIdentity identity_data;
-  LexiconTrie lexicon_data;
-  MaskedNgramScorer scorer_data;
-  ConnectionModel connections_data;
-  CorrectionOptions corrections_data;
-  surge::JapaneseLanguageAdapter adapter_data;
-
-  const LanguagePackIdentity& identity() const override { return identity_data; }
-  std::vector<DecodedPath> decode(const std::string& reading,
-                                  const DecoderOptions& options) const override {
-    return decode_reading(reading, lexicon_data, scorer_data, options, &connections_data);
-  }
-  bool append(StreamingSession& session, const std::string& chunk,
-              StreamingSnapshot& snapshot,
-              const DecoderOptions& options) const override {
-    return session.append(chunk, lexicon_data, scorer_data, snapshot,
-                          options, &connections_data);
-  }
-  const surge::LanguageAdapter& adapter() const override { return adapter_data; }
-};
-
 }  // namespace
 
 std::shared_ptr<const LanguagePack> load_language_pack_snapshot(
     const std::string& directory, std::string* error) {
-  auto pack = std::make_shared<JapaneseLanguagePack>();
-  if (!load_language_pack(directory, pack->lexicon_data, pack->scorer_data,
-                          nullptr, &pack->connections_data,
-                          &pack->corrections_data)) {
-    if (error) *error = "LANGUAGE_PACK_RESOURCE_LOAD_FAILED";
-    return {};
+  LanguagePackIdentity identity;
+  if (!read_identity(directory, identity, error)) return {};
+  if (identity.language_tag == "ja-JP") {
+    return language_sets::load_japanese_language_pack(
+        directory, std::move(identity), error);
   }
-  if (!read_identity(directory, pack->identity_data, error)) return {};
-  if (pack->identity_data.language_tag != pack->adapter_data.language_tag()) {
-    if (error) *error = "LANGUAGE_PACK_ADAPTER_MISMATCH";
-    return {};
-  }
-  if (error) error->clear();
-  return pack;
+  if (error) *error = "LANGUAGE_PACK_LANGUAGE_UNSUPPORTED";
+  return {};
 }
 
 }  // namespace kana_decoder
