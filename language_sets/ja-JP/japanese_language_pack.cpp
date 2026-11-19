@@ -28,8 +28,11 @@ class JapaneseLanguagePack final : public LanguagePack {
   bool append(StreamingSession& session, const std::string& chunk,
               StreamingSnapshot& snapshot,
               const DecoderOptions& options) const override {
-    return session.append(chunk, lexicon_data, scorer_data, snapshot,
-                          options, &connections_data);
+    if (chunk.empty() || !is_valid_utf8(chunk)) return false;
+    const std::string combined = session.reading() + chunk;
+    auto paths = decode(combined, options);
+    return session.append_decoded(chunk, std::move(paths), snapshot,
+                                  options.max_input_codepoints);
   }
 
   const LanguagePackIdentity& identity() const override { return identity_data; }
