@@ -4,6 +4,7 @@
 #include "surge/sha256.hpp"
 
 #include <fstream>
+#include <iterator>
 #include <regex>
 #include <sstream>
 #include <utility>
@@ -64,17 +65,16 @@ class JapaneseLanguagePack final : public LanguagePack {
 
 std::shared_ptr<const LanguagePack> load_language_pack_snapshot(
     const std::string& directory, std::string* error) {
-  if (!verify_pack_manifest(directory, error)) return {};
   auto pack = std::make_shared<JapaneseLanguagePack>();
-  if (!read_identity(directory, pack->identity_data, error)) return {};
-  if (pack->identity_data.language_tag != pack->adapter_data.language_tag()) {
-    if (error) *error = "LANGUAGE_PACK_ADAPTER_MISMATCH";
-    return {};
-  }
   if (!load_language_pack(directory, pack->lexicon_data, pack->scorer_data,
                           nullptr, &pack->connections_data,
                           &pack->corrections_data)) {
     if (error) *error = "LANGUAGE_PACK_RESOURCE_LOAD_FAILED";
+    return {};
+  }
+  if (!read_identity(directory, pack->identity_data, error)) return {};
+  if (pack->identity_data.language_tag != pack->adapter_data.language_tag()) {
+    if (error) *error = "LANGUAGE_PACK_ADAPTER_MISMATCH";
     return {};
   }
   if (error) error->clear();
