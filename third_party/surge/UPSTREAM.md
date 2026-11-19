@@ -30,7 +30,8 @@ The following new files are sourced from SURGE PR #139, branch
 - `src/decision.cpp`
 
 They provide the Core-owned RecognitionDecision and NormalizationDecision
-contracts and deterministic bounded candidate comparison. These files are
+contracts, deterministic bounded candidate comparison, family-weight calibration,
+and fail-closed handling of non-finite contributions and accumulated scores. These files are
 vendored before PR #139 is merged; once upstream is merged, update the pinned
 commit and remove this temporary source-delta note after verifying byte parity.
 The local adapter integration in `src/surge_runtime.cpp` remains kana-decoder
