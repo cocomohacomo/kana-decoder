@@ -113,27 +113,33 @@ bool load_sentences(const std::string& path, const std::string& split,
     return input.eof() && !sentences.empty();
 }
 
-bool load_training_sequences(const std::string& path,
-                             kana_decoder::MaskedNgramScorer& scorer) {
+void add_sequence_counts(const std::vector<std::string>& tokens,kana_decoder::MaskedNgramScorer& scorer) {
+    for(std::size_t i=0;i<tokens.size();++i) {
+        const auto& token=tokens[i]; if(token.empty()) continue;
+        scorer.add_unigram(token,1);
+        if(i>=1&&!tokens[i-1].empty()) scorer.add_left_bigram(tokens[i-1],token,1);
+        if(i>=2&&!tokens[i-2].empty()&&!tokens[i-1].empty()) {
+            scorer.add_left_ngram({tokens[i-2],tokens[i-1]},token,1);
+            scorer.add_left_skipgram(tokens[i-2],token,1);
+        }
+        if(i>=3&&!tokens[i-3].empty()&&!tokens[i-2].empty()&&!tokens[i-1].empty())
+            scorer.add_left_ngram({tokens[i-3],tokens[i-2],tokens[i-1]},token,1);
+    }
+}
+bool load_training_sequences(const std::string& path,const kana_decoder::LexiconTrie& lexicon,
+                             kana_decoder::MaskedNgramScorer& scorer,
+                             kana_decoder::MaskedNgramScorer& pos_scorer) {
     std::ifstream input(path);
     if (!input) return false;
     std::string line;
     while (std::getline(input, line)) {
         if (line.empty() || line[0] == '#') continue;
         const auto tokens = split_tabs(line);
-        for (std::size_t i = 0; i < tokens.size(); ++i) {
-            const auto& token = tokens[i];
-            if (token.empty()) continue;
-            scorer.add_unigram(token, 1);
-            if (i >= 1 && !tokens[i-1].empty())
-                scorer.add_left_bigram(tokens[i-1], token, 1);
-            if (i >= 2 && !tokens[i-2].empty() && !tokens[i-1].empty()) {
-                scorer.add_left_ngram({tokens[i-2], tokens[i-1]}, token, 1);
-                scorer.add_left_skipgram(tokens[i-2], token, 1);
-            }
-            if (i >= 3 && !tokens[i-3].empty() && !tokens[i-2].empty() && !tokens[i-1].empty())
-                scorer.add_left_ngram({tokens[i-3], tokens[i-2], tokens[i-1]}, token, 1);
-        }
+        add_sequence_counts(tokens,scorer);
+        std::vector<std::string> pos_tokens;
+        pos_tokens.reserve(tokens.size());
+        for(const auto& token:tokens) pos_tokens.push_back(lexicon.candidate_pos(token));
+        add_sequence_counts(pos_tokens,pos_scorer);
     }
     return input.eof();
 }
@@ -265,8 +271,8 @@ int main(int argc, char** argv) {
         std::cerr << "failed to load Language Pack\n";
         return 2;
     }
-    kana_decoder::MaskedNgramScorer trained_scorer;
-    if (!load_training_sequences(argv[2], trained_scorer)) {
+    kana_decoder::MaskedNgramScorer trained_scorer, trained_pos_scorer;
+    if (!load_training_sequences(argv[2], lexicon, trained_scorer, trained_pos_scorer)) {
         std::cerr << "failed to load training sequences\n";
         return 2;
     }
@@ -280,7 +286,9 @@ int main(int argc, char** argv) {
     kana_decoder::MaskedNgramScorer morphology_scorer;
     Metrics morphology, causal;
     evaluate(sentences, lexicon, morphology_scorer, connections, morphology);
-    evaluate(sentences, lexicon, trained_scorer, connections, causal);
+    kana_decoder::DecoderOptions ngram_options;
+    ngram_options.pos_ngram_scorer = &trained_pos_scorer;
+    evaluate(sentences, lexicon, trained_scorer, connections, causal, ngram_options);
     kana_decoder::SurgeClusterModel cluster_model;
     const bool cluster_enabled = argc == 7;
     if (cluster_enabled && !cluster_model.load_tsv(argv[6])) {
@@ -302,6 +310,7 @@ int main(int argc, char** argv) {
                 if (!trained_scorer.set_smoothing_alpha(alpha)) return 2;
                 kana_decoder::DecoderOptions options;
                 options.surge_left_context_gate = true;
+                options.pos_ngram_scorer = &trained_pos_scorer;
                 options.context_weight = weight;
                 options.surge_context_margin = margin;
                 Metrics candidate;
@@ -351,6 +360,7 @@ int main(int argc, char** argv) {
     if (!trained_scorer.set_smoothing_alpha(selected_alpha)) return 2;
     kana_decoder::DecoderOptions surge_options;
     surge_options.surge_left_context_gate = true;
+    surge_options.pos_ngram_scorer = &trained_pos_scorer;
     surge_options.context_weight = selected_weight;
     surge_options.surge_context_margin = selected_margin;
     Metrics surge;
@@ -360,10 +370,12 @@ int main(int argc, char** argv) {
         kana_decoder::DecoderOptions cluster_options;
         cluster_options.surge_cluster_model = &cluster_model;
         cluster_options.context_weight = 0.0;
+        cluster_options.pos_context_weight = 0.0;
         evaluate(sentences, lexicon, trained_scorer, connections, cluster, cluster_options);
         kana_decoder::DecoderOptions combined_options;
         combined_options.surge_cluster_model = &cluster_model;
         combined_options.context_weight = 1.0;
+        combined_options.pos_ngram_scorer = &trained_pos_scorer;
         evaluate(sentences, lexicon, trained_scorer, connections, combined, combined_options);
     }
     std::cout << "{\"mode\":\"end_to_end_sentence_reading_with_predicted_left_history\""
