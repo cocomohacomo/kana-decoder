@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -70,6 +71,33 @@ void add_sequence_counts(const std::vector<std::string>& tokens,
       scorer.add_left_ngram({tokens[i - 3], tokens[i - 2], tokens[i - 1]}, token, 1);
   }
 }
+bool load_decision_policy(const std::string& path,
+    kana_decoder::SurgeRuntimeConfig& config) {
+  std::ifstream input(path);
+  if (!input) return false;
+  std::string line;
+  std::size_t line_number = 0;
+  while (std::getline(input, line)) {
+    ++line_number;
+    if (line.empty() || line[0] == '#') continue;
+    const auto fields = split_tabs(line);
+    if (fields.size() != 2) return false;
+    try {
+      std::size_t consumed = 0;
+      const double value = std::stod(fields[1], &consumed);
+      if (consumed != fields[1].size() || !std::isfinite(value) || value < 0.0)
+        return false;
+      if (fields[0] == "normalization_renderer")
+        config.normalization_renderer_score = value;
+      else
+        config.recognition_family_weights[fields[0]] = value;
+    } catch (...) {
+      return false;
+    }
+  }
+  return input.eof() && line_number > 0;
+}
+
 bool load_training_sequences(const std::string& path,
     const kana_decoder::LexiconTrie& lexicon,
     kana_decoder::MaskedNgramScorer& scorer,
@@ -134,8 +162,8 @@ long peak_rss_kib() {
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc < 3 || argc > 5) {
-    std::cerr << "usage: kana_decoder_surge_eval PACK_DIR CORPUS_TSV [SPLIT=test] [TRAIN_SEQUENCES.tsv]\n";
+  if (argc < 3 || argc > 6) {
+    std::cerr << "usage: kana_decoder_surge_eval PACK_DIR CORPUS_TSV [SPLIT=test] [TRAIN_SEQUENCES.tsv] [DECISION_POLICY.tsv]\n";
     return 2;
   }
   kana_decoder::LexiconTrie lexicon;
@@ -148,7 +176,7 @@ int main(int argc, char** argv) {
   kana_decoder::MaskedNgramScorer* active_scorer = &scorer;
   kana_decoder::MaskedNgramScorer trained_scorer, trained_pos_scorer;
   kana_decoder::DecoderOptions decoder_options;
-  if (argc == 5) {
+  if (argc >= 5) {
     lexicon.build_candidate_pos_index();
     if (!load_training_sequences(argv[4], lexicon, trained_scorer, trained_pos_scorer)) {
       std::cerr << "failed to load training sequences\n";
@@ -202,6 +230,12 @@ int main(int argc, char** argv) {
     config.max_journal_payload_bytes = 1024U * 1024U;
     config.max_journal_identity_bytes = 512U * 1024U;
     config.remove_journal_on_destroy = true;
+    if (argc == 6 && !load_decision_policy(argv[5], config)) {
+      ++runtime_failures;
+      ++deferred;
+      surge_distance += codepoints(item.expected).size();
+      continue;
+    }
     kana_decoder::SurgeNormalizationRuntime runtime(config);
     std::string runtime_error;
     if (!runtime.open(runtime_error)) {
@@ -230,14 +264,14 @@ int main(int argc, char** argv) {
   std::cout << std::fixed << std::setprecision(6)
       << "{\"mode\":\"surge_core_real_data_evaluation\""
       << ",\"split\":\"" << split << "\""
-      << ",\"training_sequences_used\":" << (argc == 5 ? "true" : "false")
+      << ",\"training_sequences_used\":" << (argc >= 5 ? "true" : "false")
       << ",\"cases\":" << cases.size()
       << ",\"input_codepoints\":" << input_points
       << ",\"reference_codepoints\":" << reference_points
       << ",\"decoder_top1\":{\"cer\":" << cer_top1
-      << ",\"sentence_exact\":" << static_cast<double>(exact_top1) / cases.size() << "}"
+      << ",\"sentence_exact\":" << (cases.empty() ? 0.0 : static_cast<double>(exact_top1) / cases.size()) << "}"
       << ",\"surge_core\":{\"cer\":" << cer_surge
-      << ",\"sentence_exact\":" << static_cast<double>(exact_surge) / cases.size()
+      << ",\"sentence_exact\":" << (cases.empty() ? 0.0 : static_cast<double>(exact_surge) / cases.size())
       << ",\"overrides\":" << overrides
       << ",\"deferred\":" << deferred
       << ",\"runtime_failures\":" << runtime_failures
