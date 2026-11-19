@@ -318,8 +318,8 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     std::vector<std::pair<std::string, std::size_t>> cluster_queue;
     retrieval_clusters.insert(active_focus->cluster_id);
     cluster_queue.push_back({active_focus->cluster_id, 0});
-    for (std::size_t cursor = 0; cursor < cluster_queue.size() &&
-         retrieval_clusters.size() < 16; ++cursor) {
+    bool cluster_frontier_truncated = false;
+    for (std::size_t cursor = 0; cursor < cluster_queue.size(); ++cursor) {
       const auto current = cluster_queue[cursor];
       if (current.second >= 2) continue;
       for (const auto* relation : relation_window) {
@@ -339,12 +339,15 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
         const auto node = graph_->nodes().find(neighbor);
         if (node == graph_->nodes().end() ||
             node->second.kind != ::surge::NodeKind::Cluster) continue;
+        if (retrieval_clusters.size() >= 16) {
+          cluster_frontier_truncated = true;
+          continue;
+        }
         retrieval_clusters.insert(neighbor);
         cluster_queue.push_back({neighbor, current.second + 1});
-        if (retrieval_clusters.size() >= 16) break;
       }
     }
-    if (retrieval_clusters.size() >= 16 && cluster_queue.size() > 16)
+    if (cluster_frontier_truncated)
       result.metrics.retrieval_truncated = true;
     for (const auto* relation : relation_window) {
       if (relation->kind != ::surge::RelationKind::Contains ||
