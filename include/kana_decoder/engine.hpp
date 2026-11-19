@@ -179,9 +179,10 @@ struct StreamingSnapshot {
 class StreamingSession {
 public:
  explicit StreamingSession(std::size_t max_reading_codepoints=256);
- bool append(const std::string& chunk,const LexiconTrie& lexicon,
-   const MaskedNgramScorer& scorer,StreamingSnapshot& snapshot,
-   const DecoderOptions& options={},const ConnectionModel* connections=nullptr);
+ // Provider-neutral state acceptance: the LanguagePack supplies decoded
+ // paths, while this host session owns only bounded input/revision state.
+ bool append_decoded(const std::string& chunk,std::vector<DecodedPath> paths,
+   StreamingSnapshot& snapshot,std::size_t max_input_codepoints=256);
  bool commit_common_prefix(StreamingSnapshot& snapshot,std::string& committed_output);
  bool commit_best(StreamingSnapshot& snapshot,std::string& committed_output);
  void reset();
