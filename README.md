@@ -73,4 +73,4 @@
 - v0.36: C++ sidecar loader/scorerを追加し、SURGE Cluster単独・N-gram併用の全文評価を実装。既定無効・Pack非同梱の実験機能。
 - v0.37-v0.38: SURGE経験記憶へword Unigram / Bigram / Trigram / 4-gram / Skip-Bigramを統合し、Beamごとの履歴を最大3候補へ拡張。
 - v0.39: POS N-gramを別Evidenceとして統合。POS索引は評価時のみ明示構築し、通常の辞書ロードでは追加メモリを使わない。
-- v0.40: Word/POS N-gramとSURGE Clusterの重みを同じdev splitで144構成校正。Evidence競合を検出し、Morphology / N-gram / Cluster / Combinedから最良のdev構成を選びtestで凍結評価。
+- v0.40: [統合校正仕様](docs/SPECIFICATION_v0.40.md)。Word/POS N-gramとSURGE Clusterを同じdev splitで144構成校正し、最良方式をtestで凍結評価。
