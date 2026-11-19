@@ -10,6 +10,7 @@ int main() {
   LanguageState state;
   Hypothesis noun;
   assert(noun.id.assign("h-noun"));
+  assert(noun.candidate_id.assign("cand-kyoto"));
   assert(noun.surface.assign("京都"));
   assert(noun.interpretation.assign("place:kyoto"));
   noun.span = {0, 3};
@@ -18,6 +19,7 @@ int main() {
 
   Hypothesis predicate;
   assert(predicate.id.assign("h-go"));
+  assert(predicate.candidate_id.assign("cand-go"));
   assert(predicate.surface.assign("行く"));
   assert(predicate.interpretation.assign("motion:go"));
   predicate.span = {3, 5};
@@ -93,6 +95,22 @@ int main() {
   lexical_duplicate.score = 0.6;
   assert(state.add_evidence(lexical_duplicate));
 
+  Hypothesis alternate = noun;
+  assert(alternate.id.assign("h-noun-alt"));
+  assert(alternate.candidate_id.assign("cand-kyoto-kana"));
+  assert(alternate.surface.assign("きょうと"));
+  alternate.confidence = 0.7;
+  assert(state.add_hypothesis(alternate));
+
+  Evidence alternate_semantic;
+  assert(alternate_semantic.id.assign("ev-alternate-semantic"));
+  assert(alternate_semantic.hypothesis_id.assign("h-noun-alt"));
+  assert(alternate_semantic.source.assign("discourse-context"));
+  alternate_semantic.kind = EvidenceKind::Semantic;
+  alternate_semantic.score = 1.0;
+  alternate_semantic.confidence = 1.0;
+  assert(state.add_evidence(alternate_semantic));
+
   Evidence semantic;
   assert(semantic.id.assign("ev-semantic"));
   assert(semantic.hypothesis_id.assign("h-noun"));
@@ -140,10 +158,24 @@ int main() {
   assert(state.find_hypothesis("h-go") != nullptr);
   assert(state.find_entity("date-1") != nullptr);
   assert(state.find_evidence("ev-semantic") != nullptr);
-  assert(state.evidence_count() == 3);
+  assert(state.evidence_count() == 4);
   assert(state.hypothesis_count() == 2);
   assert(state.entity_count() == 3);
   assert(state.memory_bytes() >= sizeof(LanguageState));
+
+  ::kana_decoder::DecodedPath first_path;
+  first_path.score = -200.0;
+  first_path.tokens.push_back({0, 3, {"cand-kyoto", "京都"}, 0.0, 0.0});
+  ::kana_decoder::DecodedPath second_path;
+  second_path.score = -210.0;
+  second_path.tokens.push_back({0, 3, {"cand-kyoto-kana", "きょうと"}, 0.0, 0.0});
+  std::vector<::kana_decoder::DecodedPath> paths{first_path, second_path};
+  PathRerankMetrics rerank_metrics;
+  assert(rerank_paths(paths, state, policy, 2, 30.0, &rerank_metrics));
+  assert(rerank_metrics.supported_paths == 2);
+  assert(rerank_metrics.order_changed);
+  assert(paths.front().tokens.front().candidate.id == "cand-kyoto-kana");
+  assert(!rerank_paths(paths, state, policy, 2, -1.0, nullptr));
 
   Entity invalid_date;
   assert(invalid_date.id.assign("bad-date"));
