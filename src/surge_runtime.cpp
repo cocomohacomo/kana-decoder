@@ -772,18 +772,31 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   }
 
   if (finalize && ambiguous) {
-    // normalize() already holds mutex_; commit directly instead of calling
-    // the public locking wrapper commit_output() and deadlocking.
+    // Persist finalization through ContextGraph so replay reconstructs the
+    // complete shared-journal state instead of seeing an opaque journal event.
     const auto stream_sequence = sequence_++;
     const std::string stream_id = "norm/" + id_component(config_.context_id) + "/" +
         std::to_string(stream_sequence) + "/stream-commit";
     std::ostringstream stream_payload;
-    stream_payload << "context=" << config_.context_id
+    stream_payload << "EVENT=NORMALIZATION_STREAM_FINAL_COMMIT"
+                   << ";context=" << config_.context_id
                    << ";source_revision=" << journal_->state_version()
                    << ";final=true;output=" << output;
-    const auto stream_commit = journal_->commit(stream_id, stream_id + "/key",
-        journal_->state_version(), {{stream_id, "NORMALIZATION_STREAM_FINAL_COMMIT",
-                                     stream_payload.str()}});
+    ::surge::SemanticDelta stream_delta;
+    stream_delta.delta_id = stream_id;
+    stream_delta.idempotency_key = stream_id + "/key";
+    stream_delta.expected_state_version = journal_->state_version();
+    stream_delta.nodes.push_back({{stream_id, ::surge::NodeKind::Evidence,
+        stream_payload.str(), {}}});
+    std::string stream_cluster;
+    std::string stream_cluster_error;
+    if (!graph_->append_cluster_membership(stream_delta, context_cluster_id_,
+          "NORMALIZATION_OUTPUT", stream_id, stream_id,
+          stream_id + "/output-cluster", stream_cluster, stream_cluster_error)) {
+      result.error = "SURGE_OUTPUT_COMMIT_CLASSIFICATION_FAILED:" + stream_cluster_error;
+      return result;
+    }
+    const auto stream_commit = graph_->apply(stream_delta);
     if (!stream_commit.committed) {
       result.error = "SURGE_OUTPUT_COMMIT_FAILED:" + stream_commit.error;
       return result;
@@ -801,7 +814,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
 bool SurgeNormalizationRuntime::commit_output(const std::string& output,
     std::uint64_t source_revision, bool final, std::string& error) {
   std::lock_guard<std::mutex> lock(mutex_);
-  if (!opened_ || !journal_ || output.empty()) {
+  if (!opened_ || !graph_ || !journal_ || output.empty()) {
     error = "SURGE_OUTPUT_COMMIT_REQUEST_INVALID";
     return false;
   }
@@ -809,11 +822,23 @@ bool SurgeNormalizationRuntime::commit_output(const std::string& output,
   const auto id = "norm/" + id_component(config_.context_id) + "/" +
       std::to_string(sequence) + "/stream-commit";
   std::ostringstream payload;
-  payload << "context=" << config_.context_id << ";source_revision=" << source_revision
+  payload << "EVENT=" << (final ? "NORMALIZATION_STREAM_FINAL_COMMIT" :
+                                   "NORMALIZATION_STREAM_PREFIX_COMMIT")
+          << ";context=" << config_.context_id << ";source_revision=" << source_revision
           << ";final=" << (final ? "true" : "false") << ";output=" << output;
-  const auto committed = journal_->commit(id, id + "/key", journal_->state_version(),
-      {{id, final ? "NORMALIZATION_STREAM_FINAL_COMMIT" :
-                    "NORMALIZATION_STREAM_PREFIX_COMMIT", payload.str()}});
+  ::surge::SemanticDelta delta;
+  delta.delta_id = id;
+  delta.idempotency_key = id + "/key";
+  delta.expected_state_version = journal_->state_version();
+  delta.nodes.push_back({{id, ::surge::NodeKind::Evidence, payload.str(), {}}});
+  std::string output_cluster;
+  if (!graph_->append_cluster_membership(delta, context_cluster_id_,
+        "NORMALIZATION_OUTPUT", id, id, id + "/output-cluster",
+        output_cluster, error)) {
+    error = "SURGE_OUTPUT_COMMIT_CLASSIFICATION_FAILED:" + error;
+    return false;
+  }
+  const auto committed = graph_->apply(delta);
   if (!committed.committed) {
     error = "SURGE_STREAM_COMMIT_FAILED:" + committed.error;
     return false;
