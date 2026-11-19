@@ -462,7 +462,8 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
 
   std::string output;
   std::vector<std::string> normalization_trace;
-  for (const auto& token : paths[selected_path_index].tokens) {
+  DecodedPath selected_path = paths[selected_path_index];
+  for (auto& token : selected_path.tokens) {
     const auto key = candidate_key(token);
     const auto selected_surface = decision.selected_surfaces.find(key);
     if (selected_surface == decision.selected_surfaces.end()) {
@@ -470,7 +471,19 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
       return result;
     }
     normalization_trace.push_back(key + "=" + selected_surface->second);
+    token.candidate.surface = selected_surface->second;
     output += selected_surface->second;
+  }
+  // Surface realization is a language-provider operation. Recognition and
+  // token-surface alternatives have already been selected by SURGE UnifiedDecision.
+  if (config_.language_adapter) {
+    std::string rendered_output;
+    if (!config_.language_adapter->render_path(
+            selected_path, reading, config_.surface_render_options, rendered_output)) {
+      result.error = "SURGE_LANGUAGE_RENDER_FAILED";
+      return result;
+    }
+    output.swap(rendered_output);
   }
   std::ostringstream commit_payload;
   commit_payload << "context=" << config_.context_id
