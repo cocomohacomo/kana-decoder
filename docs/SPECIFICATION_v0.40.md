@@ -16,13 +16,17 @@ The native sequential evaluator supports two explicit modes:
 - `dev-calibrate`: reads only rows whose split is `dev`, evaluates a bounded parameter grid, and writes the selected configuration to a transient TSV file.
 - `test`: reads only rows whose split is `test`, loads the frozen calibration TSV, and evaluates the selected configuration once.
 
-The dev grid contains 72 configurations:
+When the experimental SURGE cluster sidecar is available, the joint grid evaluates 144 configurations:
 
-- Context weight: 0.25, 0.5, 1.0, 2.0.
-- Evidence margin: 0.0, 0.01, 0.05, 0.1, 0.25, 0.5.
-- Additive smoothing alpha: 0.1, 0.5, 1.0.
+- Word N-gram context weight: 0.0, 1.0, 2.0.
+- Evidence margin: 0.0, 0.1, 0.5.
+- Additive smoothing alpha: 0.1, 0.5.
+- POS N-gram weight: 0.0, 0.15.
+- SURGE cluster weight: 0.0, 0.5, 1.0, 2.0.
 
-Selection is deterministic: lowest Unicode-codepoint CER first, then higher sentence exact accuracy, then higher exact token alignment. If no calibrated SURGE configuration beats morphology-only on dev, the emitted configuration disables contextual contribution (weight 0.0) and uses the safe default alpha/margin. This avoids deploying a dev configuration that degrades the morphology baseline.
+Without a cluster sidecar, cluster weight is fixed at zero and only 36 distinct configurations are evaluated. The evaluator does not repeat equivalent configurations merely to preserve a nominal grid size.
+
+Selection is deterministic: lowest Unicode-codepoint CER first, then higher sentence exact accuracy, then higher exact token alignment. If no calibrated configuration beats morphology-only on dev, the emitted configuration disables contextual contribution and uses the safe default alpha/margin. The test split is never used for selection.
 
 ## 3. Smoothing API
 
@@ -56,7 +60,7 @@ This is full sentence reading-to-text decoding with gold sentence/token referenc
 
 CI must verify:
 - Valid and invalid smoothing alpha handling.
-- Exactly 72 calibration combinations are evaluated.
+- Exactly 144 joint combinations are evaluated when the cluster sidecar is present, or 36 distinct combinations without it.
 - Dev mode selects only dev rows and writes a readable configuration.
 - Test mode reads the frozen configuration and scores only test rows.
 - The full Sudachi Pack workflow measures calibration and test Peak RSS separately, each under 1,792 MiB.
@@ -168,3 +172,11 @@ No v0.32 accuracy gain is claimed until the new CI and full Pack workflow comple
 - Clusterモデルをdev-calibrateにも明示的に渡し、Cluster weight=0で無効化、>0で有効化する。test時は凍結した5値校正ファイルを使用。
 - devで形態素ベースラインを超えない場合は全Evidence weightを0に戻す。testは一切校正に使用しない。
 - testレポートはMorphology / N-gram / Cluster / dev選択Combinedを分離表示する。
+
+
+## 11. v0.40.1 校正グリッドの重複排除
+
+- SURGEクラスタsidecarがない場合、クラスタ重みだけが異なる設定は同一条件となるため、クラスタ重みを0に固定して36設定のみを評価する。
+- sidecarがある場合は従来どおり144設定を評価し、Word N-gram / margin / smoothing / POS / cluster weightをdev split上で同時校正する。
+- これにより、クラスタ機能なしのCTestで同一デコードを4回繰り返す無駄を除き、評価件数を実際のユニーク設定数と一致させる。
+- 推論アルゴリズム、Language Pack、デフォルト動作、メモリ上限は変更しない。
