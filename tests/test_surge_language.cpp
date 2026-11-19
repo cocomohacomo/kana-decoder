@@ -204,6 +204,9 @@ int main() {
   assert(ja_adapter.extract_entities("さんじゅうに", kMaxEntities,
                                      ambiguous_number_entities));
   assert(ambiguous_number_entities.empty());
+  assert(ja_adapter.extract_entities("さんじゅっぷん", kMaxEntities,
+                                     ambiguous_number_entities));
+  assert(ambiguous_number_entities.empty());
 
   ::kana_decoder::DecodedPath partial_path;
   const auto add_token = [&](std::size_t start, std::size_t end,
