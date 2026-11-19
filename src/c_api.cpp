@@ -106,10 +106,13 @@ int kd_engine_decode(kd_engine* p, const char* reading, char* out, size_t cap) {
         options.beam_width = 8;
         auto paths = kana_decoder::decode_reading(reading, p->lexicon, p->scorer, options, &p->connections);
         if (paths.empty() || paths.front().tokens.empty() || !p->surge) return KD_ERR_INVALID_ARGUMENT;
-        const auto normalized = p->surge->normalize(reading, paths, true);
+        const auto normalized = p->surge->normalize(reading, paths, false);
         if (!normalized.committed) return KD_ERR_INTERNAL;
         const std::string& result = normalized.output;
         if (result.size() + 1 > cap) return KD_ERR_BUFFER_TOO_SMALL;
+        std::string surge_error;
+        if (!p->surge->commit_output(result, normalized.metrics.state_version, true, surge_error))
+            return KD_ERR_INTERNAL;
         std::memcpy(out, result.c_str(), result.size() + 1);
         return 0;
     } catch (...) {
@@ -180,12 +183,6 @@ static int copy_stream_output(const std::string& value,char* output,size_t capac
     std::memcpy(output,value.c_str(),value.size()+1);
     return 0;
 }
-static std::string best_surface(const kana_decoder::StreamingSnapshot& snapshot) {
-    if (snapshot.paths.empty()) return {};
-    std::string result;
-    for (const auto& token : snapshot.paths.front().tokens) result += token.candidate.surface;
-    return result;
-}
 int kd_streaming_append(kd_streaming_session* p,const char* chunk,char* output,size_t capacity,uint64_t* revision) {
     if (!p || !chunk || !*chunk || !output || !capacity) return KD_ERR_INVALID_ARGUMENT;
     try {
@@ -214,6 +211,7 @@ int kd_streaming_commit_common_prefix(kd_streaming_session* p,char* output,size_
         if (!trial_session.commit_common_prefix(trial_snapshot,committed)) return KD_ERR_INVALID_ARGUMENT;
         if (!p->surge) return KD_ERR_INTERNAL;
         std::string surge_error;
+        if (committed.size() + 1 > capacity) return KD_ERR_BUFFER_TOO_SMALL;
         if (!p->surge->commit_output(committed, trial_snapshot.revision, false, surge_error)) return KD_ERR_INTERNAL;
         const int copied=copy_stream_output(committed,output,capacity);
         if (copied) return copied;
@@ -232,6 +230,7 @@ int kd_streaming_commit_best(kd_streaming_session* p,char* output,size_t capacit
         if (!trial_session.commit_best(trial_snapshot,committed)) return KD_ERR_INVALID_ARGUMENT;
         if (!p->surge) return KD_ERR_INTERNAL;
         std::string surge_error;
+        if (committed.size() + 1 > capacity) return KD_ERR_BUFFER_TOO_SMALL;
         if (!p->surge->commit_output(committed, trial_snapshot.revision, true, surge_error)) return KD_ERR_INTERNAL;
         const int copied=copy_stream_output(committed,output,capacity);
         if (copied) return copied;
