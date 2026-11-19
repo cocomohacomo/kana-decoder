@@ -285,3 +285,27 @@ retrieved Claims, dependency triggers/impacts and bounded relation scanning.
 5. 大規模正解付きコーパスでDecoder基準値とSURGE統合後を同一分割・同一正規化規則で比較し、精度改善とメモリ/遅延予算の両立を確認する。
 
 この段階の変更はkana-decoderブランチ内に限定し、SURGE本体リポジトリおよび別セッションのSURGE開発ブランチには変更を加えていない。
+
+
+## 13. Immutable Language Pack runtime boundary (v0.44 stage)
+
+Implemented in kana-decoder only:
+
+- Added the read-only `LanguagePack` contract exposing pack identity, lexicon, n-gram scorer, connection model, correction resources and Language Adapter.
+- Added a Japanese Pack snapshot loader. It verifies the existing manifest and payload hashes, loads resources once, records pack ID/language/version and computes a SHA-256 digest over the manifest bytes.
+- Changed the C API engine to hold `shared_ptr<const LanguagePack>` instead of owning separate dictionary/scorer/connection fields.
+- Changed streaming sessions to pin the same immutable shared snapshot instead of copying large lexicon and model structures.
+- Rejected a second Pack load into an already-loaded engine, preventing silent pack mutation while sessions may exist.
+- Added Language Adapter entity rendering and routed Japanese numeric parsing/rendering through the adapter bound to the SURGE normalization runtime. The generic SURGE runtime no longer directly calls the Japanese number parser or renderer.
+- Added a Language Pack conformance test covering identity, digest, adapter tag, dictionary access, decoding, shared snapshot identity and numeric realization.
+- Added the new source to both static and shared library targets.
+
+### Scope and limitations
+
+This is a migration boundary, not full Language Set completion. The current factory constructs the Japanese implementation only. Lattice construction, morphology decoding, most candidate scoring and non-numeric surface realization are still in the existing decoder implementation. The internal C++ interface is not yet a stable external plugin ABI. No second language pack has been implemented.
+
+### Verification
+
+GitHub Actions is triggered for the updated PR head. Build/test success, production dictionary memory impact, load-time impact, CER and sentence exact-match impact must be reported only after the corresponding runs and representative corpus measurements complete. The small `ja-lite` fixture test is conformance coverage, not a production-quality benchmark.
+
+SURGE main repository remains untouched; its vendored snapshot was not modified.
