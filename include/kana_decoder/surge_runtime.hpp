@@ -1,6 +1,7 @@
 #pragma once
 
 #include "kana_decoder/engine.hpp"
+#include "kana_decoder/surge_language.hpp"
 #include "surge/chaos_cluster.hpp"
 #include "surge/context_graph.hpp"
 #include "surge/event_journal.hpp"
@@ -25,6 +26,7 @@ struct SurgeRuntimeConfig {
   std::size_t max_candidates_per_decode{64};
   std::map<std::string, double> recognition_family_weights;
   double normalization_renderer_score{1.0};
+  const surge::LanguageAdapter* language_adapter{nullptr};
   bool remove_journal_on_destroy{false};
 };
 
@@ -66,6 +68,7 @@ class SurgeNormalizationRuntime {
   SurgeNormalizationRuntime& operator=(const SurgeNormalizationRuntime&) = delete;
 
   bool open(std::string& error);
+  bool set_language_adapter(const surge::LanguageAdapter* adapter);
   SurgeNormalizationResult normalize(const std::string& reading,
                                       const std::vector<DecodedPath>& paths,
                                       bool finalize = true);
