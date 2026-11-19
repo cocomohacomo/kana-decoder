@@ -4,6 +4,7 @@
 #include <cassert>
 #include <filesystem>
 #include <string>
+#include <iostream>
 
 int main() {
   const auto journal = (std::filesystem::temp_directory_path() /
@@ -53,6 +54,7 @@ int main() {
   kana.tokens.push_back(kana_token);
 
   const auto result = runtime.normalize("さんじゅうに", {kanji, kana});
+  if (!result.committed) std::cerr << "initial normalize failed: " << result.error << '\n';
   assert(result.committed);
   assert(result.output == "32");
   assert(result.metrics.claims == 2);
