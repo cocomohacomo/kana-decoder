@@ -78,6 +78,19 @@ int main() {
   assert(capped_snapshot.reading == "あ");
   assert(capped_snapshot.revision == capped_revision);
 
+  // The per-decode input ceiling also applies to accumulated streaming
+  // input, and a rejected chunk must not advance the session revision.
+  kana_decoder::StreamingSession per_decode_limited;
+  kana_decoder::StreamingSnapshot per_decode_snapshot;
+  kana_decoder::LanguageDecodeOptions one_codepoint;
+  one_codepoint.max_input_codepoints = 1;
+  assert(pack->append(per_decode_limited, "あ", per_decode_snapshot, one_codepoint));
+  const auto per_decode_revision = per_decode_snapshot.revision;
+  assert(!pack->append(per_decode_limited, "め", per_decode_snapshot, one_codepoint));
+  assert(per_decode_limited.reading() == "あ");
+  assert(per_decode_snapshot.reading == "あ");
+  assert(per_decode_snapshot.revision == per_decode_revision);
+
   kana_decoder::surge::Entity numeric;
   assert(pack->adapter().make_numeric_entity(
       "さんじゅうに", "test-number",
