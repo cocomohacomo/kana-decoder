@@ -144,3 +144,43 @@ Run: https://github.com/cocomohacomo/kana-decoder/actions/runs/44502736958
 SURGE PR #139 のCore Decision API側も、head `7e8ba7c80df8bcc4c487ccf14d7b99abbe1200b3` でCI成功を確認した。
 
 この結果は実装・統合・スモーク評価の合格を示す。UD Japanese-GSD全量を使った大規模test評価は、既存のSudachi Pack workflowに接続済みだが、workflow自体はまだ実行していない。
+
+
+## 9. Dev-only decision policy calibration
+
+SURGE Core DecisionPolicy now accepts optional evidence-family multipliers. Effective evidence contribution is:
+
+`evidence.value × evidence.weight × family_multiplier`
+
+Missing family entries retain multiplier 1.0. Invalid negative/non-finite values and overflowed contributions are rejected. The runtime exposes family multipliers and renderer score as explicit configuration, and the evaluator can load a two-column TSV policy file:
+
+```text
+decoder_prior<TAB>0.5
+lexical<TAB>1.0
+morphology<TAB>1.0
+transition<TAB>1.0
+ngram<TAB>1.5
+pos_ngram<TAB>1.0
+context_cluster<TAB>1.5
+normalization_renderer<TAB>0.5
+```
+
+New tool: `tools/calibrate_surge_policy.py`
+
+- Runs a fixed, bounded five-preset grid on dev only.
+- Selects minimum CER, then maximum sentence exact, then fixed preset order.
+- Writes the chosen TSV policy and calibration JSON.
+- Does not read the test split.
+- The Sudachi Pack workflow now calibrates on dev, freezes the selected policy, and evaluates test with that policy.
+- Test evaluation JSON records the exact family weights and renderer score used.
+
+This first grid is a reproducible baseline, not a claim of optimal calibration. It is intentionally small to bound CI runtime. A more granular search should be justified by dev results and must retain the test holdout.
+
+### New completion gates
+
+- [x] Configurable evidence-family multipliers in SURGE Core
+- [x] Runtime injection and evaluator policy loading
+- [x] Deterministic dev-only calibration tool
+- [x] Held-out test evaluation with frozen policy wired into workflow
+- [ ] CI verifies calibration script and policy loader end-to-end
+- [ ] Real UD Japanese-GSD dev/test metrics and resource use collected
