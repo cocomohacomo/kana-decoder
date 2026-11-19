@@ -33,6 +33,7 @@ The C++ implementation is in include/kana_decoder/surge_language.hpp and src/sur
 | SyntaxRelation | 64 | Head/dependent relation |
 | OrthographicHypothesis | 32 | Surface/script alternatives |
 | Entity | 16 | Typed structured values |
+| Evidence | 64, up to 4 dependencies | Provenance, confidence, validity and causal dependencies |
 | Constraint | 32 | Morphological, syntactic, semantic, orthographic and policy restrictions |
 | Decision | 32 | Selected hypothesis and evidence references |
 | Revision | 32 | Reinterpretation history |
@@ -42,7 +43,15 @@ Text is stored in fixed-size inline buffers. IDs are limited to 63 bytes, labels
 
 LanguageState::memory_bytes() reports the fixed object footprint. It excludes caller-owned strings created by rendering functions and stack temporaries.
 
-## 4. Entity normalization primitives
+## 4. Evidence and provenance
+
+Evidence is attached to a known Hypothesis and records its EvidenceKind, source, signed score, confidence, validity revision interval and up to four dependencies. Dependencies must reference Evidence already inserted into the state, preventing forward-reference cycles in the bounded append-only record set.
+
+The initial aggregator groups evidence by kind and takes the strongest confidence-weighted contribution within each kind, then computes a weighted mean across observed kinds. This prevents multiple correlated observations in one channel from automatically dominating independent channels. Evidence outside its revision validity interval is ignored. Invalid or zero-total policies fail closed.
+
+Decision evidence references must resolve to stored Evidence. Evidence kinds cover lexical, N-gram, POS, morphology, syntax, semantics, discourse, entities, orthography and user policy.
+
+## 5. Entity normalization primitives"
 
 The initial renderer accepts already-recognized typed entities; it is not a kana-to-number parser.
 
@@ -66,11 +75,11 @@ Supported initial output rules:
 
 Invalid calendar dates, invalid clock times, reversed ranges and missing required units fail closed. Japanese kanji numeral parsing, locale-specific decimal handling and contextual unit disambiguation remain language-adapter work.
 
-## 5. Punctuation policy
+## 6. Punctuation policy
 
 terminal_punctuation maps a discourse-act classification to Japanese, ASCII or minimal terminal punctuation. It does not infer discourse acts. Question/statement/exclamation recognition remains an upstream discourse task.
 
-## 6. Decision and revision semantics
+## 7. Decision and revision semantics
 
 A Decision must select a known Hypothesis. If compared hypotheses are supplied, the selected hypothesis must be among them. Confidence is finite and in [0,1]. Evidence IDs are bounded opaque references and must be non-empty.
 
@@ -78,11 +87,11 @@ A Revision must identify its target, replacement hypothesis and reason. The prev
 
 CommitSpan ranges must be valid and non-overlapping. The initial API records commit metadata but does not modify StreamingSession output. Streaming integration and rollback/revision policy remain a later phase.
 
-## 7. JSON Schema
+## 8. JSON Schema
 
 The exchange shape and array ceilings are documented in docs/schemas/surge-language-state.schema.json. The C++ fixed-capacity state is authoritative for runtime limits. The schema describes the portable interchange envelope, not a persistence format commitment.
 
-## 8. Resource and compatibility guarantees
+## 9. Resource and compatibility guarantees
 
 - C++17; no external runtime dependency.
 - Fixed-size arrays and inline text buffers in LanguageState.
@@ -93,7 +102,7 @@ The exchange shape and array ceilings are documented in docs/schemas/surge-langu
 - No change to existing C API or Python API.
 - Capacity overflow and invalid references fail closed.
 
-## 9. Validation
+## 10. Validation
 
 The dedicated surge_language_foundation_tests target covers:
 - Hypothesis and CandidateSet references.
@@ -101,12 +110,12 @@ The dedicated surge_language_foundation_tests target covers:
 - Orthographic alternatives.
 - Numeric, currency, date and time rendering.
 - Invalid dates and invalid spans.
-- Decision and Revision validation.
+- Decision, Evidence provenance/expiry and Revision validation.
 - CommitSpan overlap rejection.
 - Fixed-capacity overflow.
 - Punctuation policy variants.
 
-## 10. Next implementation stages
+## 11. Next implementation stages
 
 1. Path-level N-best trace and candidate recovery ranking, guided by measured 1,631 recoverable test tokens.
 2. Evidence provenance IDs and dependency-aware validity/retraction.
