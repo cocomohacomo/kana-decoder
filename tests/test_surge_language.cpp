@@ -8,6 +8,7 @@ using namespace kana_decoder::surge;
 
 int main() {
   LanguageState state;
+  std::string rendered;
   Hypothesis noun;
   assert(noun.id.assign("h-noun"));
   assert(noun.candidate_id.assign("cand-kyoto"));
@@ -54,6 +55,47 @@ int main() {
   assert(orth.surface.assign("きょうと"));
   orth.script = Script::Hiragana;
   assert(state.add_orthographic_hypothesis(orth));
+
+  JapaneseLanguageAdapter ja_adapter;
+  assert(ja_adapter.language_tag() == "ja-JP");
+  ::kana_decoder::LatticeCandidate adapter_candidate;
+  adapter_candidate.id = "candidate-adapter";
+  adapter_candidate.surface = "京都";
+  adapter_candidate.pos = "名詞/固有名詞";
+  adapter_candidate.word_cost = -12;
+  adapter_candidate.connection_cost = 4;
+  Hypothesis adapted_hypothesis;
+  assert(ja_adapter.make_hypothesis(adapter_candidate, {0, 3}, "adapted-1", adapted_hypothesis));
+  assert(adapted_hypothesis.candidate_id.equals("candidate-adapter"));
+  assert(adapted_hypothesis.interpretation.equals("名詞/固有名詞"));
+  assert(adapted_hypothesis.score == 8.0);
+
+  ParsedNumber parsed;
+  assert(parse_japanese_number("さんじゅうに", parsed));
+  assert(parsed.mantissa == 32 && parsed.decimal_places == 0);
+  assert(parse_japanese_number("ごせん", parsed));
+  assert(parsed.mantissa == 5000 && parsed.decimal_places == 0);
+  assert(parse_japanese_number("いちまんにせんさんびゃく", parsed));
+  assert(parsed.mantissa == 12300 && parsed.decimal_places == 0);
+  assert(parse_japanese_number("にてんご", parsed));
+  assert(parsed.mantissa == 25 && parsed.decimal_places == 1);
+  assert(!parse_japanese_number("にてん", parsed));
+  assert(!parse_japanese_number("さんじゅうじゅう", parsed));
+
+  Entity decimal;
+  assert(decimal.id.assign("decimal-1"));
+  decimal.kind = EntityKind::Number;
+  decimal.value = 250;
+  decimal.decimal_places = 2;
+  decimal.valid = true;
+  assert(state.add_entity(decimal));
+  assert(render_entity(decimal, NumericStyle::GroupedArabic, rendered));
+  assert(rendered == "2.50");
+
+  Entity adapted_number;
+  assert(ja_adapter.make_numeric_entity("さんじゅうに", "age-1",
+      NumericEntityTarget::Unit, "歳", adapted_number));
+  assert(adapted_number.value == 32 && adapted_number.unit.equals("歳"));
 
   Entity date;
   assert(date.id.assign("date-1"));
@@ -159,8 +201,8 @@ int main() {
   assert(state.find_entity("date-1") != nullptr);
   assert(state.find_evidence("ev-semantic") != nullptr);
   assert(state.evidence_count() == 4);
-  assert(state.hypothesis_count() == 2);
-  assert(state.entity_count() == 3);
+  assert(state.hypothesis_count() == 3);
+  assert(state.entity_count() == 4);
   assert(state.memory_bytes() >= sizeof(LanguageState));
   assert(state.memory_bytes() <= 256 * 1024);
 
