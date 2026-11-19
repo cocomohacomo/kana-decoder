@@ -211,7 +211,9 @@ int main() {
   date_config.context_id = "date-entity-integration-test";
   date_config.language_adapter = &date_adapter;
   date_config.surface_render_options.normalize_numbers = true;
-  date_config.remove_journal_on_destroy = true;
+  date_config.remove_journal_on_destroy = false;
+  std::size_t date_graph_nodes = 0;
+  std::uint64_t date_state_version = 0;
   {
     kana_decoder::SurgeNormalizationRuntime date_runtime(date_config);
     std::string date_error;
@@ -231,6 +233,16 @@ int main() {
     assert(normalized_date.output == "2026年11月22日");
     assert(normalized_date.metrics.entities == 2);
     assert(normalized_date.metrics.evidence >= 2);
+    date_graph_nodes = date_runtime.graph_node_count();
+    date_state_version = date_runtime.state_version();
+  }
+  date_config.remove_journal_on_destroy = true;
+  {
+    kana_decoder::SurgeNormalizationRuntime recovered_date_runtime(date_config);
+    std::string recovered_date_error;
+    assert(recovered_date_runtime.open(recovered_date_error));
+    assert(recovered_date_runtime.graph_node_count() == date_graph_nodes);
+    assert(recovered_date_runtime.state_version() == date_state_version);
   }
 
   // Family calibration must be injected into the SURGE Core decision itself.
