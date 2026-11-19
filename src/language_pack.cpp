@@ -54,10 +54,16 @@ class JapaneseLanguagePack final : public LanguagePack {
   surge::JapaneseLanguageAdapter adapter_data;
 
   const LanguagePackIdentity& identity() const override { return identity_data; }
-  const LexiconTrie& lexicon() const override { return lexicon_data; }
-  const MaskedNgramScorer& ngram_scorer() const override { return scorer_data; }
-  const ConnectionModel& connections() const override { return connections_data; }
-  const CorrectionOptions& correction_options() const override { return corrections_data; }
+  std::vector<DecodedPath> decode(const std::string& reading,
+                                  const DecoderOptions& options) const override {
+    return decode_reading(reading, lexicon_data, scorer_data, options, &connections_data);
+  }
+  bool append(StreamingSession& session, const std::string& chunk,
+              StreamingSnapshot& snapshot,
+              const DecoderOptions& options) const override {
+    return session.append(chunk, lexicon_data, scorer_data, snapshot,
+                          options, &connections_data);
+  }
   const surge::LanguageAdapter& adapter() const override { return adapter_data; }
 };
 
