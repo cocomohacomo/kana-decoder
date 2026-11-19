@@ -191,7 +191,7 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     next.path.tokens.push_back(DecodedToken{edge->start,edge->end,
       Candidate{candidate.id,candidate.surface,candidate.pos,candidate.inflection_type,candidate.inflection_form},morph,ctx});
     next.history.push_back(candidate.id);next.last_right_id=candidate.right_id;next.has_last=true;
-    if(next.history.size()>2)next.history.erase(next.history.begin());
+    if(next.history.size()>3)next.history.erase(next.history.begin());
     beams[edge->end].push_back(std::move(next));
     }
    }
