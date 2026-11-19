@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 project(surge_core_vendor LANGUAGES CXX)
 add_library(surge_core STATIC
   src/c_api.cpp
+  src/decision.cpp
   src/core.cpp
   src/event_journal.cpp
   src/context_graph.cpp
