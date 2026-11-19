@@ -23,10 +23,16 @@ commit. Do not update the pin without revalidating journal replay conformance.
 ## Decision API integration delta
 
 The following new files are sourced from SURGE PR #139, branch
-`feat/language-runtime-core`, branch `feat/language-runtime-core` (current UnifiedDecision implementation):
+`feat/language-runtime-core` (current UnifiedDecision implementation):
 
 - `include/surge/decision.hpp`
 - `src/decision.cpp`
+
+The vendored `ContextGraph::append_cluster_membership` API is also sourced from
+SURGE Core. It performs deterministic typed cluster assignment and adds parent
+and member containment edges to the same SemanticDelta transaction. The kana
+adapter supplies classification labels and partition keys only; it does not
+implement a competing cluster store.
 
 They provide the Core-owned UnifiedDecision contract, which evaluates
 interpretation candidates and their source/rendered surface hypotheses in one
