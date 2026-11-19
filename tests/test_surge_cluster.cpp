@@ -45,6 +45,30 @@ int main() {
   std::ofstream out(path);
   out << "KANA_SURGE_CLUSTER\t99\n";
  }
+ kana_decoder::LatticeEdge first;
+ first.start=0; first.end=1;
+ first.candidates.push_back(kana_decoder::LatticeCandidate{"prev-a","前",0,0,0,0,"","",""});
+ kana_decoder::LatticeEdge second;
+ second.start=1; second.end=2;
+ second.candidates.push_back(kana_decoder::LatticeCandidate{"candidate-bad","悪",0,0,0,0,"","",""});
+ second.candidates.push_back(kana_decoder::LatticeCandidate{"candidate-good","良",10000,0,0,0,"","",""});
+ for(int i=0;i<6;++i) {
+  second.candidates.push_back(kana_decoder::LatticeCandidate{
+   "other-"+std::to_string(i),"他"+std::to_string(i),100+i,0,0,0,"","",""});
+ }
+ kana_decoder::DecoderOptions options;
+ options.surge_cluster_model=&model;
+ options.context_weight=0.0;
+ kana_decoder::MorphologyDecoder decoder;
+ bool limited=false;
+ const auto paths=decoder.decode(2,{first,second},kana_decoder::MaskedNgramScorer{},
+                                 {},options,nullptr,nullptr,&limited);
+ if(limited||paths.empty()||paths.front().tokens.size()!=2||
+    paths.front().tokens.back().candidate.surface!="良") {
+  std::remove(path.c_str());
+  std::cerr << "cluster evidence failed to rescue candidate outside morphology top four\n";
+  return 1;
+ }
  if(model.load_tsv(path)) {
   std::remove(path.c_str());
   std::cerr << "unsupported schema accepted\n";
