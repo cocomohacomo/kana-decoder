@@ -350,8 +350,6 @@ std::string ContextGraph::fingerprint(const SemanticDelta& d)const{
  for(const auto& v:d.claim_validity_updates)o<<"V "<<std::quoted(v.claim_id)<<' '<<std::quoted(v.valid_from)<<' '<<std::quoted(v.valid_until)<<' '<<std::quoted(v.basis_evidence_id)<<' '<<v.revision<<' '<<std::quoted(v.review_evidence_id)<<' '<<std::quoted(v.reviewer_id)<<'\n';
  for(const auto& v:d.evidence_validity_updates)o<<"EV "<<std::quoted(v.evidence_id)<<' '<<std::quoted(v.valid_from)<<' '<<std::quoted(v.valid_until)<<' '<<std::quoted(v.basis_evidence_id)<<' '<<v.revision<<' '<<std::quoted(v.review_evidence_id)<<' '<<std::quoted(v.reviewer_id)<<'\n';
  if(d.focus) { o<<"F "<<encode_focus(d.focus->focus)<<'\n'; }
- for(const auto& event:d.journal_events)
-  o<<"J "<<std::quoted(event.event_id)<<' '<<std::quoted(event.kind)<<' '<<std::quoted(event.payload)<<'\n';
  return hash_text(o.str());
 }
 std::vector<JournalEvent> ContextGraph::encode(const SemanticDelta& d,const std::string& fp)const{
@@ -463,17 +461,7 @@ bool ContextGraph::replay(){
   }
   if(e.kind=="RETRIEVAL_TICKET_ISSUED"||e.kind=="RETRIEVAL_TICKET_RESOLVED"){if(have_meta){++version;have_meta=false;}++version;continue;}
   if(e.kind=="TEMPORAL_BOUNDARY_CONTRIBUTION_V1"||e.kind=="TEMPORAL_BOUNDARY_CLEARED_V1"||e.kind=="TEMPORAL_BOUNDARY_CANDIDATE_SELECTED_V1"||e.kind=="TEMPORAL_QUESTION_SNAPSHOT_V1"){if(have_meta){++version;have_meta=false;}++version;continue;}
-  if(e.kind=="CHAOS_CLUSTER_SNAPSHOT"){
-   if(have_meta){++version;have_meta=false;}++version;continue;
-  }
-  if(e.kind=="NORMALIZATION_COMMIT" || e.kind=="NORMALIZATION_PROPOSAL" ||
-     e.kind=="NORMALIZATION_STREAM_FINAL_COMMIT" ||
-     e.kind=="NORMALIZATION_STREAM_PREFIX_COMMIT"){
-   // Adapter events may be the final record of a SemanticDelta transaction or
-   // a standalone stream-commit transaction. EventJournal's watermark handles
-   // both without double-counting a shared transaction.
-   version=e.state_version;have_meta=false;continue;
-  }
+  if(e.kind=="CHAOS_CLUSTER_SNAPSHOT"){if(have_meta){++version;have_meta=false;}++version;continue;}
   if(e.kind=="RETENTION_MANIFEST_RECORDED"||e.kind=="RETENTION_TOMBSTONE_PROPOSED"){if(!have_meta)++version;continue;}
   if(e.kind=="EVIDENCE_PROVENANCE_SET_V1"){if(!have_meta)++version;continue;}
   if(e.kind=="DELTA_META"){if(have_meta){++version;have_meta=false;}std::istringstream i(e.payload);std::string id,fp;std::uint64_t expected=0;
@@ -502,9 +490,8 @@ bool ContextGraph::replay(){
 bool ContextGraph::prepare_transaction(const SemanticDelta& d, State& staged,
     std::vector<JournalEvent>& events, std::string& error) const {
  events.clear(); error.clear();
- if(d.journal_events.size()>1){error="ADAPTER_JOURNAL_EVENT_COUNT_EXCEEDED";return false;}
  if(d.delta_id.empty()||d.idempotency_key.empty()||
-    (d.nodes.empty()&&d.relations.empty()&&d.scope_spans.empty()&&d.claim_validity_updates.empty()&&d.evidence_validity_updates.empty()&&d.journal_events.empty()&&!d.focus)){
+    (d.nodes.empty()&&d.relations.empty()&&d.scope_spans.empty()&&d.claim_validity_updates.empty()&&d.evidence_validity_updates.empty()&&!d.focus)){
   error="DELTA_EMPTY_OR_ID_INVALID";return false;
  }
  const auto fp=fingerprint(d);
@@ -570,18 +557,58 @@ bool ContextGraph::prepare_transaction(const SemanticDelta& d, State& staged,
   events.push_back({d.delta_id+"/dependency-evaluation","DEPENDENCY_EVALUATION",
       encode_dependency_evaluation(record)});
  }
- for(const auto& event:d.journal_events){
-  if(event.event_id.empty()||event.kind.empty()){
-   error="ADAPTER_JOURNAL_EVENT_INVALID";events.clear();return false;
-  }
-  events.push_back(event);
- }
  return true;
 }
 
 bool ContextGraph::prepare_events(const SemanticDelta& d,std::vector<JournalEvent>& events,std::string& error)const{
  State staged;
  return prepare_transaction(d,staged,events,error);
+}
+
+bool ContextGraph::append_cluster_membership(SemanticDelta& delta,
+    const std::string& parent_cluster_id, const std::string& classification,
+    const std::string& partition_key, const std::string& member_node_id,
+    const std::string& relation_prefix, std::string& assigned_cluster_id,
+    std::string& error) const {
+ if(parent_cluster_id.empty()||classification.empty()||partition_key.empty()||
+    member_node_id.empty()||relation_prefix.empty()||
+    classification.size()>128||partition_key.size()>1024||member_node_id.size()>1024){
+  error="CLUSTER_CLASSIFICATION_INPUT_INVALID";return false;
+ }
+ const auto parent=state_.nodes.find(parent_cluster_id);
+ bool parent_in_delta=false;
+ for(const auto& item:delta.nodes)
+  if(item.node.id==parent_cluster_id&&item.node.kind==NodeKind::Cluster)parent_in_delta=true;
+ if((parent==state_.nodes.end()&&!parent_in_delta)||
+    (parent!=state_.nodes.end()&&parent->second.kind!=NodeKind::Cluster)){
+  error="CLUSTER_CLASSIFICATION_PARENT_NOT_FOUND";return false;
+ }
+ const std::string digest=sha256_hex(classification+"|"+partition_key);
+ assigned_cluster_id=parent_cluster_id+"/classified/"+digest.substr(0,24);
+ const auto existing=state_.nodes.find(assigned_cluster_id);
+ bool cluster_in_delta=false;
+ for(const auto& item:delta.nodes)
+  if(item.node.id==assigned_cluster_id&&item.node.kind==NodeKind::Cluster)cluster_in_delta=true;
+ if(existing==state_.nodes.end()&&!cluster_in_delta){
+  delta.nodes.push_back({{assigned_cluster_id,NodeKind::Cluster,
+      "CLASS="+classification+";PARTITION="+partition_key, {}}});
+ }
+ const std::string parent_relation=relation_prefix+"/parent/"+digest.substr(0,24);
+ bool parent_edge_exists=state_.relations.count(parent_relation)!=0;
+ for(const auto& item:delta.relations)
+  if(item.relation.id==parent_relation)parent_edge_exists=true;
+ if(!parent_edge_exists)
+  delta.relations.push_back({{parent_relation,RelationKind::Contains,
+      parent_cluster_id,assigned_cluster_id}});
+ const std::string member_digest=sha256_hex(assigned_cluster_id+"|"+member_node_id);
+ const std::string member_relation=relation_prefix+"/member/"+member_digest.substr(0,24);
+ bool member_edge_exists=state_.relations.count(member_relation)!=0;
+ for(const auto& item:delta.relations)
+  if(item.relation.id==member_relation)member_edge_exists=true;
+ if(!member_edge_exists)
+  delta.relations.push_back({{member_relation,RelationKind::Contains,
+      assigned_cluster_id,member_node_id}});
+ return true;
 }
 
 DeltaResult ContextGraph::apply(const SemanticDelta& d){
