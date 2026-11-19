@@ -128,6 +128,8 @@ def main() -> int:
                      "deferred": metrics["surge_core"]["deferred"],
                      "runtime_failures": metrics["surge_core"]["runtime_failures"],
                      "decode_failures": metrics["surge_core"]["decode_failures"],
+                     "fallback_to_decoder_top1": metrics["surge_core"].get("fallback_to_decoder_top1", 0),
+                     "selected_outputs": metrics["surge_core"].get("selected_outputs", 0),
                      "typed_entities_found": metrics["surge_core"].get("typed_entities_found", 0),
                      "typed_entity_evidence_added": metrics["surge_core"].get("typed_entity_evidence_added", 0),
                      "selected_typed_entity_evidence": metrics["surge_core"].get("selected_typed_entity_evidence", 0),
