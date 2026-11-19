@@ -37,7 +37,7 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
             self.assertEqual(dev_result["split"], "dev")
             self.assertFalse(dev_result["test_split_used_for_selection"])
             self.assertEqual(dev_result["morphology_only"]["cases"], 1)
-            self.assertEqual(dev_result["configurations_evaluated"], 144)
+            self.assertEqual(dev_result["configurations_evaluated"], 36)  # no cluster sidecar: 3*3*2*2
             self.assertGreater(dev_result["selected_smoothing_alpha"], 0.0)
             self.assertGreaterEqual(dev_result["selected_pos_context_weight"], 0.0)
             self.assertGreaterEqual(dev_result["selected_cluster_weight"], 0.0)
