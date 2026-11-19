@@ -301,3 +301,15 @@ Candidate Recall@N here is sentence-level exact surface coverage over the raw co
 - [x] Propagate error-classification metrics into each dev calibration row for diagnosis only; policy selection remains CER/exact based.
 - [ ] Verify final-head CI and inspect classification on the pinned Sudachi Small + UD Japanese-GSD corpus.
 - [ ] Use real held-out diagnostics to select the next optimization target; retain the limitation that coverage is sentence-level, not token-aligned morphological recall.
+
+
+## 21. v0.62 gold-token-aligned Candidate Recall
+
+- [x] Retain trusted gold token reading/surface pairs from the six-column document/sentence corpus format.
+- [x] Match gold tokens against decoder path tokens by exact Unicode code-point span and exact surface.
+- [x] Report token-weighted Recall@1/@5/@10 separately from sentence-level exact surface coverage.
+- [x] Report null token recall for sentence-only corpora instead of inferring token boundaries.
+- [x] Propagate token-aligned metrics into dev calibration rows for diagnosis only; do not use them for policy selection.
+- [x] Add a six-column token-aligned smoke fixture and monotonicity contract test.
+- [ ] Verify final-head CI and inspect token-level coverage on the pinned Sudachi Small + UD Japanese-GSD corpus.
+- [ ] Use token-level misses to separate dictionary absence from segmentation-boundary mismatch before changing decoder search budgets.
