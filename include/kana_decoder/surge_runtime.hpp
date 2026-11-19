@@ -40,6 +40,7 @@ struct SurgeNormalizationResult {
   std::string output;
   std::string error;
   SurgeRuntimeMetrics metrics;
+  std::vector<std::string> selected_claim_ids;
 };
 
 // The SURGE Core is the authoritative context, evidence, question, temporal,
@@ -60,6 +61,8 @@ class SurgeNormalizationRuntime {
   bool commit_output(const std::string& output, std::uint64_t source_revision,
                      bool final, std::string& error);
 
+  bool reassess_claim(const std::string& claim_id, const std::string& reference_at,
+                      ::surge::TemporalReassessmentRecord& record, std::string& error);
   std::uint64_t state_version() const;
   std::size_t graph_node_count() const;
 
