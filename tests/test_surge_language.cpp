@@ -101,6 +101,43 @@ int main() {
       NumericEntityTarget::Unit, "歳", adapted_number));
   assert(adapted_number.value == 32 && adapted_number.unit.equals("歳"));
 
+  Entity parsed_date;
+  assert(ja_adapter.make_entity("にせんにじゅうろくねんじゅういちがつにじゅうににち",
+      "parsed-date-1", EntityTarget::Date, {}, parsed_date));
+  assert(parsed_date.kind == EntityKind::Date && parsed_date.value == 2026 &&
+         parsed_date.secondary == 11 && parsed_date.tertiary == 22);
+  assert(ja_adapter.render_entity(parsed_date, NumericStyle::Arabic, rendered));
+  assert(rendered == "2026年11月22日");
+  Entity invalid_parsed_date;
+  assert(!ja_adapter.make_entity("にせんにじゅうごねんにがつさんじゅうににち",
+      "invalid-date-1", EntityTarget::Date, {}, invalid_parsed_date));
+
+  Entity parsed_time;
+  assert(ja_adapter.make_entity("ごごさんじにじゅっぷん",
+      "parsed-time-1", EntityTarget::Time, {}, parsed_time));
+  assert(parsed_time.value == 15 && parsed_time.secondary == 20);
+  assert(ja_adapter.render_entity(parsed_time, NumericStyle::Arabic, rendered));
+  assert(rendered == "15時20分");
+  Entity invalid_parsed_time;
+  assert(!ja_adapter.make_entity("にじゅうごじ",
+      "invalid-time-1", EntityTarget::Time, {}, invalid_parsed_time));
+
+  Entity parsed_range;
+  assert(ja_adapter.make_entity("さんからご", "range-1",
+      EntityTarget::Range, "歳", parsed_range));
+  assert(parsed_range.value == 3 && parsed_range.secondary == 5);
+  assert(ja_adapter.render_entity(parsed_range, NumericStyle::Arabic, rendered));
+  assert(rendered == "3〜5歳");
+  Entity invalid_range;
+  assert(!ja_adapter.make_entity("ごからさん", "invalid-range-1",
+      EntityTarget::Range, {}, invalid_range));
+
+  Entity parsed_identifier;
+  assert(ja_adapter.make_entity("ぜろいちにさん", "identifier-1",
+      EntityTarget::Identifier, {}, parsed_identifier));
+  assert(ja_adapter.render_entity(parsed_identifier, NumericStyle::Arabic, rendered));
+  assert(rendered == "0123");
+
   Entity date;
   assert(date.id.assign("date-1"));
   date.kind = EntityKind::Date;
@@ -126,6 +163,13 @@ int main() {
   assert(state.add_entity(time));
   assert(render_entity(time, NumericStyle::Arabic, rendered));
   assert(rendered == "9時05分");
+  Entity time_seconds;
+  assert(time_seconds.id.assign("time-seconds-1"));
+  time_seconds.kind = EntityKind::Time;
+  time_seconds.value = 9; time_seconds.secondary = 5; time_seconds.tertiary = 8;
+  time_seconds.valid = true;
+  assert(ja_adapter.render_entity(time_seconds, NumericStyle::Arabic, rendered));
+  assert(rendered == "9時05分08秒");
 
   Evidence lexical;
   assert(lexical.id.assign("ev-lexical"));
