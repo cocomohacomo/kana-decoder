@@ -28,6 +28,8 @@ uint32_t kd_c_api_version(void);
 kd_ngram_scorer* kd_ngram_scorer_create(void);
 kd_engine* kd_engine_create(void);
 void kd_engine_destroy(kd_engine*);
+// Override the default ephemeral journal with a caller-managed persistent SURGE journal.
+int kd_engine_set_surge_journal(kd_engine*,const char* journal_path);
 // Loads local lexicon.tsv, ngram.tsv and optional connections.tsv. Pack hashes should be verified offline first.
 int kd_engine_load_pack(kd_engine*,const char* pack_directory);
 // Returns best-path surface text. 0 success; negative values are KD_ERR_* codes.
