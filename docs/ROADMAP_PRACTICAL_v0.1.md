@@ -2,7 +2,7 @@
 
 更新日: 2026-11-19
 対象ブランチ: `refactor/surge-core-as-runtime`
-対象仕様: `SPECIFICATION_v0.55.md`
+対象仕様: `SPECIFICATION_v0.56.md`
 
 ## 0. 製品ゴール
 
@@ -27,12 +27,12 @@
 ### P0: 直ちに完了させる
 - [ ] 最新PR headのActionsを完了させ、失敗ログを修正する。
 - [x] `SemanticDelta::journal_events` の未対応参照を除去し、NORMALIZATION_PROPOSAL/COMMITを同一SemanticDelta内のEvidence nodeとして永続化する。
-- [ ] 上記修正を含む最新PR headでstatic/shared buildと全テストを再実行する。
+- [x] 上記修正を含むPR headでstatic/shared buildと全29テストを実行する（CI #1011）。
 - [x] Release CTestで `NDEBUG` によってassert式が消えないよう、C/C++テストターゲットへ `-UNDEBUG` を適用。
 - [x] `StreamingSession::append` を使用していた日本語依存テストを、provider側decode + `append_decoded` へ移行。
 - [x] Japanese Pack loaderの失敗段階を `error` 出力へ伝播し、Pack testのnull dereferenceを診断付き失敗へ変更。
 - [x] Sudachi V1 TSV testのタブ区切り文字を修正。
-- [ ] assertions有効状態で全テストを通し、実際に表面化する既存テスト不整合を修正。
+- [x] assertions有効状態で全テストを通し、表面化したテスト不整合を修正。
 - [ ] static/shared両方のLanguagePackテストをCIで実行する。
 - [ ] C APIでPackロード失敗時にEngine状態が変化しないことを検証する。
 - [ ] Engine破棄後もSessionがPack snapshotを安全に保持することを検証する。
@@ -46,9 +46,9 @@
 - [x] 日本語decoder型・辞書・scorer・morphology・correction・trace宣言を `japanese_decoder.hpp` へ分離し、generic `engine.hpp` から除去。
 - [x] SURGE `LanguageAdapter` をgeneric `Candidate` + score契約へ変更し、日本語Adapter宣言を `japanese_language.hpp` へ分離。
 - [x] SURGE選択後の `render_path` 境界を追加し、日本語Rendererのspan検証・任意数詞表記・任意句読点を実装。
-- [ ] static/shared build、C/Python統合、Renderer統合テストをCIで確認。
-- [ ] `engine.hpp` の `Candidate` に残るPOS/活用情報を将来の複数言語Providerに適した中立データ構造へ整理。
-- [ ] 共通データ型とprovider interfaceを公開ヘッダーへ整理し、Hostから日本語実装ヘッダーを参照させない。
+- [x] static/shared build、C/Python統合、Renderer統合テストをCIで確認（CI #1011）。
+- [x] `engine.hpp` の `Candidate` から日本語固有POS/活用フィールドを除去し、language-tagged `MorphologyDescriptor` へ移行。
+- [x] 共通データ型とprovider interfaceを公開ヘッダーへ整理し、Hostから日本語実装ヘッダーを参照させない。
 - [x] 辞書Trie、N-gram scorer、接続行列、訂正候補、Pack resource loaderの実装をLanguage Set targetへ移動。
 - [x] Pack decodeの決定性、入力上限、UTF-8拒否、チャンク連結、セッション分離をconformance testへ追加。\n- [x] 辞書候補のコスト順序、辞書一致時のfallback抑止、未知語fallbackをfixtureで固定する。
 - [x] lattice edge/candidate上限と形態素探索expansion上限の超過を検知し、部分結果を返さないことをfixtureで固定する。
@@ -120,7 +120,7 @@
 
 ## 6. 今回の着手範囲
 
-v0.44のimmutable LanguagePack境界を前提に、次のコード変更はP0のCI確認後、P1の形態素/lattice物理移管から着手する。SURGE本体リポジトリはこの作業対象に含めない。P1移管は既存golden出力との完全互換性を維持し、差分が出た場合は性能改善と混同せず個別に原因を特定する。
+v0.56ではP0のCI・Pack・journal recoveryゲートが通過した。P1ではCandidateの形態情報をprovider-neutralなMorphologyDescriptorへ分離した。次はgolden corpusで移管前後の出力差分を確認し、その後P2の証拠相関・校正とP3/P4の文脈・表層実現を進める。SURGE本体リポジトリはこの作業対象に含めない。
 
 
 ## 7. v0.46 conformance test update
