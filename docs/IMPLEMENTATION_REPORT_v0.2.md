@@ -309,3 +309,26 @@ This is a migration boundary, not full Language Set completion. The current disp
 GitHub Actions is triggered for the updated PR head. Build/test success, production dictionary memory impact, load-time impact, CER and sentence exact-match impact must be reported only after the corresponding runs and representative corpus measurements complete. The small `ja-lite` fixture test is conformance coverage, not a production-quality benchmark.
 
 SURGE main repository remains untouched; its vendored snapshot was not modified.
+
+
+## 14. Japanese Language Set build isolation (v0.45)
+
+今回の実装で、`MorphologyDecoder::decode` を `src/morphology_decoder.cpp` から `language_sets/ja-JP/morphology_decoder.cpp` へ移動した。CMakeでは日本語Pack providerと形態素探索を `kana_decoder_ja_language_set` OBJECT targetとしてまとめ、static/shared双方のライブラリが同一オブジェクトを利用する構成に変更した。共有ライブラリへリンクできるようPOSITION_INDEPENDENT_CODEを有効化し、警告をエラーとして扱う既存コンパイル規則も適用している。
+
+この変更は探索アルゴリズムの改変ではなく、実装所有権とビルド境界の移動である。候補順序、スコア計算、探索上限、SURGE証拠利用の挙動は変更していない。したがって、精度・速度・メモリの改善を主張するものではない。移管前後のgolden出力一致、static/shared build、全テスト、bounded benchmarkの確認が必要である。
+
+### 残る移管範囲
+- 辞書照合・lattice構築・未知語fallback
+- 接続行列、単語/文字/POS N-gram、訂正候補生成
+- 全表層実現をLanguage Adapter/Rendererへ移管
+- stable external ABIと第二言語Pack
+- held-out実データによる品質・性能評価
+
+### 検証状況
+- [x] MorphologyDecoder source relocation
+- [x] Japanese Language Set CMake OBJECT target
+- [x] static/shared両targetから同一objectを利用
+- [x] shared library向けPICを設定
+- [ ] 最新ブランチのCI build/test完了
+- [ ] golden corpusの移管前後完全一致
+- [ ] 対象エッジPCでPeak RSS/latency/CPU実測
