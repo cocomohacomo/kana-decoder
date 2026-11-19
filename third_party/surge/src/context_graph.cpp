@@ -351,7 +351,7 @@ std::string ContextGraph::fingerprint(const SemanticDelta& d)const{
  for(const auto& v:d.evidence_validity_updates)o<<"EV "<<std::quoted(v.evidence_id)<<' '<<std::quoted(v.valid_from)<<' '<<std::quoted(v.valid_until)<<' '<<std::quoted(v.basis_evidence_id)<<' '<<v.revision<<' '<<std::quoted(v.review_evidence_id)<<' '<<std::quoted(v.reviewer_id)<<'\n';
  if(d.focus) { o<<"F "<<encode_focus(d.focus->focus)<<'\n'; }
  for(const auto& event:d.journal_events)
-  o<<"J "<<std::quoted(event.event_id)<<' '<<std::quoted(event.kind)<<' '<<std::quoted(event.payload)<<'\\n';
+  o<<"J "<<std::quoted(event.event_id)<<' '<<std::quoted(event.kind)<<' '<<std::quoted(event.payload)<<'\n';
  return hash_text(o.str());
 }
 std::vector<JournalEvent> ContextGraph::encode(const SemanticDelta& d,const std::string& fp)const{
