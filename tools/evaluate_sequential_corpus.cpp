@@ -315,7 +315,9 @@ int main(int argc, char** argv) {
             for (double margin : margins) {
               for (double alpha : alphas) {
               for (double pos_weight : pos_weights) {
-              for (double cluster_weight : cluster_weights) {
+              const std::size_t cluster_weight_count = cluster_enabled ? 4 : 1;
+              for (std::size_t cluster_index = 0; cluster_index < cluster_weight_count; ++cluster_index) {
+                const double cluster_weight = cluster_weights[cluster_index];
                 if (!trained_scorer.set_smoothing_alpha(alpha) || !trained_pos_scorer.set_smoothing_alpha(alpha)) return 2;
                 kana_decoder::DecoderOptions options;
                 options.surge_left_context_gate = true;
