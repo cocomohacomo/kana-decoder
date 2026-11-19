@@ -28,7 +28,7 @@ bool read_identity(const std::string& directory, LanguagePackIdentity& identity,
   }
   const auto capture = [&](const char* key, std::string& value) {
     const std::regex pattern(std::string("\"") + key +
-        R"rx(\s*:\s*"([^"]+)")rx");
+        R"rx("\s*:\s*"([^"]+)")rx");
     std::smatch match;
     if (!std::regex_search(manifest, match, pattern) || match.size() < 2) return false;
     value = match[1].str();
