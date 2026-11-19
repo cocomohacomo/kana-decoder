@@ -22,6 +22,7 @@ struct SurgeRuntimeConfig {
   std::size_t max_journal_payload_bytes{256U * 1024U};
   std::size_t max_journal_identity_bytes{4U * 1024U * 1024U};
   std::size_t max_candidates_per_decode{64};
+  bool remove_journal_on_destroy{false};
 };
 
 struct SurgeRuntimeMetrics {
