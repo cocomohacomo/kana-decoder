@@ -177,7 +177,7 @@ jobs:
             "$RUNNER_TEMP/ja-jp-sudachi-small" \
             "$RUNNER_TEMP/context-corpus/compiled/train_sequences.tsv" \
             "$RUNNER_TEMP/context-corpus/tokenized.tsv" \
-            test "$RUNNER_TEMP/surge-calibration.tsv" \
+            test "$RUNNER_TEMP/surge-calibration.tsv" "$RUNNER_TEMP/surge-cluster-model.tsv" \
             > "$RUNNER_TEMP/sequential-decoder-evaluation.json"
           cat "$RUNNER_TEMP/sequential-decoder-evaluation.json"
           cat "$RUNNER_TEMP/sequential-runtime-time.log"
@@ -188,5 +188,15 @@ jobs:
         with:
           name: kana-decoder-ja-jp-sudachi-small-20260723
           path: ${{ runner.temp }}/ja-jp-sudachi-small/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload experimental SURGE cluster model
+        uses: actions/upload-artifact@v4
+        with:
+          name: surge-cluster-model-experimental
+          path: |
+            ${{ runner.temp }}/surge-cluster-model.tsv
+            ${{ runner.temp }}/surge-cluster-model.tsv.manifest.json
           if-no-files-found: error
           retention-days: 30
