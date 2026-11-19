@@ -14,13 +14,10 @@ int main() {
   assert(pack->identity().version == "0.1.0");
   assert(pack->identity().digest.size() == 64);
   assert(pack->adapter().language_tag() == "ja-JP");
-  assert(pack->lexicon().size() > 0);
-
   const auto second_reference = pack;
   assert(second_reference.get() == pack.get());
 
-  const auto paths = kana_decoder::decode_reading(
-      "あめ", pack->lexicon(), pack->ngram_scorer(), {}, &pack->connections());
+  const auto paths = pack->decode("あめ", {});
   assert(!paths.empty());
   assert(!paths.front().tokens.empty());
 
