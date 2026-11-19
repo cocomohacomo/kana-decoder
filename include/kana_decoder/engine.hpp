@@ -132,6 +132,8 @@ struct DecoderOptions {
  std::size_t max_candidates_per_edge=8;
  std::size_t max_paths=8;
  double context_weight=1.0;
+ const MaskedNgramScorer* pos_ngram_scorer=nullptr;
+ double pos_context_weight=0.25;
  bool surge_left_context_gate=false;
  const SurgeClusterModel* surge_cluster_model=nullptr;
  double surge_cluster_weight=1.0;
@@ -155,8 +157,10 @@ public:
    std::size_t max_total_edges=4096,std::size_t max_total_candidates=32768,
    bool* resource_limit_exceeded=nullptr) const;
  std::size_t size() const { return entry_count_; }
+ std::string candidate_pos(const std::string& candidate_id) const;
 private:
  struct Node { std::unordered_map<std::string,std::size_t> next; std::vector<LatticeCandidate> values; };
+ std::unordered_map<std::string,std::string> candidate_pos_;
  std::vector<Node> nodes_{1};
  std::size_t entry_count_=0;
 };
