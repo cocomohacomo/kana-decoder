@@ -98,3 +98,14 @@ No v0.32 accuracy gain is claimed until the new CI and full Pack workflow comple
 - 旧beta × margin条件は gap >= margin / beta と等価で、独立パラメータではなかった。
 - 校正を単一の gap_threshold（0.0, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0）へ変更し、dev上で直接選択する。
 - testには選択済みthresholdを固定して適用する。重複した実質同一設定による校正グリッドの水増しを防止する。
+
+
+## 9. v0.35 実験用SURGEクラスタモデルのシリアライズ
+
+- v0.34の実データ候補選択診断で、形態素ベースライン45.2936%に対してクラスタ方式53.3047%（+8.0110ポイント）を確認した。評価対象は候補が存在した9,774トークン。解決1,165件、解決精度87.5536%、正解解決再現率10.4359%。
+- 上記はゴールドのトークン境界・読みを使う候補選択診断であり、全文かな入力のCERや本番デコーダの精度改善を意味しない。
+- tools/compile_surge_clusters.py を追加し、trainのみから作成したtoken-cluster割当、距離1/2別候補証拠、クラスタ合計、devで選択したgap thresholdをバージョン付きTSVへ出力する。
+- 形式ヘッダは KANA_SURGE_CLUSTER<TAB>1。META / TOKEN / EVIDENCE / TOTALレコードを持ち、順序は決定的とする。SHA-256、バイト数、レコード数を含むmanifestを別ファイルに出力する。
+- ハード上限: モデル64 MiB、クラスタ4,096、token membership 100,000、evidence 500,000、ID 128 UTF-8 bytes、count uint32、距離1または2。上限・不正ID・不正距離・非有限閾値はfail-closed。
+- モデルはLanguage Packへまだ同梱せず、C++ runtimeからも読み込まない。従来デコーダの挙動・ABI・既存Pack互換性を維持したまま、次段階のC++ loader/scorer検証に使うsidecarとする。
+- CIではSudachi実Packの評価と同じtrain/dev/test分割からsidecarを生成し、manifestを出力する。test splitは閾値校正に使わない。
