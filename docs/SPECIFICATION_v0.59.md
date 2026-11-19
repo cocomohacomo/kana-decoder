@@ -23,7 +23,7 @@ Make the typed_entity Evidence family introduced in v0.58 part of the determinis
 
 ## 3. Real-data observability
 
-The SURGE real-data evaluator now aggregates and reports four typed-entity counters inside surge_core: detected entities, pre-decision evidence observations, selected-path typed-entity observations, and persisted typed entities. The calibrator copies these counters into each candidate row so weight selection can be interpreted alongside the actual evidence exposure. Older evaluator JSON remains accepted with zero defaults for these optional counters.
+The SURGE real-data evaluator explicitly binds the ja-JP JapaneseLanguageAdapter to each runtime so the typed extractor is active during measurement. It aggregates and reports four typed-entity counters inside surge_core: detected entities, pre-decision evidence observations, selected-path typed-entity observations, and persisted typed entities. The calibrator copies these counters into each candidate row so weight selection can be interpreted alongside the actual evidence exposure. Older evaluator JSON remains accepted with zero defaults for these optional counters.
 
 ## 3. Test coverage
 
