@@ -134,8 +134,8 @@ long peak_rss_kib() {
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc < 3 || argc > 4) {
-    std::cerr << "usage: kana_decoder_surge_eval PACK_DIR CORPUS_TSV [SPLIT=test]\n";
+  if (argc < 3 || argc > 5) {
+    std::cerr << "usage: kana_decoder_surge_eval PACK_DIR CORPUS_TSV [SPLIT=test] [TRAIN_SEQUENCES.tsv]\n";
     return 2;
   }
   kana_decoder::LexiconTrie lexicon;
@@ -151,7 +151,7 @@ int main(int argc, char** argv) {
   if (argc == 5) {
     lexicon.build_candidate_pos_index();
     if (!load_training_sequences(argv[4], lexicon, trained_scorer, trained_pos_scorer)) {
-      std::cerr << "failed to load training sequences\\n";
+      std::cerr << "failed to load training sequences\n";
       return 2;
     }
     active_scorer = &trained_scorer;
@@ -228,6 +228,7 @@ int main(int argc, char** argv) {
   std::cout << std::fixed << std::setprecision(6)
       << "{\"mode\":\"surge_core_real_data_evaluation\""
       << ",\"split\":\"" << split << "\""
+      << ",\"training_sequences_used\":" << (argc == 5 ? "true" : "false")
       << ",\"cases\":" << cases.size()
       << ",\"input_codepoints\":" << input_points
       << ",\"reference_codepoints\":" << reference_points
