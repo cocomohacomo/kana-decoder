@@ -135,6 +135,10 @@ def import_lexicon(source, output):
                         # may override them for compatible named CSV variants.
                         inflection_type = _value(row, "inflection_type") or _value(row, "pos5")
                         inflection_form = _value(row, "inflection_form") or _value(row, "pos6")
+                        if inflection_type == "*":
+                            inflection_type = ""
+                        if inflection_form == "*":
+                            inflection_form = ""
                         item = fields + [
                             ident, str(cost), "0", str(left), str(right),
                             inflection_type, inflection_form
