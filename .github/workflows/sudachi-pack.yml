@@ -168,7 +168,7 @@ jobs:
             "$RUNNER_TEMP/ja-jp-sudachi-small" \
             "$RUNNER_TEMP/context-corpus/compiled/train_sequences.tsv" \
             "$RUNNER_TEMP/context-corpus/tokenized.tsv" \
-            dev-calibrate "$RUNNER_TEMP/surge-calibration.tsv" \
+            dev-calibrate "$RUNNER_TEMP/surge-calibration.tsv" "$RUNNER_TEMP/surge-cluster-model.tsv" \
             > "$RUNNER_TEMP/surge-dev-calibration.json"
           cat "$RUNNER_TEMP/surge-dev-calibration.json"
           cat "$RUNNER_TEMP/surge-calibration.tsv"
