@@ -259,7 +259,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   }
   ::surge::DecisionPolicy recognition_policy;
   recognition_policy.max_candidates = config_.max_candidates_per_decode;
-  recognition_policy.max_evidence_per_candidate = 64;
+  recognition_policy.max_evidence_per_candidate = 2048;
   recognition_policy.minimum_margin = 0.0;
   const auto recognition = ::surge::RecognitionDecision::evaluate(
       recognition_candidates, recognition_policy);
@@ -296,14 +296,47 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   }
 
   std::string output;
+  std::map<std::string, std::string> selected_surfaces;
+  std::vector<std::string> normalization_trace;
   for (const auto& token : paths[selected_path_index].tokens) {
-    const auto found = candidates.find(candidate_key(token));
+    const auto key = candidate_key(token);
+    const auto found = candidates.find(key);
     if (found == candidates.end()) {
       result.error = "SURGE_SELECTED_HYPOTHESIS_NOT_FOUND";
       return result;
     }
-    output += found->second.normalized_surface.empty()
-        ? token.candidate.surface : found->second.normalized_surface;
+    ::surge::DecisionCandidate original_surface;
+    original_surface.candidate_id = "surface-original";
+    original_surface.stable_order = 0;
+    original_surface.evidence.push_back({"surface-original-evidence", "source_surface",
+        "source", 0.0, 1.0, true});
+    std::vector<::surge::DecisionCandidate> surface_hypotheses;
+    surface_hypotheses.push_back(original_surface);
+    if (!found->second.normalized_surface.empty() &&
+        found->second.normalized_surface != token.candidate.surface) {
+      ::surge::DecisionCandidate rendered_surface;
+      rendered_surface.candidate_id = "surface-rendered";
+      rendered_surface.stable_order = 1;
+      rendered_surface.evidence.push_back({"surface-rendered-evidence", "language_renderer",
+          "rendered", 1.0, 1.0, true});
+      surface_hypotheses.push_back(std::move(rendered_surface));
+    }
+    ::surge::DecisionPolicy normalization_policy;
+    normalization_policy.max_candidates = 2;
+    normalization_policy.max_evidence_per_candidate = 4;
+    normalization_policy.minimum_margin = 0.0;
+    const auto normalization = ::surge::NormalizationDecision::evaluate(
+        surface_hypotheses, normalization_policy);
+    if (normalization.disposition != ::surge::DecisionDisposition::Select) {
+      result.error = "SURGE_NORMALIZATION_DEFERRED:" + normalization.reason;
+      return result;
+    }
+    const bool use_rendered = normalization.selected_candidate_id == "surface-rendered";
+    const std::string surface = use_rendered
+        ? found->second.normalized_surface : token.candidate.surface;
+    selected_surfaces.emplace(key, surface);
+    normalization_trace.push_back(key + "=" + normalization.selected_candidate_id);
+    output += surface;
   }
   std::ostringstream commit_payload;
   commit_payload << "context=" << config_.context_id
@@ -313,6 +346,11 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   for (std::size_t i = 0; i < best_claims.size(); ++i) {
     if (i) commit_payload << ",";
     commit_payload << candidates.at(best_claims[i]).claim_id;
+  }
+  commit_payload << ";normalization_decisions=";
+  for (std::size_t i = 0; i < normalization_trace.size(); ++i) {
+    if (i) commit_payload << ",";
+    commit_payload << normalization_trace[i];
   }
   commit_payload << ";output=" << output;
 
