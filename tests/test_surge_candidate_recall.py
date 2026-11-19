@@ -72,6 +72,14 @@ def main():
     token_recall5 = token_metrics["recall_at_5"]
     token_recall10 = token_metrics["recall_at_10"]
     assert 0.0 <= token_recall1 <= token_recall5 <= token_recall10 <= 1.0, token_metrics
+    attribution = token_metrics["miss_attribution_at_10"]
+    attribution_keys = {
+        "exact_span_and_surface", "span_match_surface_mismatch",
+        "surface_match_span_mismatch", "no_surface_candidate",
+    }
+    assert attribution_keys <= set(attribution), attribution
+    assert sum(attribution[key] for key in attribution_keys) == token_metrics["gold_tokens"], attribution
+    assert attribution["exact_span_and_surface"] == round(token_recall10 * token_metrics["gold_tokens"]), attribution
     print("SURGE candidate Recall@N and token-alignment contract tests passed")
 
 
