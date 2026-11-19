@@ -184,6 +184,102 @@ void evaluate(const std::vector<Sentence>& sentences,
     }
 }
 
+struct CandidateSurvivalMetrics {
+    std::size_t gold_tokens = 0;
+    std::size_t lattice_present = 0;
+    std::size_t morphology_shortlist = 0;
+    std::size_t scored = 0;
+    std::size_t final_aligned = 0;
+    std::size_t lattice_missing = 0;
+    std::size_t shortlist_drop = 0;
+    std::size_t expansion_drop = 0;
+    std::size_t final_selection_drop = 0;
+};
+
+void evaluate_candidate_survival(
+    const std::vector<Sentence>& sentences,
+    const kana_decoder::LexiconTrie& lexicon,
+    const kana_decoder::MaskedNgramScorer& scorer,
+    const kana_decoder::ConnectionModel& connections,
+    const kana_decoder::DecoderOptions& options,
+    CandidateSurvivalMetrics& metrics) {
+    for (const auto& sentence : sentences) {
+        if (codepoints(sentence.reading).size() > 256) continue;
+        std::vector<kana_decoder::CandidateScoreTrace> score_trace;
+        std::vector<kana_decoder::LatticePositionTrace> lattice_trace;
+        const auto paths = kana_decoder::decode_reading(
+            sentence.reading, lexicon, scorer, options, &connections,
+            &score_trace, &lattice_trace);
+        const auto& best = paths.empty() ? std::vector<kana_decoder::DecodedToken>{}
+                                         : paths.front().tokens;
+        for (const auto& gold : sentence.tokens) {
+            ++metrics.gold_tokens;
+            bool in_lattice = false;
+            bool in_shortlist = false;
+            for (const auto& position : lattice_trace) {
+                if (position.start > gold.start) break;
+                for (const auto& edge : position.dictionary_matches) {
+                    if (edge.start != gold.start || edge.end != gold.end) continue;
+                    std::vector<const kana_decoder::LatticeCandidate*> ranked;
+                    for (const auto& candidate : edge.candidates) {
+                        if (candidate.surface == gold.surface) in_lattice = true;
+                        ranked.push_back(&candidate);
+                    }
+                    std::stable_sort(ranked.begin(), ranked.end(),
+                        [](const auto* a, const auto* b) {
+                            return static_cast<std::int64_t>(a->word_cost) + a->connection_cost
+                                 < static_cast<std::int64_t>(b->word_cost) + b->connection_cost;
+                        });
+                    const auto limit = std::min<std::size_t>(8, ranked.size());
+                    for (std::size_t i = 0; i < limit; ++i)
+                        if (ranked[i]->surface == gold.surface) in_shortlist = true;
+                }
+            }
+            bool was_scored = false;
+            for (const auto& item : score_trace) {
+                if (item.start == gold.start && item.end == gold.end
+                    && item.surface == gold.surface) {
+                    was_scored = true;
+                    break;
+                }
+            }
+            const bool aligned = std::any_of(best.begin(), best.end(),
+                [&](const kana_decoder::DecodedToken& token) {
+                    return token.start == gold.start && token.end == gold.end
+                        && token.candidate.surface == gold.surface;
+                });
+            if (in_lattice) ++metrics.lattice_present;
+            if (in_shortlist) ++metrics.morphology_shortlist;
+            if (was_scored) ++metrics.scored;
+            if (aligned) ++metrics.final_aligned;
+            if (!in_lattice) ++metrics.lattice_missing;
+            else if (!in_shortlist) ++metrics.shortlist_drop;
+            else if (!was_scored) ++metrics.expansion_drop;
+            else if (!aligned) ++metrics.final_selection_drop;
+        }
+    }
+}
+
+void print_candidate_survival(const CandidateSurvivalMetrics& m) {
+    const auto pct = [&](std::size_t n) {
+        return m.gold_tokens ? 100.0 * static_cast<double>(n) / m.gold_tokens : 0.0;
+    };
+    std::cout << ",\"candidate_survival_diagnostic\":{"
+        << "\"gold_tokens\":" << m.gold_tokens
+        << ",\"lattice_present\":" << m.lattice_present
+        << ",\"lattice_coverage_pct\":" << pct(m.lattice_present)
+        << ",\"morphology_top8\":" << m.morphology_shortlist
+        << ",\"morphology_top8_coverage_pct\":" << pct(m.morphology_shortlist)
+        << ",\"scored_or_expanded\":" << m.scored
+        << ",\"scored_coverage_pct\":" << pct(m.scored)
+        << ",\"final_aligned\":" << m.final_aligned
+        << ",\"final_alignment_pct\":" << pct(m.final_aligned)
+        << ",\"lattice_missing\":" << m.lattice_missing
+        << ",\"shortlist_drop\":" << m.shortlist_drop
+        << ",\"expansion_drop\":" << m.expansion_drop
+        << ",\"final_selection_drop\":" << m.final_selection_drop << "}";
+}
+
 void print_metrics(const char* name, const Metrics& m) {
     const auto scored = m.cases - m.over_limit;
     const double exact = scored ? static_cast<double>(m.exact) / scored : 0.0;
@@ -428,6 +524,14 @@ int main(int argc, char** argv) {
         print_metrics("surge_cluster", cluster);
         print_metrics("dev_selected_surge_policy", combined);
     }
+    CandidateSurvivalMetrics survival;
+    kana_decoder::DecoderOptions survival_options = combined_options;
+    if (!cluster_enabled) {
+        survival_options = surge_options;
+    }
+    evaluate_candidate_survival(sentences, lexicon, trained_scorer,
+                                connections, survival_options, survival);
+    print_candidate_survival(survival);
     std::cout << "}\n";
     return 0;
 }
