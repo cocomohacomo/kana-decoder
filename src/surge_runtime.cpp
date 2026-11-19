@@ -283,13 +283,16 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
 
   std::vector<std::pair<std::string, std::string>> contradictions;
   for (auto left = candidates.begin(); left != candidates.end(); ++left) {
-    if (contradictions.size() >= 16) break;
     auto right = left;
     ++right;
     for (; right != candidates.end(); ++right) {
       if (left->second.start == right->second.start &&
           left->second.end == right->second.end &&
           left->second.surface != right->second.surface) {
+        if (contradictions.size() >= 16) {
+          result.error = "SURGE_CONTRADICTION_BUDGET_EXCEEDED";
+          return result;
+        }
         const auto relation_id = prefix + "/contradicts/" +
             id_component(left->second.claim_id + right->second.claim_id);
         ::surge::SemanticDelta conflict;
@@ -305,7 +308,6 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
         }
         contradictions.emplace_back(left->second.claim_id, right->second.claim_id);
         ++result.metrics.contradictions;
-        if (contradictions.size() >= 16) break;
       }
     }
   }
@@ -335,7 +337,10 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
         if (a->end != b->end) return a->end < b->end;
         return a->claim_id < b->claim_id;
       });
-  if (alternatives.size() > 16) alternatives.resize(16);
+  if (alternatives.size() > 16) {
+    result.error = "SURGE_CHAOS_ALTERNATIVE_BUDGET_EXCEEDED";
+    return result;
+  }
 
   ::surge::ChaosProvenance provenance{"kana-decoder", "1", "normalization-v1", timestamp};
   if (!alternatives.empty()) {
