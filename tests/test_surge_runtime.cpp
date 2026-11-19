@@ -127,5 +127,24 @@ int main() {
     assert(selected.selected_claim_ids.size() == 1);
   }
 
+  // Family calibration must be injected into the SURGE Core decision itself.
+  const auto calibrated_journal = (std::filesystem::temp_directory_path() /
+      "kana-decoder-surge-core-calibrated-test.journal").string();
+  std::filesystem::remove(calibrated_journal, ignored);
+  kana_decoder::SurgeRuntimeConfig calibrated_config;
+  calibrated_config.journal_path = calibrated_journal;
+  calibrated_config.context_id = "core-family-calibration-test";
+  calibrated_config.recognition_family_weights["context_cluster"] = 0.0;
+  calibrated_config.remove_journal_on_destroy = true;
+  {
+    kana_decoder::SurgeNormalizationRuntime calibrated_runtime(calibrated_config);
+    std::string calibrated_error;
+    assert(calibrated_runtime.open(calibrated_error));
+    const auto calibrated = calibrated_runtime.normalize("こうしょう",
+        {decoder_first, core_preferred}, true);
+    assert(calibrated.committed);
+    assert(calibrated.output == "交渉");
+  }
+
   return 0;
 }
