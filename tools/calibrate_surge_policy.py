@@ -64,6 +64,12 @@ def validate_diagnostic_metrics(metrics: dict) -> None:
         if candidate and abs(classification["candidate_available"] / cases
                               - candidate["surface_exact_recall_at_10"]) > 1e-6:
             raise RuntimeError("candidate error partition disagrees with surface Recall@10")
+    lattice = metrics.get("lattice_pruning")
+    if lattice:
+        if lattice["matches_available"] != lattice["matches_retained"] + lattice["matches_pruned"]:
+            raise RuntimeError("lattice match pruning counts do not partition available matches")
+        if lattice["candidates_available"] != lattice["candidates_retained"] + lattice["candidates_pruned"]:
+            raise RuntimeError("lattice candidate pruning counts do not partition available candidates")
     token = metrics.get("token_aligned_candidate_generation")
     if token:
         count = token["gold_tokens"]
@@ -136,6 +142,7 @@ def main() -> int:
                      "typed_entities_persisted": metrics["surge_core"].get("typed_entities_persisted", 0),
                      "elapsed_seconds": metrics["elapsed_seconds"],
                      "peak_rss_kib": metrics["peak_rss_kib"],
+                     "lattice_pruning": metrics.get("lattice_pruning", {}),
                      "candidate_generation": metrics.get("candidate_generation", {}),
                      "candidate_error_classification": metrics.get("candidate_error_classification", {}),
                      "token_aligned_candidate_generation": metrics.get("token_aligned_candidate_generation", {})})
