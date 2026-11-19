@@ -1,4 +1,5 @@
 #include "kana_decoder/surge_runtime.hpp"
+#include "kana_decoder/japanese_language.hpp"
 
 #include <cassert>
 #include <filesystem>
@@ -157,6 +158,36 @@ int main() {
     assert(recalled.metrics.dependency_triggered >= 1);
     assert(recalled.metrics.dependency_impacted_nodes >= 2);
     assert(recalled.metrics.retrieval_relations_scanned > 0);
+  }
+
+  // The selected path is rendered only after SURGE has selected its
+  // interpretation and token-level surface. The Japanese provider then adds
+  // policy-controlled sentence punctuation.
+  const auto renderer_journal = (std::filesystem::temp_directory_path() /
+      "kana-decoder-surge-renderer-test.journal").string();
+  std::filesystem::remove(renderer_journal, ignored);
+  kana_decoder::surge::JapaneseLanguageAdapter japanese_adapter;
+  kana_decoder::SurgeRuntimeConfig renderer_config;
+  renderer_config.journal_path = renderer_journal;
+  renderer_config.context_id = "language-renderer-integration-test";
+  renderer_config.language_adapter = &japanese_adapter;
+  renderer_config.surface_render_options.append_terminal_punctuation = true;
+  renderer_config.remove_journal_on_destroy = true;
+  {
+    kana_decoder::SurgeNormalizationRuntime renderer_runtime(renderer_config);
+    std::string renderer_error;
+    assert(renderer_runtime.open(renderer_error));
+    kana_decoder::DecodedPath numeric_path;
+    kana_decoder::DecodedToken numeric_token;
+    numeric_token.start = 0;
+    numeric_token.end = 6;
+    numeric_token.candidate.id = "numeric-reading";
+    numeric_token.candidate.surface = "三十二";
+    numeric_token.candidate.pos = "名詞,数";
+    numeric_path.tokens.push_back(numeric_token);
+    const auto rendered = renderer_runtime.normalize("さんじゅうに", {numeric_path}, true);
+    assert(rendered.committed);
+    assert(rendered.output == "32。");
   }
 
   // Family calibration must be injected into the SURGE Core decision itself.
