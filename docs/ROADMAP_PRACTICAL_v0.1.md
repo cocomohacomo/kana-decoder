@@ -2,7 +2,7 @@
 
 更新日: 2026-11-19
 対象ブランチ: `refactor/surge-core-as-runtime`
-対象仕様: `SPECIFICATION_v0.44.md`
+対象仕様: `SPECIFICATION_v0.45.md`
 
 ## 0. 製品ゴール
 
@@ -32,10 +32,10 @@
 - [ ] ストリームreset/journal再接続後もLanguageAdapterが再バインドされることを検証する。
 
 ### P1: 次のコード移管
-- [ ] `MorphologyDecoder` とlattice探索を `language_sets/ja-JP/` に物理移動する。
+- [x] `MorphologyDecoder` とlattice探索を `language_sets/ja-JP/` に物理移動する。
 - [x] 日本語Language Setの形態素探索とPack providerを独立したCMake OBJECT targetとしてビルド可能にする。
 - [ ] 共通データ型とprovider interfaceを公開ヘッダーへ整理し、Hostから日本語実装ヘッダーを参照させない。
-- [ ] 辞書照合、未知語fallback、候補上限、beam/expansion上限をLanguage Set conformance testで固定する。
+- [x] 辞書Trie、N-gram scorer、接続行列、訂正候補、Pack resource loaderの実装をLanguage Set targetへ移動。\n- [ ] 辞書照合、未知語fallback、候補上限、beam/expansion上限をLanguage Set conformance testで固定する。
 - [ ] 既存の変換結果をgolden corpusで比較し、移管前後の差分をゼロにする。
 
 ### P2: 証拠生成と判断品質
