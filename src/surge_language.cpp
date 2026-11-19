@@ -39,7 +39,6 @@ std::string decimal_text(std::int64_t mantissa, std::uint8_t places, NumericStyl
   const std::size_t split = digits.size() - places;
   std::string integer = digits.substr(0, split);
   std::string fraction = digits.substr(split);
-  while (!fraction.empty() && fraction.back() == '0') fraction.pop_back();
   if (fraction.empty()) return grouped_digits((negative ? "-" : "") + integer, style);
   return grouped_digits((negative ? "-" : "") + integer, style) + "." + fraction;
 }
@@ -317,6 +316,7 @@ bool parse_japanese_number(std::string_view reading, ParsedNumber& result) {
   const auto integer_part = decimal_pos == std::string_view::npos ? reading : reading.substr(0, decimal_pos);
   const auto fraction_part = decimal_pos == std::string_view::npos
                                  ? std::string_view{} : reading.substr(decimal_pos + std::string_view("てん").size());
+  if (decimal_pos != std::string_view::npos && fraction_part.empty()) return false;
   std::int64_t integer = 0;
   if (!parse_integer_part(integer_part, integer)) return false;
   std::int64_t fraction = 0;
