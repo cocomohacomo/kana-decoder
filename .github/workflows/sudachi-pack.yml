@@ -24,6 +24,12 @@ on:
       - "tests/test_evaluate_surge_clusters.py"
       - "tests/test_compile_surge_clusters.py"
       - "licenses/ud-japanese-gsd-source-lock.json"
+      - "tools/evaluate_surge_runtime.cpp"
+      - "tools/calibrate_surge_policy.py"
+      - "src/surge_runtime.cpp"
+      - "include/kana_decoder/surge_runtime.hpp"
+      - "third_party/surge/include/surge/decision.hpp"
+      - "third_party/surge/src/decision.cpp"
       - "tools/evaluate_corpus.cpp"
       - "tools/evaluate_sequential_corpus.cpp"
       - "tests/test_evaluate_sequential_decoder.py"
@@ -184,6 +190,7 @@ jobs:
           cat "$RUNNER_TEMP/sequential-decoder-evaluation.json"
           cat "$RUNNER_TEMP/sequential-runtime-time.log"
           python tools/check_memory_budget.py --log "$RUNNER_TEMP/sequential-runtime-time.log" --max-rss-mib 1792
+          python -m py_compile tools/calibrate_surge_policy.py
           python tools/calibrate_surge_policy.py \
             --evaluator "$RUNNER_TEMP/kana-runtime-build/kana_decoder_surge_eval" \
             --pack "$RUNNER_TEMP/ja-jp-sudachi-small" \
