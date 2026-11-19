@@ -62,6 +62,17 @@ int main() {
   assert(other_snapshot.reading == "い");
   assert(streaming.reading() == "あめ");
 
+  // Session limits are enforced transactionally: a rejected chunk does not
+  // mutate the accepted reading or snapshot revision.
+  kana_decoder::StreamingSession capped_streaming(1);
+  kana_decoder::StreamingSnapshot capped_snapshot;
+  assert(pack->append(capped_streaming, "あ", capped_snapshot));
+  const auto capped_revision = capped_snapshot.revision;
+  assert(!pack->append(capped_streaming, "め", capped_snapshot));
+  assert(capped_streaming.reading() == "あ");
+  assert(capped_snapshot.reading == "あ");
+  assert(capped_snapshot.revision == capped_revision);
+
   kana_decoder::surge::Entity numeric;
   assert(pack->adapter().make_numeric_entity(
       "さんじゅうに", "test-number",
