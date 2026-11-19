@@ -68,7 +68,7 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
             self.assertEqual(survival["gold_tokens"], result["source_test_tokens"])
             for key in ("lattice_present", "morphology_top8", "scored_or_expanded",
                         "final_aligned", "lattice_missing", "shortlist_drop",
-                        "expansion_drop", "final_selection_drop"):
+                        "expansion_drop", "trace_censored", "final_selection_drop"):
                 self.assertGreaterEqual(survival[key], 0)
                 self.assertLessEqual(survival[key], survival["gold_tokens"])
             for key in ("lattice_coverage_pct", "morphology_top8_coverage_pct",
