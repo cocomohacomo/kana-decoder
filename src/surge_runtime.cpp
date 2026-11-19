@@ -68,7 +68,6 @@ struct CandidateRecord {
   std::string dependency_id;
   std::string surface;
   std::string normalized_surface;
-  double score{0.0};
 };
 
 }  // namespace
@@ -149,7 +148,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
 
   const std::string timestamp = utc_now();
   const std::string source_digest = surge::sha256_hex(reading);
-  const std::uint64_t current_sequence = sequence_;
+  const std::uint64_t current_sequence = sequence_++;
   const std::string prefix = "norm/" + id_component(config_.context_id) + "/" +
                              std::to_string(current_sequence);
   std::map<std::string, CandidateRecord> candidates;
@@ -175,7 +174,6 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
       record.end = token.end;
       record.key = key;
       record.surface = token.candidate.surface;
-      record.score = token.morphology_score + token.context_score;
       const auto suffix = id_component(key);
       record.claim_id = prefix + "/claim/" + suffix;
       record.entity_id = prefix + "/entity/" + suffix;
@@ -183,9 +181,6 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
       record.dependency_id = prefix + "/dependency/" + suffix;
 
       const auto token_reading = codepoint_slice(reading, token.start, token.end);
-      surge::GraphNode entity{record.entity_id, surge::NodeKind::Entity,
-          "lexical_candidate;surface=" + token.candidate.surface +
-          ";pos=" + token.candidate.pos + ";reading=" + token_reading, {}};
       kana_decoder::surge::ParsedNumber parsed;
       if (kana_decoder::surge::parse_japanese_number(token_reading, parsed)) {
         kana_decoder::surge::Entity numeric;
@@ -211,8 +206,6 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   delta.delta_id = prefix + "/semantic-delta";
   delta.idempotency_key = prefix + "/semantic-idempotency";
   delta.expected_state_version = journal_->state_version();
-  std::vector<std::string> candidate_claim_ids;
-  candidate_claim_ids.reserve(candidates.size());
 
   for (const auto& item : candidates) {
     const auto& record = item.second;
@@ -262,7 +255,6 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     evidence_validity.basis_evidence_id = record.evidence_id;
     evidence_validity.revision = 1;
     delta.evidence_validity_updates.push_back(evidence_validity);
-    candidate_claim_ids.push_back(record.claim_id);
   }
 
   const auto applied = graph_->apply(delta);
@@ -297,6 +289,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
         }
         contradictions.emplace_back(left->second.claim_id, right->second.claim_id);
         ++result.metrics.contradictions;
+        if (contradictions.size() >= 16) break;
       }
     }
   }
@@ -311,19 +304,6 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
         return result;
       }
       if (!routed.duplicate) ++result.metrics.questions;
-    }
-  }
-
-  bool has_chaos = false;
-  surge::ChaosCluster existing_chaos;
-  has_chaos = chaos_->get(chaos_cluster_id_, existing_chaos);
-  if (!has_chaos) {
-    surge::ChaosProvenance provenance{"kana-decoder", "1", "normalization-v1", timestamp};
-    const auto created = chaos_->create(prefix + "/chaos-create",
-        prefix + "/chaos-create-key", journal_->state_version(), chaos_cluster_id_, provenance);
-    if (!created.committed) {
-      result.error = "SURGE_CHAOS_CLUSTER_CREATE_FAILED:" + created.error;
-      return result;
     }
   }
 
@@ -342,23 +322,36 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   if (alternatives.size() > 16) alternatives.resize(16);
 
   surge::ChaosProvenance provenance{"kana-decoder", "1", "normalization-v1", timestamp};
-  for (const auto* alternative : alternatives) {
-    surge::ChaosMember member;
-    member.member_ref = alternative->claim_id;
-    member.event_ref = alternative->evidence_id;
-    member.admission_reason = "retained unresolved N-best normalization alternative";
-    member.admitted_at = timestamp;
-    member.source_digest = source_digest;
-    member.provenance = provenance;
-    const auto admitted = chaos_->admit_member(prefix + "/chaos-admit/" +
-        id_component(alternative->claim_id), prefix + "/chaos-admit-key/" +
-        id_component(alternative->claim_id), journal_->state_version(),
-        chaos_cluster_id_, member);
-    if (!admitted.committed) {
-      result.error = "SURGE_CHAOS_MEMBER_ADMISSION_FAILED:" + admitted.error;
-      return result;
+  if (!alternatives.empty()) {
+    surge::ChaosCluster existing_chaos;
+    if (!chaos_->get(chaos_cluster_id_, existing_chaos)) {
+      const auto created = chaos_->create(prefix + "/chaos-create",
+          prefix + "/chaos-create-key", journal_->state_version(), chaos_cluster_id_, provenance);
+      if (!created.committed) {
+        result.error = "SURGE_CHAOS_CLUSTER_CREATE_FAILED:" + created.error;
+        return result;
+      }
     }
-    ++result.metrics.chaos_members;
+    // Keep both the selected and unresolved alternatives in the same open-world
+    // exploration space so provisional contradiction edges have two members.
+    for (const auto& item : candidates) {
+      surge::ChaosMember member;
+      member.member_ref = item.second.claim_id;
+      member.event_ref = item.second.evidence_id;
+      member.admission_reason = "retained N-best normalization hypothesis";
+      member.admitted_at = timestamp;
+      member.source_digest = source_digest;
+      member.provenance = provenance;
+      const auto admitted = chaos_->admit_member(prefix + "/chaos-admit/" +
+          id_component(item.second.claim_id), prefix + "/chaos-admit-key/" +
+          id_component(item.second.claim_id), journal_->state_version(),
+          chaos_cluster_id_, member);
+      if (!admitted.committed) {
+        result.error = "SURGE_CHAOS_MEMBER_ADMISSION_FAILED:" + admitted.error;
+        return result;
+      }
+      ++result.metrics.chaos_members;
+    }
   }
 
   for (const auto& conflict : contradictions) {
@@ -431,7 +424,6 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   result.committed = true;
   result.output = std::move(output);
   result.metrics.state_version = journal_result.state_version;
-  ++sequence_;
   return result;
 }
 
