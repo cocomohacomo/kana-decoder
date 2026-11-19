@@ -122,13 +122,17 @@ int main(int argc, char** argv) {
   std::size_t reference_points = 0, overrides = 0, deferred = 0, decode_failures = 0;
   std::size_t input_points = 0;
   const auto started = std::chrono::steady_clock::now();
-  for (std::size_t case_index = 0; case_index < cases.size(); ++case_index) {\n    const auto& item = cases[case_index];
+  for (std::size_t case_index = 0; case_index < cases.size(); ++case_index) {
+    const auto& item = cases[case_index];
     input_points += codepoints(item.reading).size();
     reference_points += codepoints(item.expected).size();
     const auto paths = kana_decoder::decode_reading(item.reading, lexicon, scorer, {},
         &connections);
     if (paths.empty()) {
       ++decode_failures;
+      const auto missing = codepoints(item.expected).size();
+      top1_distance += missing;
+      surge_distance += missing;
       continue;
     }
     std::string top1;
