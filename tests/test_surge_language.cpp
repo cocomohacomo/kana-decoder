@@ -59,7 +59,6 @@ int main() {
   date.value = 2026; date.secondary = 11; date.tertiary = 19;
   date.valid = true;
   assert(state.add_entity(date));
-  std::string rendered;
   assert(render_entity(date, NumericStyle::Arabic, rendered));
   assert(rendered == "2026年11月19日");
 
