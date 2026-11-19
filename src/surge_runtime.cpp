@@ -223,7 +223,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
       }
       if (config_.language_adapter) {
         kana_decoder::surge::Entity numeric;
-        if (config_.language_adapter->make_numeric_entity(
+        if (config_.language_adapter->make_entity(
                 token_reading, "number-" + suffix,
                 kana_decoder::surge::NumericEntityTarget::Number, {}, numeric) &&
             config_.language_adapter->render_entity(
