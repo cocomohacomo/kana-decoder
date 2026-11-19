@@ -88,10 +88,10 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     std::string cluster_winner;
     double cluster_gap=0.0;
     double cluster_override_bonus=0.0;
+    std::vector<std::pair<const LatticeCandidate*,double>> supported;
     if(opt.surge_cluster_model&&!state.history.empty()){
      struct SurfaceScore { std::string surface; double score; };
      std::vector<SurfaceScore> surface_scores;
-     std::vector<std::pair<const LatticeCandidate*,double>> supported;
      for(const auto& candidate:edge->candidates){
       bool has=false;
       const double score=opt.surge_cluster_model->evidence_score(candidate.id,state.history,&has);
@@ -183,9 +183,10 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     const double ngram_context=raw_context*opt.context_weight;
     const double cluster_context=(cluster_resolved&&candidate.surface==cluster_winner)
       ? cluster_override_bonus : 0.0;
-    bool has_cluster_evidence=false;
-    const double cluster_raw_evidence=(opt.surge_cluster_model&&!state.history.empty())
-      ? opt.surge_cluster_model->evidence_score(candidate.id,state.history,&has_cluster_evidence) : 0.0;
+    const auto cluster_evidence = std::find_if(supported.begin(), supported.end(),
+      [&](const auto& item) { return item.first == &candidate; });
+    const bool has_cluster_evidence = cluster_evidence != supported.end();
+    const double cluster_raw_evidence = has_cluster_evidence ? cluster_evidence->second : 0.0;
     const bool has_ngram_evidence=scorer.has_left_context_evidence(candidate.id,state.history) ||
       scorer.has_right_context_evidence(candidate.id,right_context);
     const double pos_raw=(opt.pos_ngram_scorer&&!candidate.pos.empty())
