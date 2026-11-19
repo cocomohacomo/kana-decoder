@@ -13,7 +13,10 @@ int main() {
   kana_decoder::SurgeRuntimeConfig config;
   config.journal_path = journal;
   config.context_id = "runtime-conformance-test";
-  config.remove_journal_on_destroy = true;
+  config.remove_journal_on_destroy = false;
+  std::uint64_t committed_version = 0;
+  std::size_t committed_nodes = 0;
+  {
   kana_decoder::SurgeNormalizationRuntime runtime(config);
   std::string error;
   assert(runtime.open(error));
@@ -53,6 +56,18 @@ int main() {
   std::string commit_error;
   assert(runtime.commit_output("32", 7, true, commit_error));
   assert(runtime.state_version() > result.metrics.state_version);
+  committed_version = runtime.state_version();
+  committed_nodes = runtime.graph_node_count();
+  }
+
+  config.remove_journal_on_destroy = true;
+  {
+    kana_decoder::SurgeNormalizationRuntime recovered(config);
+    std::string recovery_error;
+    assert(recovered.open(recovery_error));
+    assert(recovered.state_version() == committed_version);
+    assert(recovered.graph_node_count() == committed_nodes);
+  }
 
   return 0;
 }
