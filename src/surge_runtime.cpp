@@ -3,6 +3,7 @@
 #include "surge/dependency_engine.hpp"
 #include "surge/question_router.hpp"
 #include "surge/sha256.hpp"
+#include "surge/decision.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -224,7 +225,60 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     }
   }
 
-  const auto best_claims = path_candidate_keys.front();
+  std::vector<::surge::DecisionCandidate> recognition_candidates;
+  recognition_candidates.reserve(paths.size());
+  for (std::size_t p = 0; p < paths.size(); ++p) {
+    if (paths[p].tokens.empty()) continue;
+    ::surge::DecisionCandidate candidate;
+    candidate.candidate_id = "path-" + std::to_string(p);
+    candidate.stable_order = p;
+    candidate.evidence.push_back({"decoder-path-" + std::to_string(p),
+        "decoder_prior", "decoder_path", paths[p].score, 0.05, true});
+    for (std::size_t t = 0; t < paths[p].tokens.size(); ++t) {
+      const auto& token = paths[p].tokens[t];
+      const std::string span = std::to_string(token.start) + ":" + std::to_string(token.end);
+      const std::string prefix_id = "p" + std::to_string(p) + "-t" + std::to_string(t) + "-";
+      candidate.evidence.push_back({prefix_id + "lexical", "lexical", span,
+          token.lexical_score, 0.25, true});
+      candidate.evidence.push_back({prefix_id + "morphology", "morphology", span,
+          token.morphology_score, 0.10, true});
+      if (token.has_transition_evidence)
+        candidate.evidence.push_back({prefix_id + "transition", "transition", span,
+            token.transition_score, 0.20, true});
+      if (token.has_ngram_evidence)
+        candidate.evidence.push_back({prefix_id + "ngram", "ngram", span,
+            token.ngram_score, 0.35, true});
+      if (token.has_pos_evidence)
+        candidate.evidence.push_back({prefix_id + "pos", "pos_ngram", span,
+            token.pos_score, 0.20, true});
+      if (token.has_cluster_evidence)
+        candidate.evidence.push_back({prefix_id + "cluster", "context_cluster", span,
+            token.cluster_raw_evidence, 0.50, true});
+    }
+    recognition_candidates.push_back(std::move(candidate));
+  }
+  ::surge::DecisionPolicy recognition_policy;
+  recognition_policy.max_candidates = config_.max_candidates_per_decode;
+  recognition_policy.max_evidence_per_candidate = 64;
+  recognition_policy.minimum_margin = 0.0;
+  const auto recognition = ::surge::RecognitionDecision::evaluate(
+      recognition_candidates, recognition_policy);
+  if (recognition.disposition != ::surge::DecisionDisposition::Select) {
+    result.error = "SURGE_RECOGNITION_DEFERRED:" + recognition.reason;
+    return result;
+  }
+  const std::string selected_path_name = recognition.selected_candidate_id;
+  if (selected_path_name.rfind("path-", 0) != 0) {
+    result.error = "SURGE_RECOGNITION_RESULT_INVALID";
+    return result;
+  }
+  const std::size_t selected_path_index =
+      static_cast<std::size_t>(std::stoul(selected_path_name.substr(5)));
+  if (selected_path_index >= paths.size() || path_candidate_keys[selected_path_index].empty()) {
+    result.error = "SURGE_RECOGNITION_PATH_NOT_FOUND";
+    return result;
+  }
+  const auto best_claims = path_candidate_keys[selected_path_index];
   std::set<std::string> best_path_keys(best_claims.begin(), best_claims.end());
   std::vector<const CandidateRecord*> alternatives;
   for (const auto& item : candidates) {
@@ -242,7 +296,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   }
 
   std::string output;
-  for (const auto& token : paths.front().tokens) {
+  for (const auto& token : paths[selected_path_index].tokens) {
     const auto found = candidates.find(candidate_key(token));
     if (found == candidates.end()) {
       result.error = "SURGE_SELECTED_HYPOTHESIS_NOT_FOUND";
@@ -276,7 +330,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
       for (const auto& path : paths)
         for (const auto& candidate : path.tokens)
           if (candidate_key(candidate) == record.key) return candidate;
-      return paths.front().tokens.front();
+      return paths[selected_path_index].tokens.front();
     }();
     delta.nodes.push_back({{record.entity_id, ::surge::NodeKind::Entity,
         record.entity_content.empty() ? "lexical;surface=" + token.candidate.surface +
