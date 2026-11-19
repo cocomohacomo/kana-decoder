@@ -38,6 +38,7 @@ int kd_engine_decode(kd_engine*,const char* reading,char* output,size_t output_c
 kd_decode_result* kd_engine_decode_nbest(const kd_engine*,const char* reading,size_t max_paths);
 void kd_decode_result_destroy(kd_decode_result*);
 size_t kd_decode_result_path_count(const kd_decode_result*);
+int kd_decode_result_text(const kd_decode_result*,size_t path_index,char* output,size_t capacity);
 int kd_decode_result_path_score(const kd_decode_result*,size_t path_index,double* score);
 size_t kd_decode_result_token_count(const kd_decode_result*,size_t path_index);
 int kd_decode_result_token(const kd_decode_result*,size_t path_index,size_t token_index,kd_token_view* view);
