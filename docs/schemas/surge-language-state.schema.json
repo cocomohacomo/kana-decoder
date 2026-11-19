@@ -42,6 +42,25 @@
     "syntax_relations": { "type": "array", "maxItems": 64 },
     "orthographic_hypotheses": { "type": "array", "maxItems": 32 },
     "entities": { "type": "array", "maxItems": 16 },
+    "evidence": {
+      "type": "array", "maxItems": 64,
+      "items": {
+        "type": "object",
+        "required": ["id", "hypothesis_id", "kind", "source", "score", "confidence", "valid_from_revision"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "hypothesis_id": { "$ref": "#/$defs/id" },
+          "kind": { "enum": ["lexical", "ngram", "part_of_speech", "morphological", "syntactic", "semantic", "discourse", "entity", "orthographic", "user_policy"] },
+          "source": { "type": "string", "maxLength": 47 },
+          "score": { "type": "number" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "valid_from_revision": { "type": "integer", "minimum": 0 },
+          "valid_until_revision": { "type": "integer", "minimum": 0 },
+          "dependency_ids": { "type": "array", "maxItems": 4, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } }
+        },
+        "additionalProperties": false
+      }
+    },
     "constraints": { "type": "array", "maxItems": 32 },
     "decisions": { "type": "array", "maxItems": 32 },
     "revisions": { "type": "array", "maxItems": 32 },
