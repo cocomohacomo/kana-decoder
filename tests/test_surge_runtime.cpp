@@ -32,6 +32,16 @@ int main() {
   kanji_token.candidate.pos = "名詞,数";
   kanji_token.morphology_score = -5.0;
   kanji_token.context_score = -5.0;
+  kanji_token.lexical_score = -4.0;
+  kanji_token.transition_score = -1.0;
+  kanji_token.ngram_score = -0.7;
+  kanji_token.cluster_score = 0.4;
+  kanji_token.cluster_raw_evidence = -0.2;
+  kanji_token.pos_score = -0.1;
+  kanji_token.has_transition_evidence = true;
+  kanji_token.has_ngram_evidence = true;
+  kanji_token.has_cluster_evidence = true;
+  kanji_token.has_pos_evidence = true;
   kanji.tokens.push_back(kanji_token);
 
   kana_decoder::DecodedPath kana;
@@ -45,7 +55,7 @@ int main() {
   assert(result.committed);
   assert(result.output == "32");
   assert(result.metrics.claims == 2);
-  assert(result.metrics.evidence == 2);
+  assert(result.metrics.evidence == 10);
   assert(result.metrics.entities == 2);
   assert(result.metrics.contradictions == 1);
   assert(result.metrics.questions == 1);
