@@ -61,7 +61,8 @@ int main() {
   ::kana_decoder::Candidate adapter_candidate;
   adapter_candidate.id = "candidate-adapter";
   adapter_candidate.surface = "京都";
-  adapter_candidate.pos = "名詞/固有名詞";
+  adapter_candidate.morphology.language_tag = "ja-JP";
+  adapter_candidate.morphology.part_of_speech = "名詞/固有名詞";
   Hypothesis adapted_hypothesis;
   assert(ja_adapter.make_hypothesis(adapter_candidate, 8.0, {0, 3}, "adapted-1", adapted_hypothesis));
   assert(adapted_hypothesis.candidate_id.equals("candidate-adapter"));
