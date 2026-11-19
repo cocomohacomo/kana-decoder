@@ -20,7 +20,10 @@ struct kd_engine {
     bool loaded = false;
     std::unique_ptr<kana_decoder::SurgeNormalizationRuntime> surge;
 };
-struct kd_decode_result { std::vector<kana_decoder::DecodedPath> paths; };
+struct kd_decode_result {
+    std::vector<kana_decoder::DecodedPath> paths;
+    std::vector<std::string> normalized_texts;
+};
 struct kd_streaming_session {
     kana_decoder::LexiconTrie lexicon;
     kana_decoder::MaskedNgramScorer scorer;
@@ -135,12 +138,31 @@ kd_decode_result* kd_engine_decode_nbest(const kd_engine* engine,const char* rea
         auto* result=new (std::nothrow) kd_decode_result();
         if (!result) return nullptr;
         result->paths=std::move(paths);
+        result->normalized_texts.reserve(result->paths.size());
+        for (std::size_t i = 0; i < result->paths.size(); ++i) {
+            if (i == 0) {
+                result->normalized_texts.push_back(normalized.output);
+            } else {
+                std::string text;
+                for (const auto& token : result->paths[i].tokens) text += token.candidate.surface;
+                result->normalized_texts.push_back(std::move(text));
+            }
+        }
         return result;
     } catch (...) { return nullptr; }
 }
 void kd_decode_result_destroy(kd_decode_result* result) { delete result; }
 size_t kd_decode_result_path_count(const kd_decode_result* result) {
     return result ? result->paths.size() : 0;
+}
+int kd_decode_result_text(const kd_decode_result* result, size_t path_index,
+                          char* output, size_t capacity) {
+    if (!result || !output || capacity == 0 || path_index >= result->normalized_texts.size())
+        return KD_ERR_INVALID_ARGUMENT;
+    const auto& value = result->normalized_texts[path_index];
+    if (value.size() + 1 > capacity) return KD_ERR_BUFFER_TOO_SMALL;
+    std::memcpy(output, value.c_str(), value.size() + 1);
+    return 0;
 }
 int kd_decode_result_path_score(const kd_decode_result* result,size_t index,double* score) {
     if (!result || !score || index>=result->paths.size()) return KD_ERR_INVALID_ARGUMENT;
