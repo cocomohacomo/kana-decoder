@@ -26,6 +26,7 @@ on:
       - "licenses/ud-japanese-gsd-source-lock.json"
       - "tools/evaluate_surge_runtime.cpp"
       - "tools/calibrate_surge_policy.py"
+      - "tests/test_calibrate_surge_policy.py"
       - "src/surge_runtime.cpp"
       - "include/kana_decoder/surge_runtime.hpp"
       - "third_party/surge/include/surge/decision.hpp"
