@@ -6,7 +6,23 @@
 #include <vector>
 namespace kana_decoder {
 enum class Layer { Morphological = 0, Semantic = 1, Orthographic = 2 };
-struct Candidate { std::string id; std::string surface; std::string pos,inflection_type,inflection_form; };
+// Provider-neutral grammatical metadata. Values are interpreted only by the
+// LanguageAdapter named by language_tag; the host does not assume a POS schema.
+struct MorphologyDescriptor {
+ std::string language_tag;
+ std::string part_of_speech;
+ std::string inflection_class;
+ std::string inflection_form;
+ bool empty() const {
+  return language_tag.empty() && part_of_speech.empty() &&
+         inflection_class.empty() && inflection_form.empty();
+ }
+};
+struct Candidate {
+ std::string id;
+ std::string surface;
+ MorphologyDescriptor morphology;
+};
 struct AmbiguityResult { std::string output; bool ambiguous=false; double top_score=0.0; double margin=0.0; std::vector<Candidate> ranked; };
 struct HypothesisNode { std::string id; Layer layer; std::vector<std::string> dependencies; std::uint64_t revision=0; bool valid=true; };
 class DependencyGraph {
