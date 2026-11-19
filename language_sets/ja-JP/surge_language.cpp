@@ -473,13 +473,11 @@ bool JapaneseLanguageAdapter::make_entity(std::string_view reading,
     const auto month_end = reading.find("がつ", month_start);
     if (month_end == std::string_view::npos) return false;
     const auto day_start = month_end + std::string_view("がつ").size();
-    const auto day_end = reading.find("にち", day_start);
-    if (day_end == std::string_view::npos ||
-        day_end + std::string_view("にち").size() != reading.size()) return false;
+    if (day_start >= reading.size()) return false;
     std::int64_t year = 0, month = 0, day = 0;
     if (!parse_integer(reading.substr(0, year_end), year) ||
         !parse_integer(reading.substr(month_start, month_end - month_start), month)) return false;
-    const auto day_reading = reading.substr(day_start, day_end - day_start);
+    const auto day_reading = reading.substr(day_start);
     constexpr std::pair<std::string_view, std::int64_t> special_days[] = {
       {"ついたち",1},{"ふつか",2},{"みっか",3},{"よっか",4},{"いつか",5},
       {"むいか",6},{"なのか",7},{"ようか",8},{"ここのか",9},{"とおか",10},
@@ -489,7 +487,14 @@ bool JapaneseLanguageAdapter::make_entity(std::string_view reading,
     for (const auto& item : special_days) {
       if (day_reading == item.first) { day = item.second; special = true; break; }
     }
-    if (!special && !parse_integer(day_reading, day)) return false;
+    if (!special) {
+      if (day_reading.size() < std::string_view("にち").size() ||
+          day_reading.substr(day_reading.size() - std::string_view("にち").size()) != "にち")
+        return false;
+      const auto numeric_day = day_reading.substr(0,
+          day_reading.size() - std::string_view("にち").size());
+      if (!parse_integer(numeric_day, day)) return false;
+    }
     if (!valid_date(year, month, day) || !value.raw.assign(reading)) return false;
     value.kind = EntityKind::Date;
     value.value = year;
