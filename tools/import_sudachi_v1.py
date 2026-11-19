@@ -130,21 +130,11 @@ def import_lexicon(source, output):
                         ident = "sudachi_" + hashlib.sha256(
                             "\x1f".join(fields + [str(left), str(right), str(cost)]).encode()
                         ).hexdigest()[:20]
-                        # POS5/POS6 are part-of-speech subcategories in
-                        # Sudachi V1, not conjugation metadata. A few legacy
-                        # 18-column fixtures mislabeled conjugation type/form
-                        # in those slots, so retain only unmistakable legacy
-                        # conjugation labels when explicit fields are absent.
-                        inflection_type = _value(row, "inflection_type")
-                        inflection_form = _value(row, "inflection_form")
-                        if not inflection_type and re.match(
-                            r"^(?:五段|上一段|下一段|一段|カ変|サ変|形容詞|助動詞|文語)", _value(row, "pos5")
-                        ):
-                            inflection_type = _value(row, "pos5")
-                        if not inflection_form and re.match(
-                            r"^(?:未然形|連用形|終止形|連体形|仮定形|已然形|命令形)", _value(row, "pos6")
-                        ):
-                            inflection_form = _value(row, "pos6")
+                        # Sudachi V1 defines POS5 as conjugation type and
+                        # POS6 as conjugation form. Explicit normalized aliases
+                        # may override them for compatible named CSV variants.
+                        inflection_type = _value(row, "inflection_type") or _value(row, "pos5")
+                        inflection_form = _value(row, "inflection_form") or _value(row, "pos6")
                         item = fields + [
                             ident, str(cost), "0", str(left), str(right),
                             inflection_type, inflection_form
