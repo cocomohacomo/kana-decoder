@@ -194,6 +194,16 @@ jobs:
           cat "$RUNNER_TEMP/surge-core-runtime-time.log"
           python tools/check_memory_budget.py --log "$RUNNER_TEMP/surge-core-runtime-time.log" --max-rss-mib 1792
 
+      - name: Upload SURGE Core real-data evaluation
+        uses: actions/upload-artifact@v4
+        with:
+          name: surge-core-real-data-evaluation
+          path: |
+            ${{ runner.temp }}/surge-core-runtime-evaluation.json
+            ${{ runner.temp }}/surge-core-runtime-time.log
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Upload verified Pack artifact
         uses: actions/upload-artifact@v4
         with:
