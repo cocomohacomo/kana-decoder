@@ -80,11 +80,45 @@ int main() {
   assert(render_entity(time, NumericStyle::Arabic, rendered));
   assert(rendered == "9時05分");
 
+  Evidence lexical;
+  assert(lexical.id.assign("ev-lexical"));
+  assert(lexical.hypothesis_id.assign("h-noun"));
+  assert(lexical.source.assign("dictionary"));
+  lexical.kind = EvidenceKind::Lexical;
+  lexical.score = 0.8; lexical.confidence = 1.0;
+  lexical.valid_from_revision = 0; lexical.valid_until_revision = 3;
+  assert(state.add_evidence(lexical));
+
+  Evidence lexical_duplicate = lexical;
+  assert(lexical_duplicate.id.assign("ev-lexical-duplicate"));
+  lexical_duplicate.score = 0.6;
+  assert(state.add_evidence(lexical_duplicate));
+
+  Evidence semantic;
+  assert(semantic.id.assign("ev-semantic"));
+  assert(semantic.hypothesis_id.assign("h-noun"));
+  assert(semantic.source.assign("predicate-role"));
+  semantic.kind = EvidenceKind::Semantic;
+  semantic.score = 0.5; semantic.confidence = 0.8;
+  semantic.valid_from_revision = 1; semantic.valid_until_revision = 3;
+  assert(semantic.dependency_ids[0].assign("ev-lexical"));
+  semantic.dependency_count = 1;
+  assert(state.add_evidence(semantic));
+
+  EvidencePolicy policy;
+  double evidence_score = 0.0;
+  assert(state.aggregate_evidence("h-noun", 2, policy, evidence_score));
+  assert(std::abs(evidence_score - 0.6) < 1e-9);
+  assert(state.aggregate_evidence("h-noun", 4, policy, evidence_score));
+  assert(std::abs(evidence_score - 0.8) < 1e-9);
+
   Decision decision;
   assert(decision.id.assign("decision-1"));
   assert(decision.selected_hypothesis.assign("h-noun"));
   assert(decision.compared_hypotheses[0].assign("h-noun"));
   decision.compared_count = 1;
+  assert(decision.evidence_ids[0].assign("ev-lexical"));
+  decision.evidence_count = 1;
   decision.confidence = 0.8;
   assert(state.add_decision(decision));
 
@@ -106,6 +140,8 @@ int main() {
 
   assert(state.find_hypothesis("h-go") != nullptr);
   assert(state.find_entity("date-1") != nullptr);
+  assert(state.find_evidence("ev-semantic") != nullptr);
+  assert(state.evidence_count() == 3);
   assert(state.hypothesis_count() == 2);
   assert(state.entity_count() == 3);
   assert(state.memory_bytes() >= sizeof(LanguageState));
