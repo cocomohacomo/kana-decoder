@@ -535,6 +535,9 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   result.metrics.evidence = 0;
   for (const auto& item : candidates) result.metrics.evidence += item.second.evidence_ids.size();
   result.metrics.entities = candidates.size();
+  result.metrics.clusters = 0;
+  for (const auto& node : graph_->nodes())
+    if (node.second.kind == ::surge::NodeKind::Cluster) ++result.metrics.clusters;
   result.metrics.contradictions = contradiction_count;
 
   for (const auto& relation_id : contradiction_relation_ids) {
