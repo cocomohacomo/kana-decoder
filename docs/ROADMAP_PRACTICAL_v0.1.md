@@ -275,3 +275,16 @@ v0.56ではP0のCI・Pack・journal recoveryゲートが通過した。P1ではC
 - [x] Bind the ja-JP LanguageAdapter in the real-data SURGE evaluator so typed extraction is actually active during dev/test evaluation.
 
 This stage only makes the v0.58 typed-entity evidence weight calibratable. No preferred weight or accuracy gain is claimed until the pinned real-data workflow completes.
+
+
+## 19. v0.60 N-best candidate generation diagnostics
+
+- [x] Report raw decoder surface exact Candidate Recall@1, @5 and @10 over the full evaluation set.
+- [x] Report best-candidate oracle CER@5 and @10 to separate candidate generation coverage from SURGE path selection and rendering.
+- [x] Report mean N-best paths per case; decoder failures count as misses in Recall@N and as full-reference deletion distance in oracle CER.
+- [x] Propagate candidate-generation metrics into each dev calibration candidate row without using test data for selection.
+- [x] Add a black-box CTest contract asserting recall monotonicity and oracle-CER monotonicity.
+- [ ] Run latest-head CI and verify candidate metrics on the pinned Sudachi Small + UD Japanese-GSD corpus.
+- [ ] Use the metrics to classify errors into missing candidate, wrong ranking/selection, and surface realization mismatch; do not infer token-level recall from sentence-level exact coverage.
+
+Candidate Recall@N here is sentence-level exact surface coverage over the raw concatenated N-best paths. It is a diagnostic upper bound for decoder candidate coverage, not a token-aligned morphological recall metric and not a claim of normalized-output accuracy.
