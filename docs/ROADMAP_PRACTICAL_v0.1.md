@@ -260,3 +260,17 @@ v0.56ではP0のCI・Pack・journal recoveryゲートが通過した。P1ではC
 - [x] Verify latest branch head with complete static/shared CI #1064; all 29 CTest cases, bounded microbenchmarks, Japanese reference Pack and Python policy tests passed.
 - [ ] Calibrate `typed_entity` family weight on a held-out development corpus; evaluate CER and Candidate Recall@N on a separate fixed test corpus.
 - [ ] Extend typed extraction to context-bound units/currency, relative dates and locale-specific calendar policies only with explicit grammar and ambiguity tests.
+
+
+## 18. v0.59 typed-entity evidence calibration preparation
+
+- [x] Add typed_entity to the recognized SURGE evidence-family policy grid.
+- [x] Include disabled (0.0), conservative (0.5), default (1.0) and strong (1.5) typed-entity policy alternatives.
+- [x] Keep calibration strictly on the dev split and retain the existing 1,792 MiB fail-closed RSS gate.
+- [x] Extend the deterministic calibration unit test to verify the typed-entity family and selected policy output.
+- [x] Add the typed-entity family to the baseline policy fixture.
+- [ ] Run PR CI and the pinned Sudachi Small + UD Japanese-GSD workflow to obtain actual dev calibration and held-out test results.
+- [ ] Compare typed-entity disabled/default/calibrated policies on the same frozen test split; report CER, sentence exact, override/defer counts, runtime, and Peak RSS.
+- [ ] Add typed-entity evidence count metrics to the real-data evaluator report before expanding entity grammar coverage.
+
+This stage only makes the v0.58 typed-entity evidence weight calibratable. No preferred weight or accuracy gain is claimed until the pinned real-data workflow completes.
