@@ -27,6 +27,7 @@ struct SurgeRuntimeConfig {
   std::map<std::string, double> recognition_family_weights;
   double normalization_renderer_score{1.0};
   const surge::LanguageAdapter* language_adapter{nullptr};
+  surge::SurfaceRenderOptions surface_render_options{};
   bool remove_journal_on_destroy{false};
 };
 
