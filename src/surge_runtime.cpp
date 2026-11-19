@@ -9,6 +9,7 @@
 #include <ctime>
 #include <iomanip>
 #include <map>
+#include <filesystem>
 #include <set>
 #include <sstream>
 #include <utility>
@@ -82,6 +83,10 @@ SurgeNormalizationRuntime::~SurgeNormalizationRuntime() {
   chaos_.reset();
   graph_.reset();
   journal_.reset();
+  if (config_.remove_journal_on_destroy && !config_.journal_path.empty()) {
+    std::error_code ignored;
+    std::filesystem::remove(config_.journal_path, ignored);
+  }
 }
 
 bool SurgeNormalizationRuntime::open(std::string& error) {
@@ -268,6 +273,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
 
   std::vector<std::pair<std::string, std::string>> contradictions;
   for (auto left = candidates.begin(); left != candidates.end(); ++left) {
+    if (contradictions.size() >= 16) break;
     auto right = left;
     ++right;
     for (; right != candidates.end(); ++right) {
