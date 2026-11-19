@@ -63,3 +63,7 @@ add_test(NAME decoder_trace_tests COMMAND kana_decoder_trace_tests)
 add_executable(kana_decoder_surge_cluster_tests tests/test_surge_cluster.cpp)
 target_link_libraries(kana_decoder_surge_cluster_tests PRIVATE kana_decoder_core)
 add_test(NAME surge_cluster_model_tests COMMAND kana_decoder_surge_cluster_tests)
+
+add_executable(kana_decoder_surge_ngram_tests tests/test_surge_ngram.cpp)
+target_link_libraries(kana_decoder_surge_ngram_tests PRIVATE kana_decoder_core)
+add_test(NAME surge_ngram_memory_tests COMMAND kana_decoder_surge_ngram_tests)
