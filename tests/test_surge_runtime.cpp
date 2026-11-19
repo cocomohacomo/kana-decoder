@@ -200,6 +200,39 @@ int main() {
     assert(rendered.output == "32。");
   }
 
+  // Full-span typed entities are retained in SURGE and rendered after
+  // UnifiedDecision, rather than being handled by a parallel host pipeline.
+  const auto date_journal = (std::filesystem::temp_directory_path() /
+      "kana-decoder-surge-date-entity-test.journal").string();
+  std::filesystem::remove(date_journal, ignored);
+  kana_decoder::surge::JapaneseLanguageAdapter date_adapter;
+  kana_decoder::SurgeRuntimeConfig date_config;
+  date_config.journal_path = date_journal;
+  date_config.context_id = "date-entity-integration-test";
+  date_config.language_adapter = &date_adapter;
+  date_config.surface_render_options.normalize_numbers = true;
+  date_config.remove_journal_on_destroy = true;
+  {
+    kana_decoder::SurgeNormalizationRuntime date_runtime(date_config);
+    std::string date_error;
+    assert(date_runtime.open(date_error));
+    kana_decoder::DecodedPath date_path;
+    kana_decoder::DecodedToken date_token;
+    date_token.start = 0;
+    date_token.end = 25;
+    date_token.candidate.id = "date-token";
+    date_token.candidate.surface = "日付";
+    date_token.candidate.morphology.language_tag = "ja-JP";
+    date_path.tokens.push_back(date_token);
+    const auto normalized_date = date_runtime.normalize(
+        "にせんにじゅうろくねんじゅういちがつにじゅうににち",
+        {date_path}, true);
+    assert(normalized_date.committed);
+    assert(normalized_date.output == "2026年11月22日");
+    assert(normalized_date.metrics.entities == 2);
+    assert(normalized_date.metrics.evidence >= 2);
+  }
+
   // Family calibration must be injected into the SURGE Core decision itself.
   const auto calibrated_journal = (std::filesystem::temp_directory_path() /
       "kana-decoder-surge-core-calibrated-test.journal").string();
