@@ -87,8 +87,9 @@ int main() {
   {
     kana_decoder::SurgeNormalizationRuntime recovered(config);
     std::string recovery_error;
-    if (!recovered.open(recovery_error)) std::cerr << "SURGE recovery open failed: " << recovery_error << '\n';
-    assert(recovered.open(recovery_error));
+    const bool recovered_opened = recovered.open(recovery_error);
+    if (!recovered_opened) std::cerr << "SURGE recovery open failed: " << recovery_error << '\n';
+    assert(recovered_opened);
     assert(recovered.state_version() == committed_version);
     assert(recovered.graph_node_count() == committed_nodes);
   }
