@@ -87,6 +87,26 @@ int main(){
  auto pos_paths=decoder.decode(2,pos_lattice,lattice_scorer,{},dop,&cm);
  assert(!pos_paths.empty()&&pos_paths.front().tokens[1].candidate.id=="Z");
 
+ // POS evidence must be contextual, not a second unigram prior. The global
+ // unigram strongly favors PA, while the observed preceding POS favors PB.
+ MaskedNgramScorer pos_evidence;
+ pos_evidence.add_unigram("P0",100);
+ pos_evidence.add_unigram("PA",10000);
+ pos_evidence.add_unigram("PB",1);
+ pos_evidence.add_left_bigram("P0","PA",1);
+ pos_evidence.add_left_bigram("P0","PB",100);
+ DecoderOptions pos_options=dop;
+ pos_options.pos_ngram_scorer=&pos_evidence;
+ pos_options.pos_context_weight=10.0;
+ std::vector<LatticeEdge> pos_evidence_lattice{
+  {0,1,{{"P0_TOKEN","先行",10,0,0,1,1,"P0"}}},
+  {1,2,{{"PA_TOKEN","候補甲",10,0,0,2,2,"PA"},
+        {"PB_TOKEN","候補乙",10,0,0,3,3,"PB"}}}
+ };
+ auto pos_evidence_paths=decoder.decode(2,pos_evidence_lattice,lattice_scorer,{},pos_options);
+ assert(!pos_evidence_paths.empty());
+ assert(pos_evidence_paths.front().tokens[1].candidate.id=="PB_TOKEN");
+
 
 
  LexiconTrie pack_lexicon;MaskedNgramScorer pack_scorer;std::size_t pack_entries=0;
