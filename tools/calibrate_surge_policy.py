@@ -73,7 +73,8 @@ def main() -> int:
                      "selected_typed_entity_evidence": metrics["surge_core"].get("selected_typed_entity_evidence", 0),
                      "typed_entities_persisted": metrics["surge_core"].get("typed_entities_persisted", 0),
                      "elapsed_seconds": metrics["elapsed_seconds"],
-                     "peak_rss_kib": metrics["peak_rss_kib"]})
+                     "peak_rss_kib": metrics["peak_rss_kib"],
+                     "candidate_generation": metrics.get("candidate_generation", {})})
         candidate.unlink(missing_ok=True)
     best_index = min(range(len(rows)), key=lambda i: (rows[i]["cer"], -rows[i]["sentence_exact"], i))
     best = rows[best_index]
