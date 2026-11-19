@@ -86,5 +86,46 @@ int main() {
     assert(recovered.graph_node_count() == committed_nodes);
   }
 
+  // SURGE Core must be able to overturn the decoder's first-ranked path.
+  const auto decision_journal = (std::filesystem::temp_directory_path() /
+      "kana-decoder-surge-core-decision-test.journal").string();
+  std::filesystem::remove(decision_journal, ignored);
+  kana_decoder::SurgeRuntimeConfig decision_config;
+  decision_config.journal_path = decision_journal;
+  decision_config.context_id = "core-path-reselection-test";
+  decision_config.remove_journal_on_destroy = true;
+  {
+    kana_decoder::SurgeNormalizationRuntime decision_runtime(decision_config);
+    std::string decision_error;
+    assert(decision_runtime.open(decision_error));
+    kana_decoder::DecodedPath decoder_first;
+    decoder_first.score = -1.0;
+    kana_decoder::DecodedToken first_token;
+    first_token.start = 0;
+    first_token.end = 5;
+    first_token.candidate.id = "decoder-top";
+    first_token.candidate.surface = "交渉";
+    first_token.candidate.pos = "名詞";
+    first_token.lexical_score = -1.0;
+    first_token.morphology_score = -1.0;
+    first_token.cluster_raw_evidence = -10.0;
+    first_token.has_cluster_evidence = true;
+    decoder_first.tokens.push_back(first_token);
+
+    kana_decoder::DecodedPath core_preferred;
+    core_preferred.score = -2.0;
+    kana_decoder::DecodedToken second_token = first_token;
+    second_token.candidate.id = "core-preferred";
+    second_token.candidate.surface = "高尚";
+    second_token.cluster_raw_evidence = 10.0;
+    core_preferred.tokens.push_back(second_token);
+
+    const auto selected = decision_runtime.normalize("こうしょう",
+        {decoder_first, core_preferred}, true);
+    assert(selected.committed);
+    assert(selected.output == "高尚");
+    assert(selected.selected_claim_ids.size() == 1);
+  }
+
   return 0;
 }
