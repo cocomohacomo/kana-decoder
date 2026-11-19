@@ -463,11 +463,16 @@ bool ContextGraph::replay(){
   }
   if(e.kind=="RETRIEVAL_TICKET_ISSUED"||e.kind=="RETRIEVAL_TICKET_RESOLVED"){if(have_meta){++version;have_meta=false;}++version;continue;}
   if(e.kind=="TEMPORAL_BOUNDARY_CONTRIBUTION_V1"||e.kind=="TEMPORAL_BOUNDARY_CLEARED_V1"||e.kind=="TEMPORAL_BOUNDARY_CANDIDATE_SELECTED_V1"||e.kind=="TEMPORAL_QUESTION_SNAPSHOT_V1"){if(have_meta){++version;have_meta=false;}++version;continue;}
-  if(e.kind=="CHAOS_CLUSTER_SNAPSHOT" ||
-     e.kind=="NORMALIZATION_COMMIT" || e.kind=="NORMALIZATION_PROPOSAL" ||
+  if(e.kind=="CHAOS_CLUSTER_SNAPSHOT"){
+   if(have_meta){++version;have_meta=false;}++version;continue;
+  }
+  if(e.kind=="NORMALIZATION_COMMIT" || e.kind=="NORMALIZATION_PROPOSAL" ||
      e.kind=="NORMALIZATION_STREAM_FINAL_COMMIT" ||
      e.kind=="NORMALIZATION_STREAM_PREFIX_COMMIT"){
-   if(have_meta){++version;have_meta=false;}++version;continue;
+   // Adapter events may be the final record of a SemanticDelta transaction or
+   // a standalone stream-commit transaction. EventJournal's watermark handles
+   // both without double-counting a shared transaction.
+   version=e.state_version;have_meta=false;continue;
   }
   if(e.kind=="RETENTION_MANIFEST_RECORDED"||e.kind=="RETENTION_TOMBSTONE_PROPOSED"){if(!have_meta)++version;continue;}
   if(e.kind=="EVIDENCE_PROVENANCE_SET_V1"){if(!have_meta)++version;continue;}
