@@ -496,7 +496,7 @@ bool ContextGraph::prepare_transaction(const SemanticDelta& d, State& staged,
     std::vector<JournalEvent>& events, std::string& error) const {
  events.clear(); error.clear();
  if(d.delta_id.empty()||d.idempotency_key.empty()||
-    (d.nodes.empty()&&d.relations.empty()&&d.scope_spans.empty()&&d.claim_validity_updates.empty()&&d.evidence_validity_updates.empty()&&!d.focus)){
+    (d.nodes.empty()&&d.relations.empty()&&d.scope_spans.empty()&&d.claim_validity_updates.empty()&&d.evidence_validity_updates.empty()&&d.journal_events.empty()&&!d.focus)){
   error="DELTA_EMPTY_OR_ID_INVALID";return false;
  }
  const auto fp=fingerprint(d);
@@ -561,6 +561,12 @@ bool ContextGraph::prepare_transaction(const SemanticDelta& d, State& staged,
   staged.dependency_evaluations[d.delta_id]=record;
   events.push_back({d.delta_id+"/dependency-evaluation","DEPENDENCY_EVALUATION",
       encode_dependency_evaluation(record)});
+ }
+ for(const auto& event:d.journal_events){
+  if(event.event_id.empty()||event.kind.empty()){
+   error="ADAPTER_JOURNAL_EVENT_INVALID";events.clear();return false;
+  }
+  events.push_back(event);
  }
  return true;
 }
