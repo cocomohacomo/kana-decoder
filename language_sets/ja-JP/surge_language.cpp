@@ -518,20 +518,38 @@ bool JapaneseLanguageAdapter::make_entity(std::string_view reading,
     }
     const auto hour_end = time_reading.find("じ");
     if (hour_end == std::string_view::npos) return false;
-    std::int64_t hour = 0, minute = 0;
+    std::int64_t hour = 0, minute = 0, second = 0;
     if (!parse_integer(time_reading.substr(0, hour_end), hour)) return false;
     auto tail = time_reading.substr(hour_end + std::string_view("じ").size());
     if (!tail.empty()) {
-      const bool has_fun = tail.size() >= std::string_view("ふん").size() &&
-          tail.substr(tail.size() - std::string_view("ふん").size()) == "ふん";
-      const bool has_pun = tail.size() >= std::string_view("ぷん").size() &&
-          tail.substr(tail.size() - std::string_view("ぷん").size()) == "ぷん";
-      if (!has_fun && !has_pun) return false;
-      tail.remove_suffix(has_fun ? std::string_view("ふん").size() :
-                                   std::string_view("ぷん").size());
-      if (!parse_integer(tail, minute)) return false;
+      const bool has_seconds = tail.size() >= std::string_view("びょう").size() &&
+          tail.substr(tail.size() - std::string_view("びょう").size()) == "びょう";
+      if (has_seconds) {
+        tail.remove_suffix(std::string_view("びょう").size());
+        const auto fun_pos = tail.rfind("ふん");
+        const auto pun_pos = tail.rfind("ぷん");
+        const auto minute_pos = std::max(fun_pos, pun_pos);
+        if (minute_pos != std::string_view::npos) {
+          const auto suffix_size = minute_pos == fun_pos
+              ? std::string_view("ふん").size() : std::string_view("ぷん").size();
+          if (!parse_integer(tail.substr(0, minute_pos), minute) ||
+              !parse_integer(tail.substr(minute_pos + suffix_size), second)) return false;
+        } else if (!parse_integer(tail, second)) {
+          return false;
+        }
+      } else {
+        const bool has_fun = tail.size() >= std::string_view("ふん").size() &&
+            tail.substr(tail.size() - std::string_view("ふん").size()) == "ふん";
+        const bool has_pun = tail.size() >= std::string_view("ぷん").size() &&
+            tail.substr(tail.size() - std::string_view("ぷん").size()) == "ぷん";
+        if (!has_fun && !has_pun) return false;
+        tail.remove_suffix(has_fun ? std::string_view("ふん").size() :
+                                     std::string_view("ぷん").size());
+        if (!parse_integer(tail, minute)) return false;
+      }
     }
-    if (hour < 0 || hour > 24 || minute < 0 || minute > 59) return false;
+    if (hour < 0 || hour > 24 || minute < 0 || minute > 59 ||
+        second < 0 || second > 59) return false;
     if (pm) {
       if (hour < 1 || hour > 12) return false;
       if (hour != 12) hour += 12;
@@ -545,6 +563,7 @@ bool JapaneseLanguageAdapter::make_entity(std::string_view reading,
     value.kind = EntityKind::Time;
     value.value = hour;
     value.secondary = minute;
+    value.tertiary = second;
     value.valid = true;
     output = value;
     return true;
