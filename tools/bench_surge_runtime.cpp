@@ -9,19 +9,6 @@
 
 int main(int argc, char** argv) {
   const int iterations = argc > 1 ? std::max(1, std::stoi(argv[1])) : 50;
-  const auto journal = (std::filesystem::temp_directory_path() /
-      "kana-decoder-surge-benchmark.journal").string();
-  kana_decoder::SurgeRuntimeConfig config;
-  config.journal_path = journal;
-  config.context_id = "surge-runtime-benchmark";
-  config.remove_journal_on_destroy = true;
-  kana_decoder::SurgeNormalizationRuntime runtime(config);
-  std::string error;
-  if (!runtime.open(error)) {
-    std::cerr << error << "\n";
-    return 2;
-  }
-
   kana_decoder::DecodedPath first;
   first.score = -10.0;
   kana_decoder::DecodedToken token;
@@ -47,22 +34,41 @@ int main(int argc, char** argv) {
   token.candidate.id = "number-kana";
   token.candidate.surface = "さんじゅうに";
   second.tokens.push_back(token);
-  const std::vector<kana_decoder::DecodedPath> paths{first, second};
 
-  const auto begin = std::chrono::steady_clock::now();
-  for (int i = 0; i < iterations; ++i) {
-    const auto result = runtime.normalize("さんじゅうに", paths, true);
-    if (!result.committed) {
-      std::cerr << result.error << "\n";
-      return 3;
+  auto run = [&](const std::string& label,
+                 const std::vector<kana_decoder::DecodedPath>& paths) {
+    const auto journal = (std::filesystem::temp_directory_path() /
+        ("kana-decoder-surge-benchmark-" + label + ".journal")).string();
+    kana_decoder::SurgeRuntimeConfig config;
+    config.journal_path = journal;
+    config.context_id = "surge-runtime-benchmark-" + label;
+    config.remove_journal_on_destroy = true;
+    kana_decoder::SurgeNormalizationRuntime runtime(config);
+    std::string error;
+    if (!runtime.open(error)) {
+      std::cerr << error << "\\n";
+      return false;
     }
-  }
-  const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
-      std::chrono::steady_clock::now() - begin).count();
-  std::cout << "surge_runtime_iterations=" << iterations
-            << " total_ns=" << elapsed
-            << " ns_per_normalize=" << (elapsed / iterations)
-            << " graph_nodes=" << runtime.graph_node_count()
-            << " journal_state_version=" << runtime.state_version() << "\n";
+    const auto begin = std::chrono::steady_clock::now();
+    for (int i = 0; i < iterations; ++i) {
+      const auto result = runtime.normalize("さんじゅうに", paths, true);
+      if (!result.committed) {
+        std::cerr << result.error << "\\n";
+        return false;
+      }
+    }
+    const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now() - begin).count();
+    std::cout << "surge_runtime_mode=" << label
+              << " iterations=" << iterations
+              << " total_ns=" << elapsed
+              << " ns_per_normalize=" << (elapsed / iterations)
+              << " graph_nodes=" << runtime.graph_node_count()
+              << " journal_state_version=" << runtime.state_version() << "\\n";
+    return true;
+  };
+
+  if (!run("single", {first})) return 3;
+  if (!run("ambiguous", {first, second})) return 4;
   return 0;
 }
