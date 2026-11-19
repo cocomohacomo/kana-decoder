@@ -292,7 +292,7 @@ retrieved Claims, dependency triggers/impacts and bounded relation scanning.
 Implemented in kana-decoder only:
 
 - Added the read-only `LanguagePack` contract exposing pack identity, decode/stream-append providers and Language Adapter. The Japanese implementation privately owns the lexicon, n-gram scorer, connection model and correction resources.
-- Added a Japanese Pack snapshot loader. It verifies the existing manifest and payload hashes, loads resources once, records pack ID/language/version and computes a SHA-256 digest over the manifest bytes.
+- Added a generic manifest dispatcher and moved the concrete Japanese provider implementation into `language_sets/ja-JP/japanese_language_pack.cpp`. The Japanese Pack snapshot loader verifies the existing manifest and payload hashes, loads resources once, records pack ID/language/version and computes a SHA-256 digest over the manifest bytes.
 - Changed the C API engine to hold `shared_ptr<const LanguagePack>` instead of owning separate dictionary/scorer/connection fields. The C API now calls only Pack-mediated decode and append operations.
 - Changed streaming sessions to pin the same immutable shared snapshot instead of copying large lexicon and model structures.
 - Rejected a second Pack load into an already-loaded engine, preventing silent pack mutation while sessions may exist.
@@ -302,7 +302,7 @@ Implemented in kana-decoder only:
 
 ### Scope and limitations
 
-This is a migration boundary, not full Language Set completion. The current factory constructs the Japanese implementation only. Although host code now invokes Pack-mediated decode/append operations, the Japanese lattice and morphology implementation remains physically in the kana-decoder source tree behind that provider. Most candidate scoring and non-numeric surface realization are still migration work. The internal C++ interface is not yet a stable external plugin ABI. No second language pack has been implemented.
+This is a migration boundary, not full Language Set completion. The current dispatcher constructs the Japanese implementation only. Its provider source is now separated under `language_sets/ja-JP/`, but is still statically compiled into the kana-decoder library. Although host code invokes Pack-mediated decode/append operations, the underlying lattice/morphology engine remains in the existing shared decoder implementation and dynamic module loading is not yet available. Most candidate scoring and non-numeric surface realization are still migration work. The internal C++ interface is not yet a stable external plugin ABI. No second language pack has been implemented.
 
 ### Verification
 
