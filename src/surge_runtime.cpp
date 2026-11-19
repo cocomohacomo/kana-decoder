@@ -345,6 +345,17 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     if (i) commit_payload << ",";
     commit_payload << candidates.at(best_claims[i]).claim_id;
   }
+  commit_payload << ";recognition_selected=" << recognition.selected_candidate_id
+                 << ";recognition_reason=" << recognition.reason
+                 << ";recognition_score=" << std::setprecision(17) << recognition.selected_score
+                 << ";recognition_margin=" << recognition.margin
+                 << ";recognition_trace=";
+  for (std::size_t i = 0; i < recognition.trace.size(); ++i) {
+    if (i) commit_payload << ",";
+    const auto& trace = recognition.trace[i];
+    commit_payload << trace.candidate_id << ":" << trace.score << ":"
+                   << trace.accepted_evidence << ":" << trace.ignored_evidence;
+  }
   commit_payload << ";normalization_decisions=";
   for (std::size_t i = 0; i < normalization_trace.size(); ++i) {
     if (i) commit_payload << ",";
