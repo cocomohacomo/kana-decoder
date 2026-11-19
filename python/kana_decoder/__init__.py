@@ -93,7 +93,8 @@ class KanaDecoder:
     """Owns a native engine loaded from a local Language Pack."""
 
     def __init__(self, pack_path: str, library_path: Optional[str] = None,
-                 max_buffer_bytes: int = 16 * 1024 * 1024):
+                 max_buffer_bytes: int = 16 * 1024 * 1024,
+                 surge_journal_path: Optional[str] = None):
         if max_buffer_bytes < 256:
             raise ValueError("max_buffer_bytes must be at least 256")
         self._lib = ctypes.CDLL(_find_library(library_path))
@@ -110,6 +111,11 @@ class KanaDecoder:
             raise MemoryError("could not allocate kana-decoder engine")
         self._engine = engine
         try:
+            if surge_journal_path is not None:
+                journal = str(Path(surge_journal_path).expanduser().resolve()).encode("utf-8")
+                rc = self._lib.kd_engine_set_surge_journal(self._engine, journal)
+                if rc != 0:
+                    raise KanaDecoderError("kd_engine_set_surge_journal", rc)
             pack = str(Path(pack_path).expanduser().resolve()).encode("utf-8")
             rc = self._lib.kd_engine_load_pack(self._engine, pack)
             if rc != 0:
@@ -126,6 +132,8 @@ class KanaDecoder:
         lib.kd_engine_create.restype = ctypes.c_void_p
         lib.kd_engine_destroy.argtypes = [ctypes.c_void_p]
         lib.kd_engine_destroy.restype = None
+        lib.kd_engine_set_surge_journal.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+        lib.kd_engine_set_surge_journal.restype = ctypes.c_int
         lib.kd_engine_load_pack.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
         lib.kd_engine_load_pack.restype = ctypes.c_int
         lib.kd_engine_decode.argtypes = [ctypes.c_void_p, ctypes.c_char_p,
