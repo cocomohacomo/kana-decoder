@@ -96,6 +96,8 @@ bool load_decision_policy(const std::string& path,
         return false;
       if (fields[0] == "normalization_renderer")
         config.normalization_renderer_score = value;
+      else if (fields[0] == "minimum_recognition_margin")
+        config.minimum_recognition_margin = value;
       else
         config.recognition_family_weights[fields[0]] = value;
     } catch (...) {
@@ -224,6 +226,7 @@ int main(int argc, char** argv) {
   std::size_t candidate_available_surge_wrong = 0;
   std::size_t wrong_output_matching_nbest = 0, wrong_output_outside_nbest = 0;
   std::size_t reference_points = 0, overrides = 0, deferred = 0, decode_failures = 0;
+  std::size_t fallback_to_decoder_top1 = 0, selected_outputs = 0;
   kana_decoder::surge::JapaneseLanguageAdapter typed_entity_adapter;
   std::size_t input_points = 0;
   std::size_t typed_entities_found = 0, typed_entity_evidence_added = 0;
@@ -324,13 +327,16 @@ int main(int argc, char** argv) {
     config.language_adapter = &typed_entity_adapter;
     config.recognition_family_weights = calibrated_policy.recognition_family_weights;
     config.normalization_renderer_score = calibrated_policy.normalization_renderer_score;
+    config.minimum_recognition_margin = calibrated_policy.minimum_recognition_margin;
     kana_decoder::SurgeNormalizationRuntime runtime(config);
     std::string runtime_error;
     if (!runtime.open(runtime_error)) {
       ++runtime_failures;
       ++deferred;
+      ++fallback_to_decoder_top1;
       if (exact_10) ++candidate_available_runtime_failures;
-      surge_distance += codepoints(item.expected).size();
+      surge_distance += top1_ed;
+      if (top1_ed == 0) ++exact_surge;
       continue;
     }
     const auto normalized = runtime.normalize(item.reading, paths, true);
@@ -340,10 +346,13 @@ int main(int argc, char** argv) {
     typed_entities_persisted += normalized.metrics.typed_entities_persisted;
     if (!normalized.committed) {
       ++deferred;
+      ++fallback_to_decoder_top1;
       if (exact_10) ++candidate_available_deferred;
-      surge_distance += codepoints(item.expected).size();
+      surge_distance += top1_ed;
+      if (top1_ed == 0) ++exact_surge;
       continue;
     }
+    ++selected_outputs;
     const auto surge_ed = edit_distance(codepoints(normalized.output), codepoints(item.expected));
     surge_distance += surge_ed;
     if (surge_ed == 0) {
@@ -373,7 +382,8 @@ int main(int argc, char** argv) {
       << ",\"training_sequences_used\":" << (argc >= 5 ? "true" : "false")
       << ",\"decision_policy_used\":" << (argc == 6 ? "true" : "false")
       << ",\"decision_policy\":{\"normalization_renderer\":"
-      << calibrated_policy.normalization_renderer_score << ",\"family_weights\":{";
+      << calibrated_policy.normalization_renderer_score << ",\"minimum_recognition_margin\":"
+      << calibrated_policy.minimum_recognition_margin << ",\"family_weights\":{";
   {
     bool first = true;
     for (const auto& item : calibrated_policy.recognition_family_weights) {
@@ -421,6 +431,8 @@ int main(int argc, char** argv) {
       << ",\"sentence_exact\":" << (cases.empty() ? 0.0 : static_cast<double>(exact_surge) / cases.size())
       << ",\"overrides\":" << overrides
       << ",\"deferred\":" << deferred
+      << ",\"fallback_to_decoder_top1\":" << fallback_to_decoder_top1
+      << ",\"selected_outputs\":" << selected_outputs
       << ",\"runtime_failures\":" << runtime_failures
       << ",\"decode_failures\":" << decode_failures
       << ",\"typed_entities_found\":" << typed_entities_found

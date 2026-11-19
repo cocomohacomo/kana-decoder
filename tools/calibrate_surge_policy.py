@@ -10,14 +10,17 @@ from pathlib import Path
 
 FAMILIES = ("decoder_prior", "lexical", "morphology", "transition", "ngram", "pos_ngram", "context_cluster", "typed_entity")
 PRESETS = (
-    ("baseline", {name: 1.0 for name in FAMILIES}, 1.0),
-    ("lexical_morphology", {**{name: 1.0 for name in FAMILIES}, "decoder_prior": 0.5, "lexical": 1.5, "morphology": 1.25}, 0.5),
-    ("ngram_context", {**{name: 1.0 for name in FAMILIES}, "decoder_prior": 0.5, "ngram": 1.5, "pos_ngram": 1.5, "context_cluster": 1.5}, 0.5),
-    ("balanced_context", {**{name: 1.0 for name in FAMILIES}, "decoder_prior": 0.25, "lexical": 1.25, "ngram": 1.5, "pos_ngram": 1.25, "context_cluster": 1.5}, 0.25),
-    ("renderer_conservative", {name: 1.0 for name in FAMILIES}, 0.0),
-    ("typed_entity_disabled", {**{name: 1.0 for name in FAMILIES}, "typed_entity": 0.0}, 1.0),
-    ("typed_entity_conservative", {**{name: 1.0 for name in FAMILIES}, "typed_entity": 0.5}, 1.0),
-    ("typed_entity_strong", {**{name: 1.0 for name in FAMILIES}, "ngram": 1.5, "pos_ngram": 1.5, "context_cluster": 1.5, "typed_entity": 1.5}, 0.5),
+    ("baseline", {name: 1.0 for name in FAMILIES}, 1.0, 0.0),
+    ("lexical_morphology", {**{name: 1.0 for name in FAMILIES}, "decoder_prior": 0.5, "lexical": 1.5, "morphology": 1.25}, 0.5, 0.0),
+    ("ngram_context", {**{name: 1.0 for name in FAMILIES}, "decoder_prior": 0.5, "ngram": 1.5, "pos_ngram": 1.5, "context_cluster": 1.5}, 0.5, 0.0),
+    ("balanced_context", {**{name: 1.0 for name in FAMILIES}, "decoder_prior": 0.25, "lexical": 1.25, "ngram": 1.5, "pos_ngram": 1.25, "context_cluster": 1.5}, 0.25, 0.0),
+    ("renderer_conservative", {name: 1.0 for name in FAMILIES}, 0.0, 0.0),
+    ("typed_entity_disabled", {**{name: 1.0 for name in FAMILIES}, "typed_entity": 0.0}, 1.0, 0.0),
+    ("typed_entity_conservative", {**{name: 1.0 for name in FAMILIES}, "typed_entity": 0.5}, 1.0, 0.0),
+    ("typed_entity_strong", {**{name: 1.0 for name in FAMILIES}, "ngram": 1.5, "pos_ngram": 1.5, "context_cluster": 1.5, "typed_entity": 1.5}, 0.5, 0.0),
+    ("margin_guard_025", {name: 1.0 for name in FAMILIES}, 0.0, 0.25),
+    ("margin_guard_050", {name: 1.0 for name in FAMILIES}, 0.0, 0.50),
+    ("margin_guard_100", {name: 1.0 for name in FAMILIES}, 0.0, 1.00),
 )
 
 def sha256_file(path: Path) -> str:
@@ -27,9 +30,10 @@ def sha256_file(path: Path) -> str:
             digest.update(chunk)
     return digest.hexdigest()
 
-def write_policy(path: Path, weights: dict[str, float], renderer: float) -> None:
+def write_policy(path: Path, weights: dict[str, float], renderer: float, margin: float) -> None:
     lines = [f"{name}\t{weights[name]:.8g}" for name in FAMILIES]
     lines.append(f"normalization_renderer\t{renderer:.8g}")
+    lines.append(f"minimum_recognition_margin\t{margin:.8g}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 def validate_diagnostic_metrics(metrics: dict) -> None:
@@ -95,9 +99,9 @@ def main() -> int:
     report_path = Path(args.output_report)
     report_path.parent.mkdir(parents=True, exist_ok=True)
     rows = []
-    for index, (name, weights, renderer) in enumerate(PRESETS):
+    for index, (name, weights, renderer, margin) in enumerate(PRESETS):
         candidate = policy_path.with_name(f".{policy_path.name}.{index}.tmp")
-        write_policy(candidate, weights, renderer)
+        write_policy(candidate, weights, renderer, margin)
         command = [args.evaluator, args.pack, args.corpus, "dev", args.train_sequences, str(candidate)]
         try:
             result = subprocess.run(command, check=True, capture_output=True, text=True)
@@ -109,10 +113,15 @@ def main() -> int:
         if metrics.get("surge_core", {}).get("runtime_failures", 0) != 0:
             raise RuntimeError("runtime failures make dev calibration invalid")
         validate_diagnostic_metrics(metrics)
+        surge = metrics.get("surge_core", {})
+        if all(key in surge for key in ("selected_outputs", "fallback_to_decoder_top1", "decode_failures")):
+            if surge["selected_outputs"] + surge["fallback_to_decoder_top1"] + surge["decode_failures"] != metrics["cases"]:
+                raise RuntimeError("selected, fallback, and decode-failure outcomes do not partition all cases")
         peak_rss = metrics.get("peak_rss_kib", -1)
         if peak_rss < 0 or peak_rss > args.max_rss_mib * 1024:
             raise RuntimeError("dev calibration peak RSS is missing or exceeds configured limit")
         rows.append({"name": name, "weights": weights, "normalization_renderer": renderer,
+                     "minimum_recognition_margin": margin,
                      "cer": metrics["surge_core"]["cer"],
                      "sentence_exact": metrics["surge_core"]["sentence_exact"],
                      "overrides": metrics["surge_core"]["overrides"],
@@ -130,7 +139,8 @@ def main() -> int:
                      "token_aligned_candidate_generation": metrics.get("token_aligned_candidate_generation", {})})
     best_index = min(range(len(rows)), key=lambda i: (rows[i]["cer"], -rows[i]["sentence_exact"], i))
     best = rows[best_index]
-    write_policy(policy_path, best["weights"], best["normalization_renderer"])
+    write_policy(policy_path, best["weights"], best["normalization_renderer"],
+                 best["minimum_recognition_margin"])
     report = {"mode": "surge_dev_policy_calibration", "split": "dev",
               "source_lock": str(Path(args.source_lock)),
               "source_lock_sha256": sha256_file(Path(args.source_lock)),

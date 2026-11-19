@@ -26,6 +26,7 @@ struct SurgeRuntimeConfig {
   std::size_t max_candidates_per_decode{64};
   std::map<std::string, double> recognition_family_weights;
   double normalization_renderer_score{1.0};
+  double minimum_recognition_margin{0.0};
   const surge::LanguageAdapter* language_adapter{nullptr};
   surge::SurfaceRenderOptions surface_render_options{};
   bool remove_journal_on_destroy{false};

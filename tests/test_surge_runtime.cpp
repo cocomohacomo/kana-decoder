@@ -343,5 +343,34 @@ int main() {
     assert(calibrated.output == "交渉");
   }
 
+  // A calibrated minimum margin must make low-confidence SURGE decisions defer.
+  const auto margin_journal = (std::filesystem::temp_directory_path() /
+      "kana-decoder-surge-margin-guard-test.journal").string();
+  std::filesystem::remove(margin_journal, ignored);
+  kana_decoder::SurgeRuntimeConfig margin_config;
+  margin_config.journal_path = margin_journal;
+  margin_config.context_id = "minimum-margin-guard-test";
+  margin_config.minimum_recognition_margin = 1000.0;
+  margin_config.remove_journal_on_destroy = true;
+  {
+    kana_decoder::SurgeNormalizationRuntime margin_runtime(margin_config);
+    std::string margin_error;
+    assert(margin_runtime.open(margin_error));
+    kana_decoder::DecodedPath margin_first;
+    kana_decoder::DecodedToken margin_first_token;
+    margin_first_token.start = 0;
+    margin_first_token.end = 5;
+    margin_first_token.candidate.id = "margin-first";
+    margin_first_token.candidate.surface = "交渉";
+    margin_first_token.candidate.morphology.language_tag = "ja-JP";
+    margin_first.tokens.push_back(margin_first_token);
+    kana_decoder::DecodedPath margin_second = margin_first;
+    margin_second.tokens.front().candidate.id = "margin-second";
+    margin_second.tokens.front().candidate.surface = "高尚";
+    const auto guarded = margin_runtime.normalize("こうしょう", {margin_first, margin_second}, true);
+    assert(!guarded.committed);
+    assert(guarded.error.find("SURGE_UNIFIED_DECISION_DEFERRED:") == 0);
+  }
+
   return 0;
 }

@@ -37,7 +37,7 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
                 "exact = 0.1 + 0.05 * policy['pos_ngram']\n"
                 "print(json.dumps({'split':'dev','cases':10,"
                 "'surge_core':{'cer':cer,'sentence_exact':exact,'overrides':2,"
-                "'deferred':1,'runtime_failures':0,'decode_failures':0,'typed_entities_found':3,'typed_entity_evidence_added':2,'selected_typed_entity_evidence':1,'typed_entities_persisted':3},"
+                "'deferred':1,'runtime_failures':0,'decode_failures':0,'fallback_to_decoder_top1':1,'selected_outputs':9,'typed_entities_found':3,'typed_entity_evidence_added':2,'selected_typed_entity_evidence':1,'typed_entities_persisted':3},"
                 "'elapsed_seconds':0.2,'peak_rss_kib':1000,\n"
                 "'candidate_generation':{'mean_paths':4.0,'surface_exact_recall_at_1':0.2,\n"
                 "'surface_exact_recall_at_5':0.4,'surface_exact_recall_at_10':0.5,\n"
@@ -79,7 +79,7 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
             )
             result = json.loads(report.read_text(encoding="utf-8"))
             self.assertEqual(result["split"], "dev")
-            self.assertEqual(len(result["candidates"]), 8)
+            self.assertEqual(len(result["candidates"]), 11)
             self.assertEqual(
                 result["source_lock_sha256"],
                 hashlib.sha256(lock.read_bytes()).hexdigest(),
@@ -97,6 +97,7 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
             self.assertEqual(result["best_policy"]["token_aligned_candidate_generation"]["recall_at_10"], 0.8)
             self.assertEqual(result["best_policy"]["token_aligned_candidate_generation"]["miss_attribution_at_10"]["no_surface_candidate"], 5)
             self.assertIn("normalization_renderer\t", policy.read_text(encoding="utf-8"))
+            self.assertIn("minimum_recognition_margin\t", policy.read_text(encoding="utf-8"))
 
 
     def test_diagnostic_partitions_fail_closed(self):

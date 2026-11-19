@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <ctime>
 #include <iomanip>
 #include <map>
@@ -118,7 +119,10 @@ bool SurgeNormalizationRuntime::open(std::string& error) {
   if (config_.journal_path.empty() || config_.context_id.empty() ||
       config_.context_id.size() > 128 || config_.max_candidates_per_decode == 0 || config_.max_candidates_per_decode > 64 ||
       config_.max_journal_events == 0 || config_.max_journal_transactions == 0 ||
-      config_.max_journal_payload_bytes < 1024 || config_.max_journal_identity_bytes < 1024) {
+      config_.max_journal_payload_bytes < 1024 || config_.max_journal_identity_bytes < 1024 ||
+      !std::isfinite(config_.minimum_recognition_margin) ||
+      config_.minimum_recognition_margin < 0.0 ||
+      config_.minimum_recognition_margin > 1000.0) {
     error = "SURGE_RUNTIME_CONFIG_INVALID";
     return false;
   }
@@ -332,7 +336,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   ::surge::DecisionPolicy recognition_policy;
   recognition_policy.max_candidates = config_.max_candidates_per_decode;
   recognition_policy.max_evidence_per_candidate = 2048;
-  recognition_policy.minimum_margin = 0.0;
+  recognition_policy.minimum_margin = config_.minimum_recognition_margin;
   recognition_policy.family_weights = config_.recognition_family_weights;
   // Bounded cross-cluster retrieval. The adapter reads SURGE's graph directly;
   // it keeps no shadow memory. Scan both ends of the ordered relation index so
