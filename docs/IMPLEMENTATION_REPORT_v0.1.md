@@ -625,3 +625,12 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - C++ evaluatorとCTest期待値を同期し、sidecarなしで144件と報告していた重複評価を除去。
 - 仕様書の旧72構成記述を修正し、sidecar有無による36 / 144構成を明記。
 - 推論スコア、Language Pack、デフォルト設定、Resource Guardは変更していない。精度への影響は実Pack workflowの完了後に判定する。
+
+
+## 55. POS Evidenceの二重prior排除（v0.40.2）
+
+- MorphologyDecoderがPOS scorerの `score()` を使用していたため、POS unigram priorと文脈Evidenceを同時に加点していた。
+- Morphology candidateは辞書コストですでに語彙priorを持つため、POS unigramを加えると頻度priorの二重計上となり、前POSとの関係よりPOS全体頻度を優先する危険がある。
+- POS scoringを `contextual_score()` に変更し、予測済みPOS履歴に対する観測文脈Evidenceだけを反映する。
+- 合成回帰テストではPOS unigramが候補甲を強く支持する一方、直前POS bigramが候補乙を支持する条件を作り、文脈側の候補乙が選ばれることを確認する。
+- この修正は評価用POS scorerを有効にした場合のみ影響する。通常APIの既定値、Language Pack、メモリ上限は変更しない。実Pack CERへの効果はActions評価後に判断する。
