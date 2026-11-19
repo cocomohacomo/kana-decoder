@@ -208,6 +208,7 @@ int main(int argc, char** argv) {
   std::size_t runtime_failures = 0;
   std::size_t exact_top1 = 0, exact_surge = 0, top1_distance = 0, surge_distance = 0;
   std::size_t candidate_exact_at_1 = 0, candidate_exact_at_5 = 0, candidate_exact_at_10 = 0;
+  std::size_t surge_exact_when_candidate_available_at_10 = 0;
   std::size_t candidate_oracle_distance_at_5 = 0, candidate_oracle_distance_at_10 = 0;
   std::size_t candidate_paths_total = 0;
   std::size_t reference_points = 0, overrides = 0, deferred = 0, decode_failures = 0;
@@ -289,7 +290,10 @@ int main(int argc, char** argv) {
     }
     const auto surge_ed = edit_distance(codepoints(normalized.output), codepoints(item.expected));
     surge_distance += surge_ed;
-    if (surge_ed == 0) ++exact_surge;
+    if (surge_ed == 0) {
+      ++exact_surge;
+      if (exact_10) ++surge_exact_when_candidate_available_at_10;
+    }
     if (normalized.output != top1) ++overrides;
   }
   const auto elapsed = std::chrono::duration<double>(
@@ -321,6 +325,7 @@ int main(int argc, char** argv) {
       << ",\"surface_exact_recall_at_1\":" << (cases.empty() ? 0.0 : static_cast<double>(candidate_exact_at_1) / cases.size())
       << ",\"surface_exact_recall_at_5\":" << (cases.empty() ? 0.0 : static_cast<double>(candidate_exact_at_5) / cases.size())
       << ",\"surface_exact_recall_at_10\":" << (cases.empty() ? 0.0 : static_cast<double>(candidate_exact_at_10) / cases.size())
+      << ",\"surge_exact_given_candidate_at_10\":" << (candidate_exact_at_10 ? static_cast<double>(surge_exact_when_candidate_available_at_10) / candidate_exact_at_10 : 0.0)
       << ",\"oracle_cer_at_5\":" << (reference_points ? static_cast<double>(candidate_oracle_distance_at_5) / reference_points : 0.0)
       << ",\"oracle_cer_at_10\":" << (reference_points ? static_cast<double>(candidate_oracle_distance_at_10) / reference_points : 0.0) << "}"
       << ",\"decoder_top1\":{\"cer\":" << cer_top1
