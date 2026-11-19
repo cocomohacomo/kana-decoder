@@ -10,7 +10,9 @@
 #include <iostream>
 #include <map>
 #include <string>
-#if !defined(_WIN32)\n#include <sys/resource.h>\n#endif
+#if !defined(_WIN32)
+#include <sys/resource.h>
+#endif
 #include <vector>
 
 namespace {
@@ -86,10 +88,14 @@ bool load_cases(const std::string& path, const std::string& split,
   }
   return input.eof() && !cases.empty();
 }
+#if defined(_WIN32)
+long peak_rss_kib() { return -1; }
+#else
 long peak_rss_kib() {
   struct rusage usage {};
   return getrusage(RUSAGE_SELF, &usage) == 0 ? usage.ru_maxrss : -1;
 }
+#endif
 }  // namespace
 
 int main(int argc, char** argv) {
