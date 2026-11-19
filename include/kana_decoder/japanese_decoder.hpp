@@ -158,7 +158,7 @@ private:
  std::size_t entry_count_=0;
 };
 
-bool load_language_pack(const std::string& directory,LexiconTrie& lexicon,MaskedNgramScorer& scorer,std::size_t* loaded_entries=nullptr,ConnectionModel* connections=nullptr,CorrectionOptions* corrections=nullptr);
+bool load_language_pack(const std::string& directory,LexiconTrie& lexicon,MaskedNgramScorer& scorer,std::size_t* loaded_entries=nullptr,ConnectionModel* connections=nullptr,CorrectionOptions* corrections=nullptr,std::string* error=nullptr);
 std::vector<DecodedPath> decode_reading(const std::string& reading,
  const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,
  const DecoderOptions& options={},const ConnectionModel* connections=nullptr,
