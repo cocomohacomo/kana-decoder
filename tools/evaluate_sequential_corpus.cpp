@@ -121,16 +121,16 @@ bool load_training_sequences(const std::string& path,
     while (std::getline(input, line)) {
         if (line.empty() || line[0] == '#') continue;
         const auto tokens = split_tabs(line);
-        std::string previous;
-        for (const auto& token : tokens) {
+        for (std::size_t i = 0; i < tokens.size(); ++i) {
+            const auto& token = tokens[i];
             if (token.empty()) continue;
             scorer.add_unigram(token, 1);
-            if (!previous.empty()) scorer.add_left_bigram(previous, token, 1);
-            if (tokens.size() >= 3) {
-                scorer.add_left_ngram({tokens[tokens.size()-2], tokens.back()}, token, 1);
-                scorer.add_left_skipgram(tokens[tokens.size()-2], token, 1);
+            if (i >= 1 && !tokens[i-1].empty())
+                scorer.add_left_bigram(tokens[i-1], token, 1);
+            if (i >= 2 && !tokens[i-2].empty() && !tokens[i-1].empty()) {
+                scorer.add_left_ngram({tokens[i-2], tokens[i-1]}, token, 1);
+                scorer.add_left_skipgram(tokens[i-2], token, 1);
             }
-            previous = token;
         }
     }
     return input.eof();
