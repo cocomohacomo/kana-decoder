@@ -2,7 +2,7 @@
 
 更新日: 2026-11-19
 対象ブランチ: `refactor/surge-core-as-runtime`
-対象仕様: `SPECIFICATION_v0.52.md`
+対象仕様: `SPECIFICATION_v0.53.md`
 
 ## 0. 製品ゴール
 
@@ -26,6 +26,8 @@
 
 ### P0: 直ちに完了させる
 - [ ] 最新PR headのActionsを完了させ、失敗ログを修正する。
+- [x] `SemanticDelta::journal_events` の未対応参照を除去し、NORMALIZATION_PROPOSAL/COMMITを同一SemanticDelta内のEvidence nodeとして永続化する。
+- [ ] 上記修正を含む最新PR headでstatic/shared buildと全テストを再実行する。
 - [ ] static/shared両方のLanguagePackテストをCIで実行する。
 - [ ] C APIでPackロード失敗時にEngine状態が変化しないことを検証する。
 - [ ] Engine破棄後もSessionがPack snapshotを安全に保持することを検証する。
@@ -199,3 +201,11 @@ v0.44のimmutable LanguagePack境界を前提に、次のコード変更はP0の
 - [ ] Run final-head CI and all static/shared/C/Python tests.
 - [ ] Measure inflected-form Candidate Recall@N, held-out CER and sentence exact match using a licensed production dictionary.
 - [ ] Add auxiliary/particle/contraction chains and measure their recall and streaming stability.
+
+
+## 14. v0.53 SURGE output persistence compatibility
+
+- [x] Remove the unsupported `SemanticDelta::journal_events` member access that blocked static/shared compilation.
+- [x] Persist normalization proposal/commit as typed Evidence nodes in the same SemanticDelta transaction as Claims/Evidence.
+- [x] Attach output Evidence to a deterministic `NORMALIZATION_OUTPUT` cluster.
+- [ ] Verify build, test, journal recovery and idempotent replay on the final PR head.
