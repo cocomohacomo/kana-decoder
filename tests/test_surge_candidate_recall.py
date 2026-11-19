@@ -62,7 +62,7 @@ def main():
     assert token_result.returncode == 0, token_result.stderr
     token_payload = json.loads(token_result.stdout)
     token_metrics = token_payload["token_aligned_candidate_generation"]
-    assert token_metrics["gold_tokens"] == 4, token_metrics
+    assert token_metrics["gold_tokens"] == 6, token_metrics
     token_recall1 = token_metrics["recall_at_1"]
     token_recall5 = token_metrics["recall_at_5"]
     token_recall10 = token_metrics["recall_at_10"]
