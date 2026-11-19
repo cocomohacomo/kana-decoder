@@ -186,6 +186,10 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
       record.dependency_id = prefix + "/dependency/" + suffix;
 
       const auto token_reading = codepoint_slice(reading, token.start, token.end);
+      if (token_reading.empty()) {
+        result.error = "SURGE_CANDIDATE_SPAN_OUT_OF_RANGE";
+        return result;
+      }
       kana_decoder::surge::ParsedNumber parsed;
       if (kana_decoder::surge::parse_japanese_number(token_reading, parsed)) {
         kana_decoder::surge::Entity numeric;
@@ -197,10 +201,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
         numeric.valid = true;
         if (kana_decoder::surge::render_entity(numeric,
               kana_decoder::surge::NumericStyle::GroupedArabic, record.normalized_surface)) {
-          entity.content = "numeric_entity;raw=" + token_reading +
-              ";normalized=" + record.normalized_surface +
-              ";mantissa=" + std::to_string(parsed.mantissa) +
-              ";decimal_places=" + std::to_string(parsed.decimal_places);
+          // The typed Entity is serialized into the Core Entity node below.
         }
       }
       candidates.emplace(key, std::move(record));
