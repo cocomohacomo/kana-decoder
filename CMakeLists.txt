@@ -132,6 +132,9 @@ add_test(NAME surge_core_real_data_eval_smoke COMMAND kana_decoder_surge_eval
   ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/ja-smoke-gold.tsv general
   ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/empty-train-sequences.tsv
   ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/surge-decision-policy.tsv)
+if(Python3_Interpreter_FOUND)
+ add_test(NAME surge_candidate_recall_metrics COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_surge_candidate_recall.py $<TARGET_FILE:kana_decoder_surge_eval> ${CMAKE_CURRENT_SOURCE_DIR}/packs/ja-lite ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/ja-smoke-gold.tsv ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/empty-train-sequences.tsv ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/surge-decision-policy.tsv)
+endif()
 
 add_executable(kana_decoder_surge_bench tools/bench_surge_runtime.cpp)
 target_link_libraries(kana_decoder_surge_bench PRIVATE kana_decoder_core)
