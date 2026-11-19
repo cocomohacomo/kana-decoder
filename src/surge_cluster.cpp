@@ -26,8 +26,9 @@ bool parse_u32(const std::string& text,std::uint32_t& value) {
  std::uint64_t parsed=0;
  for(char ch:text) {
   if(ch<'0'||ch>'9') return false;
-  parsed=parsed*10U+static_cast<unsigned>(ch-'0');
-  if(parsed>std::numeric_limits<std::uint32_t>::max()) return false;
+  const auto digit=static_cast<unsigned>(ch-'0');
+  if(parsed>(std::numeric_limits<std::uint32_t>::max()-digit)/10U) return false;
+  parsed=parsed*10U+digit;
  }
  value=static_cast<std::uint32_t>(parsed);
  return true;
@@ -99,6 +100,7 @@ bool SurgeClusterModel::load_tsv(const std::string& path) {
     !parse_u32(metadata["window"],window)||window!=2||
     !parse_u32(metadata["max_history"],history)||history!=2||
     clusters.size()!=cluster_count) return false;
+ for(const auto cluster:clusters) if(cluster>=cluster_count) return false;
  char* end=nullptr;
  const double threshold=std::strtod(metadata["gap_threshold"].c_str(),&end);
  if(end==metadata["gap_threshold"].c_str()||*end!='\0'||!std::isfinite(threshold)||
