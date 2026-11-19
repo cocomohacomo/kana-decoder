@@ -189,5 +189,32 @@ int main() {
  std::vector<CandidateScoreTrace> bounded_trace;
  auto bounded=decode_reading("あめ",lexicon,scorer,limited,nullptr,&bounded_trace);
  assert(!bounded.empty()&&bounded_trace.size()<=1);
+ // Direct caller-supplied lattices receive the same span diversity policy.
+ std::vector<LatticeEdge> direct_span_lattice;
+ for(std::size_t end=1;end<=20;++end){
+  LatticeEdge edge;edge.start=0;edge.end=end;
+  edge.candidates.push_back({"direct-span-"+std::to_string(end),"候補"+std::to_string(end),-100,0,1,1});
+  direct_span_lattice.push_back(std::move(edge));
+ }
+ std::vector<CandidateScoreTrace> direct_span_trace;
+ auto direct_span_paths=direct_decoder.decode(20,direct_span_lattice,scorer,{},DecoderOptions{},nullptr,&direct_span_trace,&exceeded);
+ assert(!exceeded&&!direct_span_paths.empty());
+ bool direct_longest_retained=false;
+ for(const auto& item:direct_span_trace)if(item.start==0&&item.end==20&&item.candidate_id=="direct-span-20")direct_longest_retained=true;
+ assert(direct_longest_retained);
+
+ // Caller-supplied lattices also preserve distinct surfaces under the
+ // per-edge candidate cap, rather than letting duplicate surfaces crowd them out.
+ LatticeEdge direct_diverse_edge;direct_diverse_edge.start=0;direct_diverse_edge.end=1;
+ direct_diverse_edge.candidates.push_back({"direct-dup-0","重複",-1000,0,1,1});
+ direct_diverse_edge.candidates.push_back({"direct-dup-1","重複",-900,0,1,1});
+ for(int i=0;i<8;++i)direct_diverse_edge.candidates.push_back(
+  {"direct-surface-"+std::to_string(i),"異表層"+std::to_string(i),-800+i,0,1,1});
+ std::vector<LatticeEdge> direct_diverse_lattice{direct_diverse_edge};
+ auto direct_diverse_paths=direct_decoder.decode(1,direct_diverse_lattice,scorer);
+ assert(direct_diverse_paths.size()==8);
+ std::vector<std::string> direct_surfaces;
+ for(const auto& path:direct_diverse_paths)if(std::find(direct_surfaces.begin(),direct_surfaces.end(),path.text)==direct_surfaces.end())direct_surfaces.push_back(path.text);
+ assert(direct_surfaces.size()==8);
  std::cout << "decoder trace and resource budget tests passed\n";
 }
