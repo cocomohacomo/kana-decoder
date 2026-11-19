@@ -21,6 +21,12 @@ int main() {
   assert(!paths.empty());
   assert(!paths.front().tokens.empty());
 
+  kana_decoder::StreamingSession streaming;
+  kana_decoder::StreamingSnapshot snapshot;
+  assert(pack->append(streaming, "あ", snapshot));
+  assert(snapshot.reading == "あ");
+  assert(!snapshot.paths.empty());
+
   kana_decoder::surge::Entity numeric;
   assert(pack->adapter().make_numeric_entity(
       "さんじゅうに", "test-number", kana_decoder::surge::NumericEntityTarget::Number,
