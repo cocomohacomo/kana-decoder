@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <memory>
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -19,7 +20,11 @@ int main() {
   std::string error;
   const auto pack = kana_decoder::load_language_pack_snapshot(
       KANA_DECODER_PACK_DIR, &error);
-  assert(pack && error.empty());
+  if (!pack) {
+    std::cerr << "Language Pack load failed: " << error << '\\n';
+    return 1;
+  }
+  assert(error.empty());
   assert(pack->identity().pack_id == "ja-lite-reference");
   assert(pack->identity().language_tag == "ja-JP");
   assert(pack->identity().version == "0.1.0");
