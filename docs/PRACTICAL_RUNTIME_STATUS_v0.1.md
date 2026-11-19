@@ -13,7 +13,7 @@ The product is a kana-to-Japanese-text decoder. It accepts pure kana and emits a
 - Added provider-neutral `LanguageDecodeOptions` for path count, beam width and bounded input/lattice/search budgets.
 - Changed the Japanese Language Pack provider to translate the neutral execution policy into its private Japanese decoder options.
 - Removed the former `DecoderOptions` overload from the Language Pack contract; the C API and conformance tests now use `LanguageDecodeOptions`.
-- Expanded Language Pack conformance coverage for path limits, input limits, invalid UTF-8, legacy forwarding, deterministic decoding and streaming transactional behavior.
+- Expanded Language Pack conformance coverage for path limits, input limits, invalid UTF-8, deterministic decoding and streaming transactional behavior.
 - Added specification v0.49.
 - Added explicit `japanese_decoder.hpp` and `japanese_language.hpp`; removed Japanese decoder policy, lexicon, lattice, scorer, morphology, correction and diagnostic declarations from generic `engine.hpp`.
 - Made `LanguageAdapter` provider-neutral by using generic `Candidate` plus explicit score; Japanese adapter declarations now live in the Japanese Language Set header.
@@ -53,6 +53,6 @@ The product is a kana-to-Japanese-text decoder. It accepts pure kana and emits a
 
 ## Verification status
 
-The v0.51 source and test changes are committed to the development branch. Latest Actions run #969 is queued; CI for this head, full golden-corpus parity, held-out quality, target-PC latency and Peak RSS have not yet been verified. Therefore this status does not mark practical operation as complete.
+The v0.51 source and test changes are committed to the development branch. Latest relevant Actions run #970 is queued. The final renderer span-coverage guard and explicit renderer integration-test score were committed after that run was queued, so the current PR head still requires a fresh successful CI run. Golden-corpus parity, held-out quality, target-PC latency and Peak RSS have not yet been verified. Therefore this status does not mark practical operation as complete.
 
 The separate SURGE repository and its development branches are not modified by this work.
