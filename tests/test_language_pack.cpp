@@ -21,7 +21,7 @@ int main() {
   const auto pack = kana_decoder::load_language_pack_snapshot(
       KANA_DECODER_PACK_DIR, &error);
   if (!pack) {
-    std::cerr << "Language Pack load failed: " << error << '\\n';
+    std::cerr << "Language Pack load failed: " << error << '\n';
     return 1;
   }
   assert(error.empty());
