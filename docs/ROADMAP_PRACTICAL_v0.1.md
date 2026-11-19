@@ -2,7 +2,7 @@
 
 更新日: 2026-11-19
 対象ブランチ: `refactor/surge-core-as-runtime`
-対象仕様: `SPECIFICATION_v0.51.md`
+対象仕様: `SPECIFICATION_v0.52.md`
 
 ## 0. 製品ゴール
 
@@ -60,6 +60,9 @@
 - [ ] 矛盾からQuestionが生成され、関連ClusterへFocusが移るケースを追加する。
 - [ ] Claim/Evidenceの有効期間切れ、依存先更新、再評価を検証する。
 - [ ] Rendererは表層候補と由来Claimを返し、意味を変えるレンダリングは拒否する。
+- [x] Sudachi V1 POS5/POS6を活用型/活用形として保持し、`*` sentinelを空値へ正規化。
+- [x] 辞書に収録された `回っ` / `食べて` の活用表層・送り仮名を、decodeからRendererまで変更せず保持する回帰テストを追加。
+- [ ] 活用形・音便・助動詞連鎖の候補Recallを実辞書とheld-out corpusで計測する。
 - [ ] 数字・日付・時刻・単位・通貨・記号・句読点の日本語規則をgolden test化する。
 
 ## 3. 品質・性能ゲート
@@ -184,3 +187,15 @@ v0.44のimmutable LanguagePack境界を前提に、次のコード変更はP0の
 - [ ] CI run #970 or a newer run for the final PR head, including static/shared/Python integration.
 - [ ] Complete inflection/okurigana and date/time/unit/currency extraction.
 - [ ] Production dictionary, held-out accuracy and target-PC resource qualification.
+
+
+## 13. v0.52 dictionary-backed inflection and okurigana
+
+- [x] Preserve Sudachi V1 POS5 as conjugation type and POS6 as conjugation form.
+- [x] Support explicit conjugation/inflection header aliases for compatible CSV sources.
+- [x] Normalize `*` conjugation metadata sentinels to empty values.
+- [x] Add dictionary-backed `回っ` and `食べて` decode/render regression cases; preserve exact dictionary surface and okurigana.
+- [x] Keep renderer non-generative: do not guess inflection from a lemma or alter the selected surface.
+- [ ] Run final-head CI and all static/shared/C/Python tests.
+- [ ] Measure inflected-form Candidate Recall@N, held-out CER and sentence exact match using a licensed production dictionary.
+- [ ] Add auxiliary/particle/contraction chains and measure their recall and streaming stability.
