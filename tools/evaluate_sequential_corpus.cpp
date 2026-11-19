@@ -245,7 +245,7 @@ void print_calibration_metrics(const char* name, const Metrics& m) {
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 4 && argc != 6) {
+    if (argc != 4 && argc != 6 && argc != 7) {
         std::cerr << "usage: kana_decoder_sequential_eval PACK_DIR TRAIN_SEQUENCES.tsv TOKENIZED.tsv [dev-calibrate CALIBRATION.tsv | test CALIBRATION.tsv]\n";
         return 2;
     }
@@ -275,6 +275,12 @@ int main(int argc, char** argv) {
     Metrics morphology, causal;
     evaluate(sentences, lexicon, morphology_scorer, connections, morphology);
     evaluate(sentences, lexicon, trained_scorer, connections, causal);
+    kana_decoder::SurgeClusterModel cluster_model;
+    const bool cluster_enabled = argc == 7;
+    if (cluster_enabled && !cluster_model.load_tsv(argv[6])) {
+        std::cerr << "failed to load SURGE cluster model\n";
+        return 2;
+    }
 
     if (mode == "dev-calibrate") {
         const double weights[] = {0.25, 0.5, 1.0, 2.0};
@@ -343,6 +349,17 @@ int main(int argc, char** argv) {
     surge_options.surge_context_margin = selected_margin;
     Metrics surge;
     evaluate(sentences, lexicon, trained_scorer, connections, surge, surge_options);
+    Metrics cluster, combined;
+    if (cluster_enabled) {
+        kana_decoder::DecoderOptions cluster_options;
+        cluster_options.surge_cluster_model = &cluster_model;
+        cluster_options.context_weight = 0.0;
+        evaluate(sentences, lexicon, trained_scorer, connections, cluster, cluster_options);
+        kana_decoder::DecoderOptions combined_options;
+        combined_options.surge_cluster_model = &cluster_model;
+        combined_options.context_weight = 1.0;
+        evaluate(sentences, lexicon, trained_scorer, connections, combined, combined_options);
+    }
     std::cout << "{\"mode\":\"end_to_end_sentence_reading_with_predicted_left_history\""
               << ",\"split\":\"test\""
               << ",\"gold_token_boundaries_used_for_decoding\":false"
@@ -356,6 +373,13 @@ int main(int argc, char** argv) {
     print_metrics("morphology_only", morphology);
     print_metrics("trained_unigram_left_context", causal);
     print_metrics("surge_evidence_gated_left_context", surge);
+    if (cluster_enabled) {
+        std::cout << ",\"surge_cluster_model\":{\"memberships\":" << cluster_model.membership_count()
+                  << ",\"evidence_records\":" << cluster_model.evidence_count()
+                  << ",\"gap_threshold\":" << cluster_model.gap_threshold() << "}";
+        print_metrics("surge_cluster", cluster);
+        print_metrics("ngram_plus_surge_cluster", combined);
+    }
     std::cout << "}\n";
     return 0;
 }
