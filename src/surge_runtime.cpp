@@ -368,32 +368,11 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   delta.delta_id = prefix + "/semantic-delta";
   delta.idempotency_key = prefix + "/semantic-idempotency";
   delta.expected_state_version = journal_->state_version();
-  std::set<std::string> created_interpretation_clusters;
-  std::set<std::string> created_surface_clusters;
-
   for (auto& item : candidates) {
     auto& record = item.second;
     const auto token_reading = codepoint_slice(reading, record.start, record.end);
     const std::string span_key = std::to_string(record.start) + ":" +
                                  std::to_string(record.end);
-    const std::string span_id = id_component(source_digest + ":" + span_key);
-    const std::string interpretation_cluster = context_cluster_id_ +
-        "/interpretation/" + span_id;
-    const std::string surface_cluster = context_cluster_id_ + "/surface/" + span_id;
-    if (created_interpretation_clusters.insert(interpretation_cluster).second) {
-      delta.nodes.push_back({{interpretation_cluster, ::surge::NodeKind::Cluster,
-          "CLASS=LEXICAL_INTERPRETATION;span=" + span_key +
-          ";source_digest=" + source_digest, {}}});
-      delta.relations.push_back({{prefix + "/contains-interpretation/" + span_id,
-          ::surge::RelationKind::Contains, context_cluster_id_, interpretation_cluster}});
-    }
-    if (created_surface_clusters.insert(surface_cluster).second) {
-      delta.nodes.push_back({{surface_cluster, ::surge::NodeKind::Cluster,
-          "CLASS=SURFACE_REALIZATION;span=" + span_key +
-          ";source_digest=" + source_digest, {}}});
-      delta.relations.push_back({{prefix + "/contains-surface/" + span_id,
-          ::surge::RelationKind::Contains, context_cluster_id_, surface_cluster}});
-    }
     const auto& token = [&]() -> const DecodedToken& {
       for (const auto& path : paths)
         for (const auto& candidate : path.tokens)
@@ -459,17 +438,28 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
             ";inflection=" + token.candidate.inflection_type + "/" +
             token.candidate.inflection_form + "]",
         record.evidence_ids}});
-    delta.relations.push_back({{prefix + "/interpretation-member/" +
-        id_component(record.claim_id), ::surge::RelationKind::Contains,
-        interpretation_cluster, record.claim_id}});
+    std::string interpretation_cluster;
+    std::string cluster_error;
+    if (!graph_->append_cluster_membership(delta, context_cluster_id_,
+          "LEXICAL_INTERPRETATION", source_digest + ":" + span_key,
+          record.claim_id, prefix + "/interpretation-cluster",
+          interpretation_cluster, cluster_error)) {
+      result.error = "SURGE_INTERPRETATION_CLUSTER_CLASSIFICATION_FAILED:" + cluster_error;
+      return result;
+    }
 
     const std::string original_surface_id = record.claim_id + "/surface/original";
     delta.nodes.push_back({{original_surface_id, ::surge::NodeKind::Entity,
         "CLASS=SOURCE_SURFACE;surface=" + token.candidate.surface +
         ";reading=" + token_reading + ";source_digest=" + source_digest, {record.claim_id}}});
-    delta.relations.push_back({{prefix + "/surface-original-member/" +
-        id_component(record.claim_id), ::surge::RelationKind::Contains,
-        surface_cluster, original_surface_id}});
+    std::string surface_cluster;
+    if (!graph_->append_cluster_membership(delta, context_cluster_id_,
+          "SURFACE_REALIZATION", source_digest + ":" + span_key,
+          original_surface_id, prefix + "/surface-cluster",
+          surface_cluster, cluster_error)) {
+      result.error = "SURGE_SURFACE_CLUSTER_CLASSIFICATION_FAILED:" + cluster_error;
+      return result;
+    }
     if (!record.normalized_surface.empty() &&
         record.normalized_surface != token.candidate.surface) {
       const std::string rendered_surface_id = record.claim_id + "/surface/rendered";
@@ -477,9 +467,14 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
           "CLASS=LANGUAGE_RENDERED_SURFACE;surface=" + record.normalized_surface +
           ";source_surface=" + token.candidate.surface +
           ";source_digest=" + source_digest, {record.claim_id}}});
-      delta.relations.push_back({{prefix + "/surface-rendered-member/" +
-          id_component(record.claim_id), ::surge::RelationKind::Contains,
-          surface_cluster, rendered_surface_id}});
+      std::string rendered_cluster;
+      if (!graph_->append_cluster_membership(delta, context_cluster_id_,
+            "SURFACE_REALIZATION", source_digest + ":" + span_key,
+            rendered_surface_id, prefix + "/rendered-surface-cluster",
+            rendered_cluster, cluster_error) || rendered_cluster != surface_cluster) {
+        result.error = "SURGE_RENDERED_SURFACE_CLUSTER_CLASSIFICATION_FAILED:" + cluster_error;
+        return result;
+      }
     }
     if (!best_claims.empty() && item.first == best_claims.front()) {
       delta.nodes.push_back({{record.dependency_id, ::surge::NodeKind::Dependency,
