@@ -386,3 +386,14 @@ The test fixture is independent of the shipped Japanese dictionary, so it locks 
 Remaining architecture work: common host headers still expose Japanese implementation types and the generic streaming session API still needs a provider-neutral boundary. This v0.47 change adds conformance coverage only; no recognition weights, ranking, candidate generation policy, or output rendering policy were intentionally changed.
 
 CI for this new target is pending. Golden-corpus parity and CPU/RSS/latency measurements are also pending.
+
+
+## 18. Provider-neutral streaming state (v0.48)
+
+The generic `StreamingSession` no longer accepts Japanese trie/scorer/connection resources. Its new `append_decoded` entry point accepts the already-decoded paths from a Language Pack. The Japanese provider now decodes the accumulated reading and submits those paths to the generic session.
+
+The session itself owns only reading/revision/commit state and enforces both its own codepoint ceiling and the configured per-decode input ceiling. A rejected chunk is transactional: the accepted reading, snapshot and revision remain unchanged. The Language Pack remains the only owner of language-specific decode behavior.
+
+A regression was added to `tests/test_language_pack.cpp` for over-limit append rejection. The public generic `engine.hpp` still exposes Japanese lattice/trie/morphology/resource declarations; those are explicitly not considered migrated yet.
+
+CI for the combined v0.47/v0.48 changes is pending. No output parity, accuracy, latency or RSS improvement is claimed.
