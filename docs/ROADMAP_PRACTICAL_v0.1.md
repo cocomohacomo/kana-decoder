@@ -2,7 +2,7 @@
 
 更新日: 2026-11-19
 対象ブランチ: `refactor/surge-core-as-runtime`
-対象仕様: `SPECIFICATION_v0.58.md`
+対象仕様: `SPECIFICATION_v0.64.md`
 
 ## 0. 製品ゴール
 
@@ -324,3 +324,20 @@ Candidate Recall@N here is sentence-level exact surface coverage over the raw co
 - [x] Document that POS-specific attribution is not yet supported because the current gold corpus does not contain trusted POS tags.
 - [ ] Run latest-head CI and inspect attribution on the pinned Sudachi Small + UD Japanese-GSD development corpus.
 - [ ] Prioritize lexicon, segmentation, inflection metadata or SURGE selection only after real-data class distribution is available.
+
+
+## 23. v0.64 pinned real-corpus SURGE runtime evaluation
+
+- [x] Extend the pinned Sudachi Small workflow to build the current `kana_decoder_surge_eval` target.
+- [x] Generate a combined source-lock artifact containing the Sudachi dictionary lock, UD Japanese-GSD lock, upstream corpus manifest and document-disjoint split manifest.
+- [x] Calibrate the eight SURGE evidence-policy presets on dev only using the current SURGE Runtime evaluator and train-only token sequences.
+- [x] Apply the selected dev policy once to the frozen test split; do not feed test metrics back into calibration.
+- [x] Preserve sentence-level Candidate Recall, oracle CER, token-aligned Recall, token miss attribution, candidate error partitions, typed-entity evidence counters, elapsed time and Peak RSS in machine-readable reports.
+- [x] Enforce the 1,792 MiB peak-RSS ceiling for every dev calibration subprocess and the held-out test evaluator.
+- [x] Upload aggregate evaluation reports and provenance only; do not upload raw corpus or sentence traces.
+- [ ] Complete latest-head C++/Python CI after the calibration-fixture JSON syntax correction.
+- [ ] Complete the new pinned real-corpus SURGE Runtime workflow on this branch.
+- [ ] Inspect dev token-miss class distributions and select the next optimization target without consulting test results.
+- [ ] Publish held-out CER, sentence exact, candidate recall, miss attribution and resource metrics only after the new workflow succeeds. Hosted CI measurements are not target-PC performance claims.
+
+The previous successful Sudachi workflow on commit `84ef743` evaluated the legacy sequential/cluster path. Its metrics remain a separate historical baseline and are not presented as v0.64 SURGE Runtime results.
