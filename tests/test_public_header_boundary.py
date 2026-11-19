@@ -13,6 +13,12 @@ def main() -> int:
     pack = (root / "include/kana_decoder/language_pack.hpp").read_text(encoding="utf-8")
     adapter = (root / "include/kana_decoder/surge_language.hpp").read_text(encoding="utf-8")
 
+    if "struct MorphologyDescriptor" not in generic:
+        raise SystemExit("Generic Candidate is missing provider-neutral MorphologyDescriptor")
+    for legacy_field in ("inflection_type", "inflection_form", "std::string pos"):
+        if legacy_field in generic:
+            raise SystemExit(f"Japanese-specific Candidate field leaked into engine.hpp: {legacy_field}")
+
     japanese_symbols = (
         "MaskedNgramScorer", "CorrectionOptions", "LatticeCandidate",
         "ConnectionModel", "LatticeEdge", "SurgeClusterModel",
