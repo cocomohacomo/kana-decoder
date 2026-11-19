@@ -73,5 +73,5 @@
 - v0.36: C++ sidecar loader/scorerを追加し、SURGE Cluster単独・N-gram併用の全文評価を実装。既定無効・Pack非同梱の実験機能。
 - v0.37-v0.38: SURGE経験記憶へword Unigram / Bigram / Trigram / 4-gram / Skip-Bigramを統合し、Beamごとの履歴を最大3候補へ拡張。
 - v0.39: POS N-gramを別Evidenceとして統合。POS索引は評価時のみ明示構築し、通常の辞書ロードでは追加メモリを使わない。
-- v0.41: [SURGE正文化基盤](docs/SPECIFICATION_v0.41.md)。固定容量Hypothesis / CandidateSet / SemanticFrame / SyntaxRelation / OrthographicHypothesis / Entity / Constraint / Decision / Revision / CommitSpanを追加。数値・日付・時刻・単位・通貨・範囲の型付き表記生成と句読点ポリシーを実装。既存Decoder既定動作とPack互換性は維持。
+- v0.41: [SURGE正文化基盤](docs/SPECIFICATION_v0.41.md)。固定容量Hypothesis / CandidateSet / SemanticFrame / SyntaxRelation / OrthographicHypothesis / Entity / Constraint / Decision / Revision / CommitSpanを追加。Evidenceの出所・信頼度・有効期間・依存関係と重複抑制集約、最大8経路の任意N-best再ランキング、日本語数詞の整数/小数解析、数値・日付・時刻・単位・通貨・範囲の型付き表記生成、句読点ポリシーを実装。既存Decoder既定動作とPack互換性は維持。
 - v0.40: [統合校正仕様](docs/SPECIFICATION_v0.40.md)。Word/POS N-gramとSURGE Clusterを同じdev splitで144構成校正し、最良方式をtestで凍結評価。
