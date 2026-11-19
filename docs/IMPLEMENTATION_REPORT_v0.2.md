@@ -93,6 +93,36 @@
 - [x] top-1覆しの回帰テストを追加
 - [x] 実データ評価CLIを追加
 - [ ] CIの最新headでビルド・テスト成功を確認
-- [ ] 大規模実データコーパスで比較評価を実行
+- [ ] 大規模実データコーパスで比較評価を実行（UD Japanese-GSD workflowへ接続済み、実行結果待ち）
 - [ ] 性能・メモリ・精度ゲートを確定
 - [ ] Language Set完全移管と2言語交換試験
+
+
+## 7. UD Japanese-GSD 実データパイプラインへの接続
+
+既存の `.github/workflows/sudachi-pack.yml` が固定コミット
+`c662dc96ed5ee5ac0fc8b5e44261557e431f50e6` の
+UniversalDependencies/UD_Japanese-GSDを取得し、Sudachi Small辞書に含まれる連続区間を
+train/dev/testへ分割して整形する。今回このworkflowに以下を追加した。
+
+- `kana_decoder_surge_eval` をビルド対象に追加。
+- train splitから生成された `train_sequences.tsv` を評価器へ渡す。
+- test splitのみをSURGE評価に使用し、学習データと評価データを分離。
+- SURGE評価器のPeak RSSも既存の1,792 MiBゲートで検査。
+- SURGE評価JSONと `/usr/bin/time -v` ログをCI出力へ表示。
+
+実データ評価コマンド:
+
+```bash
+./build/kana_decoder_surge_eval \
+  /path/to/ja-jp-sudachi-small \
+  /path/to/tokenized.tsv \
+  test \
+  /path/to/train_sequences.tsv
+```
+
+評価器は学習列からword unigram、left bigram、left trigram、skipgramとPOS系列を構築する。
+評価時はtest splitのreadingだけをデコーダーへ渡し、SURGE Coreの認識・正規化決定後の出力をgold surfaceと比較する。
+元データの再配布は行わず、従来workflowと同じ取得・ライセンス管理を維持する。
+
+このworkflowの変更はPRブランチに追加済みだが、mainへのマージやworkflow_dispatchは実行していない。
