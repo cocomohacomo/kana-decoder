@@ -54,7 +54,8 @@ New conformance cases cover:
 - A lower-ranked decoder path being selected through typed-entity pre-decision evidence.
 - Entity persistence and evidence metrics.
 
-CI must pass static/shared build, CTest, bounded microbenchmarks, Japanese reference Pack verification and Python policy tests before this version is considered verified.
+- CI #1064 passed on the implementation head: static/shared build, all 29 CTest cases, bounded decode and SURGE runtime microbenchmarks, Japanese reference Pack verification, policy calibrator syntax check and Python Pack/license policy tests.
+- The new integration test verifies two partial entities (Date and Time), two pre-decision evidence observations, selected-path evidence, sentence rendering and persistence. Adapter tests also cover partial Range rendering and false-positive guards for numeric readings such as `さんじゅうに` and `さんじゅっぷん`.
 
 No held-out CER, Candidate Recall@N, streaming commit accuracy, target-PC latency or Peak RSS improvement is claimed without dedicated measurements. Entity extraction currently covers Date, Time and Range, not arbitrary unit/currency spans or relative dates.
 
