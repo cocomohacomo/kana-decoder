@@ -274,7 +274,7 @@ int main(int argc, char** argv) {
     for (const auto& item : calibrated_policy.recognition_family_weights) {
       if (!first) std::cout << ",";
       first = false;
-      std::cout << "\\"" << item.first << "\\":" << item.second;
+      std::cout << "\"" << item.first << "\":" << item.second;
     }
   }
   std::cout << "}}"
