@@ -485,6 +485,81 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     }
     output.swap(rendered_output);
   }
+  std::size_t structured_entity_count = 0;
+  std::size_t structured_entity_evidence_count = 0;
+  if (config_.language_adapter) {
+    struct StructuredTarget {
+      ::kana_decoder::surge::EntityTarget target;
+      const char* label;
+    };
+    const StructuredTarget structured_targets[] = {
+      {::kana_decoder::surge::EntityTarget::Date, "DATE"},
+      {::kana_decoder::surge::EntityTarget::Time, "TIME"},
+      {::kana_decoder::surge::EntityTarget::Range, "RANGE"}
+    };
+    for (const auto& target : structured_targets) {
+      const std::string entity_id = prefix + "/structured-entity/" + target.label;
+      ::kana_decoder::surge::Entity entity;
+      if (!config_.language_adapter->make_entity(
+              reading, entity_id, target.target, {}, entity)) continue;
+
+      const std::string evidence_id = entity_id + "/evidence";
+      std::ostringstream entity_content;
+      entity_content << "TYPE=" << target.label
+                     << ";reading=" << entity.raw.str()
+                     << ";value=" << entity.value
+                     << ";secondary=" << entity.secondary
+                     << ";tertiary=" << entity.tertiary
+                     << ";decimal_places=" << static_cast<unsigned>(entity.decimal_places)
+                     << ";unit=" << entity.unit.str();
+      delta.nodes.push_back({{entity_id, ::surge::NodeKind::Entity,
+          entity_content.str(), {}}});
+      delta.nodes.push_back({{evidence_id, ::surge::NodeKind::Evidence,
+          "TYPE=LANGUAGE_ENTITY;entity_id=" + entity_id +
+          ";target=" + target.label + ";reading=" + reading +
+          ";source_digest=" + source_digest, {}}});
+
+      ::surge::EvidenceValidity entity_validity;
+      entity_validity.evidence_id = evidence_id;
+      entity_validity.valid_from = timestamp;
+      entity_validity.basis_evidence_id = evidence_id;
+      entity_validity.revision = 1;
+      delta.evidence_validity_updates.push_back(entity_validity);
+
+      for (const auto& claim_key : best_claims) {
+        const auto& claim_id = candidates.at(claim_key).claim_id;
+        delta.relations.push_back({{prefix + "/structured-entity-support/" +
+            id_component(evidence_id + claim_id),
+            ::surge::RelationKind::Supports, evidence_id, claim_id}});
+        delta.relations.push_back({{prefix + "/structured-entity-about/" +
+            id_component(claim_id + entity_id),
+            ::surge::RelationKind::About, claim_id, entity_id}});
+      }
+
+      std::string entity_cluster;
+      std::string cluster_error;
+      const auto partition_key = source_digest + ":" + target.label;
+      if (!graph_->append_cluster_membership(delta, context_cluster_id_,
+            "NORMALIZATION_ENTITY", partition_key, entity_id,
+            prefix + "/structured-entity-cluster/" + target.label,
+            entity_cluster, cluster_error)) {
+        result.error = "SURGE_STRUCTURED_ENTITY_CLUSTER_FAILED:" + cluster_error;
+        return result;
+      }
+      std::string evidence_cluster;
+      if (!graph_->append_cluster_membership(delta, context_cluster_id_,
+            "NORMALIZATION_ENTITY", partition_key, evidence_id,
+            prefix + "/structured-entity-evidence-cluster/" + target.label,
+            evidence_cluster, cluster_error) || evidence_cluster != entity_cluster) {
+        result.error = "SURGE_STRUCTURED_ENTITY_EVIDENCE_CLUSTER_FAILED:" + cluster_error;
+        return result;
+      }
+      ++structured_entity_count;
+      ++structured_entity_evidence_count;
+      break;
+    }
+  }
+
   std::ostringstream commit_payload;
   commit_payload << "context=" << config_.context_id
                  << ";sequence=" << current_sequence
@@ -707,9 +782,9 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     return result;
   }
   result.metrics.claims = candidates.size();
-  result.metrics.evidence = 0;
+  result.metrics.evidence = structured_entity_evidence_count;
   for (const auto& item : candidates) result.metrics.evidence += item.second.evidence_ids.size();
-  result.metrics.entities = candidates.size();
+  result.metrics.entities = candidates.size() + structured_entity_count;
   result.metrics.clusters = 0;
   for (const auto& node : graph_->nodes())
     if (node.second.kind == ::surge::NodeKind::Cluster) ++result.metrics.clusters;
