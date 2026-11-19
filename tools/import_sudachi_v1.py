@@ -18,6 +18,8 @@ ALIASES = {
     "leftid": "left_id", "rightid": "right_id", "cost": "cost",
     "pos1": "pos1", "pos2": "pos2", "pos3": "pos3",
     "pos4": "pos4", "pos5": "pos5", "pos6": "pos6",
+    "conjugationtype": "inflection_type", "inflectiontype": "inflection_type",
+    "conjugationform": "inflection_form", "inflectionform": "inflection_form",
     "readingform": "reading_form", "normalizedform": "normalized_form",
     "dictionaryform": "dictionary_form", "mode": "mode",
     "splita": "split_a", "splitb": "split_b", "wordstructure": "word_structure",
@@ -128,9 +130,24 @@ def import_lexicon(source, output):
                         ident = "sudachi_" + hashlib.sha256(
                             "\x1f".join(fields + [str(left), str(right), str(cost)]).encode()
                         ).hexdigest()[:20]
+                        # POS5/POS6 are part-of-speech subcategories in
+                        # Sudachi V1, not conjugation metadata. A few legacy
+                        # 18-column fixtures mislabeled conjugation type/form
+                        # in those slots, so retain only unmistakable legacy
+                        # conjugation labels when explicit fields are absent.
+                        inflection_type = _value(row, "inflection_type")
+                        inflection_form = _value(row, "inflection_form")
+                        if not inflection_type and re.match(
+                            r"^(?:五段|上一段|下一段|一段|カ変|サ変|形容詞|助動詞|文語)", _value(row, "pos5")
+                        ):
+                            inflection_type = _value(row, "pos5")
+                        if not inflection_form and re.match(
+                            r"^(?:未然形|連用形|終止形|連体形|仮定形|已然形|命令形)", _value(row, "pos6")
+                        ):
+                            inflection_form = _value(row, "pos6")
                         item = fields + [
                             ident, str(cost), "0", str(left), str(right),
-                            _value(row, "pos5"), _value(row, "pos6")
+                            inflection_type, inflection_form
                         ]
                         cursor = db.execute(
                             "INSERT OR IGNORE INTO entries VALUES (" + ",".join("?" for _ in item) + ")",
