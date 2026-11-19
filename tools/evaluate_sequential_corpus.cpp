@@ -193,6 +193,7 @@ struct CandidateSurvivalMetrics {
     std::size_t lattice_missing = 0;
     std::size_t shortlist_drop = 0;
     std::size_t expansion_drop = 0;
+    std::size_t trace_censored = 0;
     std::size_t final_selection_drop = 0;
 };
 
@@ -212,6 +213,7 @@ void evaluate_candidate_survival(
             &score_trace, &lattice_trace);
         const auto& best = paths.empty() ? std::vector<kana_decoder::DecodedToken>{}
                                          : paths.front().tokens;
+        const bool score_trace_capped = score_trace.size() >= options.max_trace_records;
         for (const auto& gold : sentence.tokens) {
             ++metrics.gold_tokens;
             bool in_lattice = false;
@@ -254,6 +256,7 @@ void evaluate_candidate_survival(
             if (aligned) ++metrics.final_aligned;
             if (!in_lattice) ++metrics.lattice_missing;
             else if (!in_shortlist) ++metrics.shortlist_drop;
+            else if (!was_scored && score_trace_capped) ++metrics.trace_censored;
             else if (!was_scored) ++metrics.expansion_drop;
             else if (!aligned) ++metrics.final_selection_drop;
         }
@@ -277,6 +280,7 @@ void print_candidate_survival(const CandidateSurvivalMetrics& m) {
         << ",\"lattice_missing\":" << m.lattice_missing
         << ",\"shortlist_drop\":" << m.shortlist_drop
         << ",\"expansion_drop\":" << m.expansion_drop
+        << ",\"trace_censored\":" << m.trace_censored
         << ",\"final_selection_drop\":" << m.final_selection_drop << "}";
 }
 
