@@ -168,6 +168,7 @@ normalization_renderer<TAB>0.5
 New tool: `tools/calibrate_surge_policy.py`
 
 - Runs a fixed, bounded five-preset grid on dev only.
+- Enforces the 1,792 MiB Peak RSS ceiling on every calibration preset; missing RSS measurement fails closed.
 - Selects minimum CER, then maximum sentence exact, then fixed preset order.
 - Writes the chosen TSV policy and calibration JSON.
 - Does not read the test split.
