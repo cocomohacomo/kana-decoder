@@ -22,7 +22,7 @@ int main() {
       << "TOKEN\t0\tprev-b\n"
       << "EVIDENCE\t0\t1\tcandidate-good\t10\n"
       << "EVIDENCE\t0\t1\tcandidate-bad\t1\n"
-      << "TOTAL\t0\t1\t20\n";
+      << "TOTAL\t0\t1\t11\n";
  }
  kana_decoder::SurgeClusterModel model;
  if(!model.load_tsv(path)) {
