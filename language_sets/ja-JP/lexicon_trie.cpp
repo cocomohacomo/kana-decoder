@@ -8,13 +8,32 @@ bool valid_utf8_impl(const std::string& s){return kana_decoder::is_valid_utf8(s)
 std::vector<std::string> utf8_chars(const std::string&s){std::vector<std::string>o;if(!valid_utf8_impl(s))return o;for(std::size_t i=0;i<s.size();){unsigned char c=static_cast<unsigned char>(s[i]);std::size_t n=c<0x80?1:(c&0xe0)==0xc0?2:(c&0xf0)==0xe0?3:4;o.push_back(s.substr(i,n));i+=n;}return o;}
 bool parse_i32_strict(const std::string& text,std::int32_t& value,bool nonnegative=false){if(text.empty())return false;auto r=std::from_chars(text.data(),text.data()+text.size(),value);return r.ec==std::errc{}&&r.ptr==text.data()+text.size()&&(!nonnegative||value>=0);}
 std::int64_t candidate_cost(const kana_decoder::LatticeCandidate& c){return static_cast<std::int64_t>(c.word_cost)+c.connection_cost;}
+std::vector<const kana_decoder::LatticeCandidate*> retain_surface_diverse_ptr(const std::vector<kana_decoder::LatticeCandidate>& source,std::size_t limit){
+ std::vector<const kana_decoder::LatticeCandidate*> selected;selected.reserve(std::min(limit,source.size()));
+ auto sort_selected=[&](){std::stable_sort(selected.begin(),selected.end(),[](const auto* a,const auto* b){return candidate_cost(*a)<candidate_cost(*b);});};
+ for(const auto& candidate:source){
+  const auto* ptr=&candidate;
+  auto same=std::find_if(selected.begin(),selected.end(),[&](const auto* item){return item->surface==candidate.surface;});
+  if(same!=selected.end()){if(candidate_cost(candidate)<candidate_cost(**same)){*same=ptr;sort_selected();}continue;}
+  if(selected.size()<limit){selected.push_back(ptr);sort_selected();}
+  else if(limit&&candidate_cost(candidate)<candidate_cost(*selected.back())){selected.back()=ptr;sort_selected();}
+ }
+ if(selected.size()<limit){
+  for(const auto& candidate:source){
+   if(selected.size()>=limit)break;
+   const auto* ptr=&candidate;
+   if(std::find(selected.begin(),selected.end(),ptr)!=selected.end())continue;
+   auto where=std::find_if(selected.begin(),selected.end(),[&](const auto* item){return candidate_cost(candidate)<candidate_cost(*item);});
+   selected.insert(where,ptr);
+  }
+ }
+ return selected;
+}
 std::vector<kana_decoder::LatticeCandidate> retain_surface_diverse(const std::vector<kana_decoder::LatticeCandidate>& source,std::size_t limit){
- std::vector<const kana_decoder::LatticeCandidate*> ranked;for(const auto& c:source)ranked.push_back(&c);
- std::stable_sort(ranked.begin(),ranked.end(),[](const auto* a,const auto* b){return candidate_cost(*a)<candidate_cost(*b);});
- std::vector<kana_decoder::LatticeCandidate> selected;std::vector<std::string> surfaces;selected.reserve(std::min(limit,ranked.size()));
- for(const auto* c:ranked){if(selected.size()>=limit)break;if(std::find(surfaces.begin(),surfaces.end(),c->surface)!=surfaces.end())continue;surfaces.push_back(c->surface);selected.push_back(*c);}
- if(selected.size()<limit)for(const auto* c:ranked){if(selected.size()>=limit)break;if(std::none_of(selected.begin(),selected.end(),[&](const auto& x){return x.id==c->id&&x.surface==c->surface;}))selected.push_back(*c);}
- std::stable_sort(selected.begin(),selected.end(),[](const auto& a,const auto& b){return candidate_cost(a)<candidate_cost(b);});return selected;
+ const auto selected=retain_surface_diverse_ptr(source,limit);
+ std::vector<kana_decoder::LatticeCandidate> out;out.reserve(selected.size());
+ for(const auto* candidate:selected)out.push_back(*candidate);
+ return out;
 }
 std::vector<std::size_t> spread_indices(std::size_t count,std::size_t limit){
  std::vector<std::size_t> out;if(!limit||!count)return out;if(count<=limit){for(std::size_t i=0;i<count;++i)out.push_back(i);return out;}if(limit==1){out.push_back(count-1);return out;}for(std::size_t i=0;i<limit;++i)out.push_back(i*(count-1)/(limit-1));return out;

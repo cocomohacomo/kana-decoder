@@ -6,11 +6,23 @@
 namespace {
 std::int64_t candidate_cost(const kana_decoder::LatticeCandidate& c){return static_cast<std::int64_t>(c.word_cost)+c.connection_cost;}
 std::vector<const kana_decoder::LatticeCandidate*> retain_surface_diverse(const std::vector<kana_decoder::LatticeCandidate>& source,std::size_t limit){
- std::vector<const kana_decoder::LatticeCandidate*> ranked;for(const auto& c:source)ranked.push_back(&c);std::stable_sort(ranked.begin(),ranked.end(),[](const auto* a,const auto* b){return candidate_cost(*a)<candidate_cost(*b);});
- std::vector<const kana_decoder::LatticeCandidate*> out;std::vector<std::string> surfaces;out.reserve(std::min(limit,ranked.size()));
- for(const auto* c:ranked){if(out.size()>=limit)break;if(std::find(surfaces.begin(),surfaces.end(),c->surface)!=surfaces.end())continue;surfaces.push_back(c->surface);out.push_back(c);}
- if(out.size()<limit)for(const auto* c:ranked){if(out.size()>=limit)break;if(std::find(out.begin(),out.end(),c)==out.end())out.push_back(c);}
- std::stable_sort(out.begin(),out.end(),[](const auto* a,const auto* b){return candidate_cost(*a)<candidate_cost(*b);});return out;
+ std::vector<const kana_decoder::LatticeCandidate*> selected;selected.reserve(std::min(limit,source.size()));
+ auto sort_selected=[&](){std::stable_sort(selected.begin(),selected.end(),[](const auto* a,const auto* b){return candidate_cost(*a)<candidate_cost(*b);});};
+ for(const auto& candidate:source){
+  const auto* ptr=&candidate;
+  auto same=std::find_if(selected.begin(),selected.end(),[&](const auto* item){return item->surface==candidate.surface;});
+  if(same!=selected.end()){if(candidate_cost(candidate)<candidate_cost(**same)){*same=ptr;sort_selected();}continue;}
+  if(selected.size()<limit){selected.push_back(ptr);sort_selected();}
+  else if(limit&&candidate_cost(candidate)<candidate_cost(*selected.back())){selected.back()=ptr;sort_selected();}
+ }
+ if(selected.size()<limit)for(const auto& candidate:source){
+  if(selected.size()>=limit)break;
+  const auto* ptr=&candidate;
+  if(std::find(selected.begin(),selected.end(),ptr)!=selected.end())continue;
+  auto where=std::find_if(selected.begin(),selected.end(),[&](const auto* item){return candidate_cost(candidate)<candidate_cost(*item);});
+  selected.insert(where,ptr);
+ }
+ return selected;
 }
 std::vector<const kana_decoder::LatticeEdge*> retain_span_diverse(std::vector<const kana_decoder::LatticeEdge*> edges,std::size_t limit){
  std::stable_sort(edges.begin(),edges.end(),[](const auto* a,const auto* b){return a->end<b->end;});if(edges.size()<=limit)return edges;
