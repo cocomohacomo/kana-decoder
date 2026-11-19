@@ -109,3 +109,15 @@ No v0.32 accuracy gain is claimed until the new CI and full Pack workflow comple
 - ハード上限: モデル64 MiB、クラスタ4,096、token membership 100,000、evidence 500,000、ID 128 UTF-8 bytes、count uint32、距離1または2。上限・不正ID・不正距離・非有限閾値はfail-closed。
 - モデルはLanguage Packへまだ同梱せず、C++ runtimeからも読み込まない。従来デコーダの挙動・ABI・既存Pack互換性を維持したまま、次段階のC++ loader/scorer検証に使うsidecarとする。
 - CIではSudachi実Packの評価と同じtrain/dev/test分割からsidecarを生成し、manifestを出力する。test splitは閾値校正に使わない。
+
+
+## 10. v0.36 C++ SURGEクラスタ統合（実験機能）
+
+- `SurgeClusterModel` を追加し、sidecar v1のMETA / TOKEN / EVIDENCE / TOTALをC++で読み込む。最大64 MiB、cluster 4,096、membership 100,000、evidence 500,000、ID 128 bytes、距離1/2を強制し、不正・重複・参照欠落はfail-closedとする。
+- Python probeと同じ履歴方向・距離別count・加算平滑化（sidecar指定alpha）・membership数×4の語彙近似でEvidence scoreを計算する。
+- DecoderOptionsに任意のSURGE cluster model pointerを追加。既定nullptrのため既存APIのデフォルト挙動とLanguage Pack形式は維持。
+- 各Beam状態の予測済み直近2候補からクラスタを活性化し、形態素上位4候補とクラスタEvidence上位候補を最大8候補の範囲で統合する。Questionに対するクラスタgapがsidecar threshold以上なら、勝者表層を局所形態素最良候補に対して優先できるだけの相対bonusを付与する。
+- 既存N-gram SURGE gateは負のlog probabilityを未観測候補の0点と直接比較していた。候補間gapを算出し、解決時は勝者表層に正の相対bonusを付与する方式へ修正。
+- sequential evaluatorはsidecarを指定した場合にSURGE Cluster単独とN-gram + SURGE Clusterを別々に出力する。test側のsidecarはtrain生成/dev校正済みで固定し、testで再校正しない。
+- sidecarはLanguage Packへ同梱せず、既定decoderでも無効。実データ全文評価のCER改善が確認されるまでは実験機能として扱う。
+- C++ loader/scorerの単体テスト、候補上位4から漏れたクラスタ支持候補の復帰テスト、Python/C++実データ比較をCIに追加。
