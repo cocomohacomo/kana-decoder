@@ -2,6 +2,7 @@
 
 #include "kana_decoder/pack_manifest.hpp"
 
+#include <algorithm>
 #include <memory>
 #include <utility>
 
@@ -20,14 +21,23 @@ class JapaneseLanguagePack final : public LanguagePack {
   CorrectionOptions corrections_data;
   surge::JapaneseLanguageAdapter adapter_data;
 
-  std::vector<DecodedPath> decode(const std::string& reading,
-                                  const DecoderOptions& options) const override {
-    return decode_reading(reading, lexicon_data, scorer_data, options, &connections_data);
+  std::vector<DecodedPath> decode(
+      const std::string& reading,
+      const LanguageDecodeOptions& options) const override {
+    DecoderOptions japanese_options;
+    japanese_options.max_paths = std::min<std::size_t>(options.max_paths, 8);
+    japanese_options.beam_width = std::min<std::size_t>(options.beam_width, 8);
+    japanese_options.max_input_codepoints = options.max_input_codepoints;
+    japanese_options.max_lattice_edges = options.max_lattice_edges;
+    japanese_options.max_lattice_candidates = options.max_lattice_candidates;
+    japanese_options.max_expanded_states = options.max_expanded_states;
+    return decode_reading(reading, lexicon_data, scorer_data,
+                          japanese_options, &connections_data);
   }
 
   bool append(StreamingSession& session, const std::string& chunk,
               StreamingSnapshot& snapshot,
-              const DecoderOptions& options) const override {
+              const LanguageDecodeOptions& options) const override {
     if (chunk.empty() || !is_valid_utf8(chunk)) return false;
     const std::string combined = session.reading() + chunk;
     auto paths = decode(combined, options);
