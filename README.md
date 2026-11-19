@@ -76,3 +76,9 @@
 - v0.42: [SURGE Core統合](docs/SPECIFICATION_v0.42.md)。独立SURGE Core v0.9.11をMITライセンスでvendoringし、EventJournal / ContextGraph / DependencyEngine / QuestionRouter / ChaosClusterLedgerを正文化の実行経路へ接続。N-best候補をEntity / Claimとして登録し、辞書語彙・接続遷移・Word N-gram・POS N-gram・SURGE Clusterを独立Evidenceとして記録。矛盾からQuestion・Interest・Focusを生成。未解決候補はChaos PatternHypothesisへ保持。時間的有効性、再評価、StreamingのProposal / Prefix Commit / Final CommitをSURGE Journalへ記録。C/Python APIから永続Journalを指定可能。  
 - v0.41: [SURGE正文化基盤](docs/SPECIFICATION_v0.41.md)。固定容量Hypothesis / CandidateSet / SemanticFrame / SyntaxRelation / OrthographicHypothesis / Entity / Constraint / Decision / Revision / CommitSpanを追加。Evidenceの出所・信頼度・有効期間・依存関係と重複抑制集約、最大8経路の任意N-best再ランキング、日本語数詞の整数/小数解析、数値・日付・時刻・単位・通貨・範囲の型付き表記生成、句読点ポリシーを実装。既存Decoder既定動作とPack互換性は維持。
 - v0.40: [統合校正仕様](docs/SPECIFICATION_v0.40.md)。Word/POS N-gramとSURGE Clusterを同じdev splitで144構成校正し、最良方式をtestで凍結評価。
+
+
+## SURGE Language / Normalization Runtime migration
+
+- v0.43: [SURGE Language and Normalization Runtime Migration](docs/SPECIFICATION_v0.43.md). Language Adapter and Normalization Adapter are both owned by SURGE. Language-specific recognition and rendering resources live in replaceable SURGE Language Sets; kana-decoder remains a thin input/output, compatibility and evaluation host.
+- Framework contract: [SURGE Language Runtime and Replaceable Language Packs v0.1](https://github.com/cocomohacomo/surge/blob/feat/language-runtime-core/docs/surge/LANGUAGE_RUNTIME_AND_REPLACEABLE_LANGUAGE_PACKS_v0.1.md).
