@@ -224,6 +224,46 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     }
   }
 
+  const auto best_claims = path_candidate_keys.front();
+  std::set<std::string> best_path_keys(best_claims.begin(), best_claims.end());
+  std::vector<const CandidateRecord*> alternatives;
+  for (const auto& item : candidates) {
+    if (best_path_keys.count(item.first) == 0) alternatives.push_back(&item.second);
+  }
+  std::sort(alternatives.begin(), alternatives.end(),
+      [](const CandidateRecord* a, const CandidateRecord* b) {
+        if (a->start != b->start) return a->start < b->start;
+        if (a->end != b->end) return a->end < b->end;
+        return a->claim_id < b->claim_id;
+      });
+  if (alternatives.size() > 16) {
+    result.error = "SURGE_CHAOS_ALTERNATIVE_BUDGET_EXCEEDED";
+    return result;
+  }
+
+  std::string output;
+  for (const auto& token : paths.front().tokens) {
+    const auto found = candidates.find(candidate_key(token));
+    if (found == candidates.end()) {
+      result.error = "SURGE_SELECTED_HYPOTHESIS_NOT_FOUND";
+      return result;
+    }
+    output += found->second.normalized_surface.empty()
+        ? token.candidate.surface : found->second.normalized_surface;
+  }
+  std::ostringstream commit_payload;
+  commit_payload << "context=" << config_.context_id
+                 << ";sequence=" << current_sequence
+                 << ";reading_sha256=" << source_digest
+                 << ";selected_claims=";
+  for (std::size_t i = 0; i < best_claims.size(); ++i) {
+    if (i) commit_payload << ",";
+    commit_payload << candidates.at(best_claims[i]).claim_id;
+  }
+  commit_payload << ";output=" << output;
+
+  std::vector<std::string> contradiction_relation_ids;
+  std::size_t contradiction_count = 0;
   ::surge::SemanticDelta delta;
   delta.delta_id = prefix + "/semantic-delta";
   delta.idempotency_key = prefix + "/semantic-idempotency";
@@ -297,8 +337,7 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
             ";inflection=" + token.candidate.inflection_type + "/" +
             token.candidate.inflection_form + "]",
         record.evidence_ids}});
-    if (!path_candidate_keys.front().empty() &&
-        item.first == path_candidate_keys.front().front()) {
+    if (!best_claims.empty() && item.first == best_claims.front()) {
       delta.nodes.push_back({{record.dependency_id, ::surge::NodeKind::Dependency,
           "CLAIM_TEMPORAL_STATE:VALID@" + timestamp,
           {record.claim_id, record.entity_id}}});
@@ -315,6 +354,34 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     claim_validity.revision = 1;
     delta.claim_validity_updates.push_back(claim_validity);
   }
+
+  for (auto left = candidates.begin(); left != candidates.end(); ++left) {
+    auto right = left;
+    ++right;
+    for (; right != candidates.end(); ++right) {
+      if (left->second.start == right->second.start &&
+          left->second.end == right->second.end &&
+          left->second.surface != right->second.surface) {
+        if (contradiction_count >= 16) {
+          result.error = "SURGE_CONTRADICTION_BUDGET_EXCEEDED";
+          return result;
+        }
+        const auto relation_id = prefix + "/contradicts/" +
+            id_component(left->second.claim_id + right->second.claim_id);
+        delta.relations.push_back({{relation_id, ::surge::RelationKind::Contradicts,
+            left->second.claim_id, right->second.claim_id}});
+        contradiction_relation_ids.push_back(relation_id);
+        ++contradiction_count;
+      }
+    }
+  }
+
+  const bool ambiguous = !alternatives.empty() || !contradiction_relation_ids.empty();
+  const auto output_event_id = prefix + (finalize && !ambiguous ? "/commit" : "/proposal");
+  delta.journal_events.push_back({output_event_id,
+      finalize && !ambiguous ? "NORMALIZATION_COMMIT" : "NORMALIZATION_PROPOSAL",
+      commit_payload.str()});
+
   const auto applied = graph_->apply(delta);
   if (!applied.committed) {
     result.error = "SURGE_SEMANTIC_DELTA_REJECTED:" + applied.error;
@@ -324,66 +391,15 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   result.metrics.evidence = 0;
   for (const auto& item : candidates) result.metrics.evidence += item.second.evidence_ids.size();
   result.metrics.entities = candidates.size();
+  result.metrics.contradictions = contradiction_count;
 
-  std::vector<std::pair<std::string, std::string>> contradictions;
-  std::vector<std::string> contradiction_relation_ids;
-  ::surge::SemanticDelta conflict_delta;
-  conflict_delta.delta_id = prefix + "/contradiction-delta";
-  conflict_delta.idempotency_key = prefix + "/contradiction-idempotency";
-  conflict_delta.expected_state_version = journal_->state_version();
-  for (auto left = candidates.begin(); left != candidates.end(); ++left) {
-    auto right = left;
-    ++right;
-    for (; right != candidates.end(); ++right) {
-      if (left->second.start == right->second.start &&
-          left->second.end == right->second.end &&
-          left->second.surface != right->second.surface) {
-        if (contradictions.size() >= 16) {
-          result.error = "SURGE_CONTRADICTION_BUDGET_EXCEEDED";
-          return result;
-        }
-        const auto relation_id = prefix + "/contradicts/" +
-            id_component(left->second.claim_id + right->second.claim_id);
-        conflict_delta.relations.push_back({{relation_id, ::surge::RelationKind::Contradicts,
-            left->second.claim_id, right->second.claim_id}});
-        contradiction_relation_ids.push_back(relation_id);
-        contradictions.emplace_back(left->second.claim_id, right->second.claim_id);
-      }
-    }
-  }
-
-  if (!contradictions.empty()) {
-    const auto conflict_result = graph_->apply(conflict_delta);
-    if (!conflict_result.committed) {
-      result.error = "SURGE_CONTRADICTION_REJECTED:" + conflict_result.error;
+  for (const auto& relation_id : contradiction_relation_ids) {
+    const auto routed = ::surge::QuestionRouter::route(*graph_, relation_id, "kana-normalization-v1");
+    if (!routed.committed) {
+      result.error = "SURGE_QUESTION_ROUTING_FAILED:" + routed.error;
       return result;
     }
-    result.metrics.contradictions = contradictions.size();
-    for (const auto& relation_id : contradiction_relation_ids) {
-      const auto routed = ::surge::QuestionRouter::route(*graph_, relation_id, "kana-normalization-v1");
-      if (!routed.committed) {
-        result.error = "SURGE_QUESTION_ROUTING_FAILED:" + routed.error;
-        return result;
-      }
-      if (!routed.duplicate) ++result.metrics.questions;
-    }
-  }
-
-  std::set<std::string> best_path_keys(path_candidate_keys.front().begin(),
-                                       path_candidate_keys.front().end());
-  std::vector<const CandidateRecord*> alternatives;
-  for (const auto& item : candidates) {
-    if (best_path_keys.count(item.first) == 0) alternatives.push_back(&item.second);
-  }
-  std::sort(alternatives.begin(), alternatives.end(),
-      [](const CandidateRecord* a, const CandidateRecord* b) {
-        if (a->start != b->start) return a->start < b->start;
-        if (a->end != b->end) return a->end < b->end;
-        return a->claim_id < b->claim_id;
-      });
-  if (alternatives.size() > 16) {
-    result.error = "SURGE_CHAOS_ALTERNATIVE_BUDGET_EXCEEDED";
-    return result;
+    if (!routed.duplicate) ++result.metrics.questions;
   }
 
   ::surge::ChaosProvenance provenance{"kana-decoder", "1", "normalization-v1", timestamp};
@@ -429,62 +445,26 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     result.metrics.chaos_members = 1;
   }
 
-  const auto best_claims = path_candidate_keys.front();
-  for (std::size_t selected_index = 0; selected_index < best_claims.size(); ++selected_index) {
-    const auto& key = best_claims[selected_index];
+  for (const auto& key : best_claims) {
     const auto found = candidates.find(key);
-    if (found == candidates.end() || graph_->claim_status(found->second.claim_id) != ::surge::ClaimStatus::Active) {
+    if (found == candidates.end() ||
+        graph_->claim_status(found->second.claim_id) != ::surge::ClaimStatus::Active) {
       result.error = "SURGE_SELECTED_CLAIM_NOT_ACTIVE";
       return result;
     }
-    // Reassess one representative claim per streaming packet. Every candidate
-    // still carries revisioned validity; full re-evaluation is demand-driven.
-    if (selected_index == 0) {
-      ::surge::TemporalReassessmentRecord reassessment;
-      std::string reassessment_error;
-      if (!graph_->reassess_claim(found->second.claim_id, timestamp,
-                                  journal_->state_version(), reassessment, reassessment_error)) {
-        result.error = "SURGE_TEMPORAL_REASSESSMENT_FAILED:" + reassessment_error;
-        return result;
-      }
-    }
   }
 
-  const auto& selected_path = paths.front();
-  std::ostringstream commit_payload;
-  commit_payload << "context=" << config_.context_id
-                 << ";sequence=" << current_sequence
-                 << ";reading_sha256=" << source_digest
-                 << ";selected_claims=";
-  for (std::size_t i = 0; i < best_claims.size(); ++i) {
-    if (i) commit_payload << ",";
-    commit_payload << candidates.at(best_claims[i]).claim_id;
-  }
-  commit_payload << ";output=";
-  std::string output;
-  for (const auto& token : selected_path.tokens) {
-    const auto found = candidates.find(candidate_key(token));
-    if (found == candidates.end()) {
-      result.error = "SURGE_SELECTED_HYPOTHESIS_NOT_FOUND";
+  if (finalize && ambiguous) {
+    std::string commit_error;
+    if (!commit_output(output, journal_->state_version(), true, commit_error)) {
+      result.error = "SURGE_OUTPUT_COMMIT_FAILED:" + commit_error;
       return result;
     }
-    output += found->second.normalized_surface.empty()
-        ? token.candidate.surface : found->second.normalized_surface;
-  }
-  commit_payload << output;
-  const auto commit_id = prefix + (finalize ? "/commit" : "/proposal");
-  const auto journal_result = journal_->commit(prefix + "/output-transaction",
-      prefix + "/output-idempotency", journal_->state_version(),
-      {{commit_id, finalize ? "NORMALIZATION_COMMIT" : "NORMALIZATION_PROPOSAL",
-        commit_payload.str()}});
-  if (!journal_result.committed) {
-    result.error = "SURGE_OUTPUT_COMMIT_FAILED:" + journal_result.error;
-    return result;
   }
 
   result.committed = true;
   result.output = std::move(output);
-  result.metrics.state_version = journal_result.state_version;
+  result.metrics.state_version = journal_->state_version();
   return result;
 }
 
