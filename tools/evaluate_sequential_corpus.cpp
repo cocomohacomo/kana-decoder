@@ -396,7 +396,7 @@ int main(int argc, char** argv) {
         evaluate(sentences, lexicon, trained_scorer, connections, cluster, cluster_options);
         kana_decoder::DecoderOptions combined_options;
         combined_options.surge_cluster_model = &cluster_model;
-        combined_options.context_weight = 1.0;
+        combined_options.context_weight = selected_weight;
         combined_options.pos_ngram_scorer = &trained_pos_scorer;
         combined_options.pos_context_weight = selected_pos_weight;
         combined_options.surge_cluster_weight = selected_cluster_weight;
@@ -412,6 +412,7 @@ int main(int argc, char** argv) {
               << ",\"dev_selected_smoothing_alpha\":" << selected_alpha
               << ",\"dev_selected_pos_context_weight\":" << selected_pos_weight
               << ",\"dev_selected_cluster_weight\":" << selected_cluster_weight
+              << ",\"dev_selected_policy\":\"" << (selected_cluster_weight > 0.0 ? (selected_weight > 0.0 ? "combined" : "cluster_only") : (selected_weight > 0.0 ? "ngram_only" : "morphology")) << "\"";
               << ",\"source_test_tokens\":" << source_tokens
               << ",\"sentences\":" << sentences.size();
     print_metrics("morphology_only", morphology);
@@ -422,7 +423,7 @@ int main(int argc, char** argv) {
                   << ",\"evidence_records\":" << cluster_model.evidence_count()
                   << ",\"gap_threshold\":" << cluster_model.gap_threshold() << "}";
         print_metrics("surge_cluster", cluster);
-        print_metrics("ngram_plus_surge_cluster", combined);
+        print_metrics("dev_selected_surge_policy", combined);
     }
     std::cout << "}\n";
     return 0;
