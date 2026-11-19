@@ -86,9 +86,9 @@ bool SurgeClusterModel::load_tsv(const std::string& path) {
    if(++total_records>8192) return false;
   } else return false;
  }
- if(!input.eof()||metadata.size()!=7||memberships==0) return false;
+ if(!input.eof()||metadata.size()!=8||memberships==0) return false;
  const char* required[]={"train_sequences","vocabulary_considered","cluster_count",
-  "clustered_tokens","window","max_history","gap_threshold"};
+  "clustered_tokens","window","max_history","gap_threshold","smoothing_alpha"};
  for(const char* key:required) if(!metadata.count(key)) return false;
  std::uint32_t train=0,vocab=0,cluster_count=0,clustered=0,window=0,history=0;
  if(!parse_u32(metadata["train_sequences"],train)||train==0||
