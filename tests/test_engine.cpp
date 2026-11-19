@@ -184,7 +184,8 @@ int main(){
  const std::string pack_path=std::string(KANA_DECODER_SOURCE_DIR)+"/packs/ja-lite/lexicon.tsv";
  assert(trie.load_tsv(pack_path,&loaded));assert(loaded>=7&&trie.size()==loaded);
  auto generated=trie.build_lattice("あめ",16,true);
- assert(generated.size()==1&&generated[0].start==0&&generated[0].end==2);
+ assert(generated.size()==2&&generated[0].start==0&&generated[0].end==2);
+ assert(generated[1].start==1&&generated[1].end==2&&generated[1].candidates[0].surface=="め");
  assert(generated[0].candidates.size()==2);
  auto generated_paths=decode_reading("あめ",trie,lattice_scorer,dop);
  assert(!generated_paths.empty()&&generated_paths[0].tokens.size()==1);
