@@ -582,3 +582,12 @@ MaskedNgramScorerは対象spanをマスクした左右文脈から候補順位�
 - sequential evaluatorにcluster-only / N-gram+clusterの出力を追加。Sudachi workflowはsidecarを別Artifactとして保存し、Packには含めない。
 - native testではloader/scorerの順位、invalid schema拒否、失敗時の既存モデル保持、形態素上位4候補から外れた候補のクラスタ復帰を検証する。
 - 重要: 本変更はデコーダ接続とスコアリング上の構造欠陥の修正であり、実コーパスのCER改善をまだ意味しない。CIと実Pack workflowの完了後に、morphology / N-gram / cluster / combinedを同一test splitで比較し、RSSも確認する。
+
+
+## 50. SURGE経験記憶の多次数N-gram統合（v0.37）
+
+- MaskedNgramScorerに距離2のSkip-Bigramを追加。評価用train sequenceからTrigramとSkip-Bigramも構築する。
+- 推論時contextual scoreは、観測されたTrigram（0.60）、Bigram（0.30）、Skip-Bigram（0.10）を個別評価し、存在する証拠だけで重みを再正規化する。未観測チャネルを肯定証拠として扱わない。
+- SURGE Clusterと多次数N-gramは同一Beam履歴に基づいて同時利用可能。形態素接続行列は従来どおり接続/POS関連の別Evidenceとして維持する。
+- 合成C++テストで統合順位、Skip-Bigram単独のEvidence検出、未観測候補の非Evidence扱いを検証する。
+- 係数は初期値であり、実データdevで校正する。実Sudachi testでの精度改善は評価完了まで主張しない。
