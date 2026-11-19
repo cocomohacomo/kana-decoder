@@ -664,8 +664,8 @@ bool JapaneseLanguageAdapter::extract_entities(
         // Do not accept the prefix "三時" from a cardinal such as
         // "さんじゅうに". The small ゅ continues the number token じゅう.
         if (target == EntityTarget::Time && end < codepoints &&
-            reading.substr(byte_offsets[end], std::min<std::size_t>(6,
-                reading.size() - byte_offsets[end])).rfind("ゅう", 0) == 0)
+            reading.substr(byte_offsets[end], std::min<std::size_t>(3,
+                reading.size() - byte_offsets[end])).rfind("ゅ", 0) == 0)
           continue;
         Entity entity;
         const std::string entity_id = "typed-" + std::to_string(start) + "-" +
