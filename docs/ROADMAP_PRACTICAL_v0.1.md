@@ -2,7 +2,7 @@
 
 更新日: 2026-11-19
 対象ブランチ: `refactor/surge-core-as-runtime`
-対象仕様: `SPECIFICATION_v0.49.md`
+対象仕様: `SPECIFICATION_v0.50.md`
 
 ## 0. 製品ゴール
 
@@ -35,6 +35,7 @@
 - [x] `MorphologyDecoder` とlattice探索を `language_sets/ja-JP/` に物理移動する。
 - [x] 日本語Language Setの形態素探索とPack providerを独立したCMake OBJECT targetとしてビルド可能にする。
 - [x] LanguagePackのdecode/append境界を `LanguageDecodeOptions` に変更し、C APIとconformance testを日本語固有 `DecoderOptions` から分離。
+- [x] 日本語LanguageAdapter/数詞表記と日本語SURGE Cluster sidecar scorerを `language_sets/ja-JP/` へ移動し、static/shared双方のja-JP OBJECT targetへ統合。
 - [ ] `engine.hpp` に残る日本語lattice/trie/morphology/scorer型とSURGE Language Adapterの依存を中立ヘッダーへ分離。
 - [ ] 共通データ型とprovider interfaceを公開ヘッダーへ整理し、Hostから日本語実装ヘッダーを参照させない。
 - [x] 辞書Trie、N-gram scorer、接続行列、訂正候補、Pack resource loaderの実装をLanguage Set targetへ移動。
@@ -152,3 +153,14 @@ v0.44のimmutable LanguagePack境界を前提に、次のコード変更はP0の
 - [ ] CI build/test for the latest head.
 - [ ] Remove remaining Japanese implementation declarations from generic public headers.
 - [ ] Complete production renderer, production dictionary, held-out quality evaluation and target-PC resource qualification.
+
+
+## 11. v0.50 Japanese adapter ownership
+
+- [x] Move Japanese `LanguageAdapter` implementation and numeric parsing/rendering into `language_sets/ja-JP/surge_language.cpp`.
+- [x] Move Japanese SURGE Cluster sidecar loading/scoring into `language_sets/ja-JP/surge_cluster.cpp`.
+- [x] Compile both sources through the shared PIC-enabled Japanese Language Set OBJECT target.
+- [x] Remove the moved source files from generic host static/shared source lists.
+- [ ] Verify static/shared build and all CTest/Python integration targets in CI.
+- [ ] Move the remaining Japanese implementation declarations out of the generic public headers.
+- [ ] Complete production dictionary, full surface renderer and held-out/target-device qualification.
