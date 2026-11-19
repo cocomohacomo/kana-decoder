@@ -7,7 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # SURGE is the sole context cognition and decision runtime. The vendored
 # upstream Core keeps the complete application offline and reproducible.
 add_subdirectory(third_party/surge)
-add_library(kana_decoder_core src/engine.cpp src/morphology_decoder.cpp src/scoring.cpp src/lexicon_trie.cpp src/correction.cpp src/streaming_session.cpp src/pack_loader.cpp src/c_api.cpp src/pack_manifest.cpp src/surge_cluster.cpp src/surge_language.cpp src/surge_runtime.cpp)
+add_library(kana_decoder_core src/engine.cpp src/morphology_decoder.cpp src/scoring.cpp src/lexicon_trie.cpp src/correction.cpp src/streaming_session.cpp src/pack_loader.cpp src/c_api.cpp src/pack_manifest.cpp src/surge_cluster.cpp src/surge_language.cpp src/language_pack.cpp src/surge_runtime.cpp)
 target_include_directories(kana_decoder_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(kana_decoder_core PUBLIC surge_core)
 target_compile_options(kana_decoder_core PRIVATE -Wall -Wextra -Wpedantic -Werror)
@@ -80,6 +80,11 @@ add_test(NAME surge_ngram_memory_tests COMMAND kana_decoder_surge_ngram_tests)
 add_executable(kana_decoder_surge_language_tests tests/test_surge_language.cpp)
 target_link_libraries(kana_decoder_surge_language_tests PRIVATE kana_decoder_core)
 add_test(NAME surge_language_foundation_tests COMMAND kana_decoder_surge_language_tests)
+
+add_executable(kana_decoder_language_pack_tests tests/test_language_pack.cpp)
+target_link_libraries(kana_decoder_language_pack_tests PRIVATE kana_decoder_core)
+target_compile_definitions(kana_decoder_language_pack_tests PRIVATE KANA_DECODER_PACK_DIR="${CMAKE_CURRENT_SOURCE_DIR}/packs/ja-lite")
+add_test(NAME immutable_language_pack_runtime_tests COMMAND kana_decoder_language_pack_tests)
 
 add_executable(kana_decoder_surge_runtime_tests tests/test_surge_runtime.cpp)
 target_link_libraries(kana_decoder_surge_runtime_tests PRIVATE kana_decoder_core)
