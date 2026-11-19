@@ -22,10 +22,11 @@ class LanguagePack {
  public:
   virtual ~LanguagePack() = default;
   virtual const LanguagePackIdentity& identity() const = 0;
-  virtual const LexiconTrie& lexicon() const = 0;
-  virtual const MaskedNgramScorer& ngram_scorer() const = 0;
-  virtual const ConnectionModel& connections() const = 0;
-  virtual const CorrectionOptions& correction_options() const = 0;
+  virtual std::vector<DecodedPath> decode(const std::string& reading,
+                                          const DecoderOptions& options) const = 0;
+  virtual bool append(StreamingSession& session, const std::string& chunk,
+                      StreamingSnapshot& snapshot,
+                      const DecoderOptions& options = {}) const = 0;
   virtual const surge::LanguageAdapter& adapter() const = 0;
 };
 
