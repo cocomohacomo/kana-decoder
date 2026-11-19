@@ -197,7 +197,7 @@ int main(int argc, char** argv) {
     kana_decoder::SurgeRuntimeConfig config;
     config.journal_path = journal;
     config.context_id = "real-data-evaluation-" + std::to_string(case_index);
-    config.max_journal_events = 512;
+    config.max_journal_events = 4096;
     config.max_journal_transactions = 128;
     config.max_journal_payload_bytes = 1024U * 1024U;
     config.max_journal_identity_bytes = 512U * 1024U;
