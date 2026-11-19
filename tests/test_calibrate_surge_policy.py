@@ -34,7 +34,11 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
                 "'elapsed_seconds':0.2,'peak_rss_kib':1000,\n"
                 "'candidate_generation':{'mean_paths':4.0,'surface_exact_recall_at_1':0.2,\n"
                 "'surface_exact_recall_at_5':0.4,'surface_exact_recall_at_10':0.5,\n"
-                "'oracle_cer_at_5':0.3,'oracle_cer_at_10':0.25,'surge_exact_given_candidate_at_10':0.6}}))\n",
+                "'oracle_cer_at_5':0.3,'oracle_cer_at_10':0.25,'surge_exact_given_candidate_at_10':0.6},"
+                "'candidate_error_classification':{'missing_candidate':5,'candidate_available':5,"
+                "'candidate_available_runtime_failure':0,'candidate_available_deferred':1,"
+                "'candidate_available_surge_exact':2,'candidate_available_surge_wrong':2,"
+                "'wrong_output_matches_raw_nbest':1,'wrong_output_outside_raw_nbest':1}}))\n",
                 encoding="utf-8",
             )
             evaluator.chmod(0o755)
@@ -77,6 +81,7 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
             self.assertEqual(result["best_policy"]["typed_entities_persisted"], 3)
             self.assertEqual(result["best_policy"]["candidate_generation"]["surface_exact_recall_at_5"], 0.4)
             self.assertEqual(result["best_policy"]["candidate_generation"]["surge_exact_given_candidate_at_10"], 0.6)
+            self.assertEqual(result["best_policy"]["candidate_error_classification"]["candidate_available_surge_wrong"], 2)
             self.assertIn("normalization_renderer\t", policy.read_text(encoding="utf-8"))
 
 
