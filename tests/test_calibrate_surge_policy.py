@@ -26,7 +26,7 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
                 "    key, value = line.split('\\t')\n"
                 "    policy[key] = float(value)\n"
                 "cer = 0.5 - 0.1 * policy['ngram'] - 0.1 * policy['context_cluster']\n"
-                "exact = 0.1 + 0.05 * policy['lexical']\n"
+                "exact = 0.1 + 0.05 * policy['pos_ngram']\n"
                 "print(json.dumps({'split':'dev','cases':10,"
                 "'surge_core':{'cer':cer,'sentence_exact':exact,'overrides':2,"
                 "'deferred':1,'runtime_failures':0,'decode_failures':0},"
