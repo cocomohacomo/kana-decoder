@@ -464,8 +464,15 @@ bool JapaneseLanguageAdapter::render_path(
   if (path.tokens.empty() || reading.empty() ||
       !::kana_decoder::is_valid_utf8(std::string(reading))) return false;
 
+  std::size_t reading_codepoints = 0;
+  for (std::size_t i = 0; i < reading.size();) {
+    const auto c = static_cast<unsigned char>(reading[i]);
+    i += c < 0x80 ? 1 : (c & 0xe0) == 0xc0 ? 2 :
+         (c & 0xf0) == 0xe0 ? 3 : 4;
+    ++reading_codepoints;
+  }
   const auto slice = [&](std::size_t start, std::size_t end, std::string& value) {
-    if (start >= end) return false;
+    if (start >= end || end > reading_codepoints) return false;
     std::size_t codepoint = 0;
     std::size_t byte_start = std::string_view::npos;
     std::size_t byte_end = std::string_view::npos;
@@ -497,7 +504,7 @@ bool JapaneseLanguageAdapter::render_path(
   std::string rendered;
   std::size_t previous_end = 0;
   for (const auto& token : path.tokens) {
-    if (token.start < previous_end || token.start >= token.end ||
+    if (token.start != previous_end || token.start >= token.end ||
         token.candidate.surface.empty()) return false;
     std::string token_reading;
     if (!slice(token.start, token.end, token_reading)) return false;
@@ -522,6 +529,7 @@ bool JapaneseLanguageAdapter::render_path(
     rendered += surface;
     previous_end = token.end;
   }
+  if (previous_end != reading_codepoints) return false;
   if (options.append_terminal_punctuation) {
     const auto punctuation = terminal_punctuation(options.discourse_act, options.punctuation_style);
     if (!punctuation.empty()) {
