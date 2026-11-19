@@ -239,6 +239,15 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     }
   }
 
+  std::vector<kana_decoder::surge::EntitySpan> typed_entities;
+  if (config_.language_adapter &&
+      !config_.language_adapter->extract_entities(reading,
+          kana_decoder::surge::kMaxEntities, typed_entities)) {
+    result.error = "SURGE_TYPED_ENTITY_EXTRACTION_FAILED";
+    return result;
+  }
+  result.metrics.typed_entities_found = typed_entities.size();
+
   std::vector<::surge::DecisionCandidate> recognition_candidates;
   recognition_candidates.reserve(paths.size());
   for (std::size_t p = 0; p < paths.size(); ++p) {
@@ -287,6 +296,36 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
               config_.normalization_renderer_score, 1.0, true}}});
       }
       candidate.surface_sets.push_back(std::move(surface_set));
+    }
+
+    // Typed language entities are pre-decision evidence, not post-hoc string
+    // substitutions. Only reward a path whose token boundaries exactly cover
+    // the entity and whose candidate surfaces realize the typed value.
+    for (const auto& typed : typed_entities) {
+      std::size_t covered_end = typed.span.start;
+      std::string covered_surface;
+      bool aligned = false;
+      for (const auto& token : paths[p].tokens) {
+        if (token.end <= typed.span.start) continue;
+        if (token.start >= typed.span.end) break;
+        if (token.start != covered_end || token.end > typed.span.end) {
+          covered_surface.clear();
+          break;
+        }
+        covered_surface += token.candidate.surface;
+        covered_end = token.end;
+      }
+      aligned = covered_end == typed.span.end &&
+          covered_surface == typed.rendered_surface.str();
+      if (aligned) {
+        const std::string entity_span = std::to_string(typed.span.start) + ":" +
+                                        std::to_string(typed.span.end);
+        candidate.evidence.push_back({
+            "typed-entity-" + std::to_string(typed.span.start) + "-" +
+                std::to_string(typed.span.end),
+            "typed_entity", entity_span, 2.0, 1.0, true});
+        ++result.metrics.typed_entity_evidence_added;
+      }
     }
     recognition_candidates.push_back(std::move(candidate));
   }
