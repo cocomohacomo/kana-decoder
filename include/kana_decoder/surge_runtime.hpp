@@ -55,7 +55,10 @@ class SurgeNormalizationRuntime {
 
   bool open(std::string& error);
   SurgeNormalizationResult normalize(const std::string& reading,
-                                      const std::vector<DecodedPath>& paths);
+                                      const std::vector<DecodedPath>& paths,
+                                      bool finalize = true);
+  bool commit_output(const std::string& output, std::uint64_t source_revision,
+                     bool final, std::string& error);
 
   std::uint64_t state_version() const;
   std::size_t graph_node_count() const;
