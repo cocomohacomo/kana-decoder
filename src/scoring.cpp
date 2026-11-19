@@ -138,6 +138,13 @@ bool MaskedNgramScorer::has_left_context_evidence(const std::string& candidate,c
  if(left_counts_.find(key(context_key({left.back()}),candidate))!=left_counts_.end()) return true;
  return left.size()>1&&skip_counts_.find(key(left[left.size()-2],candidate))!=skip_counts_.end();
 }
+bool MaskedNgramScorer::has_right_context_evidence(const std::string& candidate,
+    const std::vector<std::string>& right) const {
+ if(candidate.empty()||right.empty()) return false;
+ const std::vector<std::string> window(right.begin(),
+   right.begin()+static_cast<std::ptrdiff_t>(std::min<std::size_t>(3,right.size())));
+ return right_counts_.find(key(candidate,context_key(window)))!=right_counts_.end();
+}
 double MaskedNgramScorer::skip_contextual_score(const std::string& candidate,const std::vector<std::string>& left) const {
  if(candidate.empty()||left.size()<2) return 0.0;
  const auto context=left[left.size()-2];
