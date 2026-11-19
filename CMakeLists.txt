@@ -8,14 +8,19 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # upstream Core keeps the complete application offline and reproducible.
 add_subdirectory(third_party/surge)
 add_library(kana_decoder_ja_language_set OBJECT
+  language_sets/ja-JP/decoder.cpp
   language_sets/ja-JP/morphology_decoder.cpp
+  language_sets/ja-JP/lexicon_trie.cpp
+  language_sets/ja-JP/scoring.cpp
+  language_sets/ja-JP/correction.cpp
+  language_sets/ja-JP/pack_loader.cpp
   language_sets/ja-JP/japanese_language_pack.cpp)
 target_include_directories(kana_decoder_ja_language_set PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set_target_properties(kana_decoder_ja_language_set PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_compile_options(kana_decoder_ja_language_set PRIVATE -Wall -Wextra -Wpedantic -Werror)
-add_library(kana_decoder_core src/engine.cpp $<TARGET_OBJECTS:kana_decoder_ja_language_set> src/scoring.cpp src/lexicon_trie.cpp src/correction.cpp src/streaming_session.cpp src/pack_loader.cpp src/c_api.cpp src/pack_manifest.cpp src/surge_cluster.cpp src/surge_language.cpp src/language_pack.cpp src/surge_runtime.cpp)
+add_library(kana_decoder_core src/engine.cpp $<TARGET_OBJECTS:kana_decoder_ja_language_set> src/streaming_session.cpp src/c_api.cpp src/pack_manifest.cpp src/surge_cluster.cpp src/surge_language.cpp src/language_pack.cpp src/surge_runtime.cpp)
 target_include_directories(kana_decoder_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(kana_decoder_core PUBLIC surge_core)
 target_compile_options(kana_decoder_core PRIVATE -Wall -Wextra -Wpedantic -Werror)
