@@ -36,6 +36,7 @@ def main() -> int:
     parser.add_argument("--corpus", required=True)
     parser.add_argument("--train-sequences", required=True)
     parser.add_argument("--source-lock", required=True)
+    parser.add_argument("--max-rss-mib", type=int, default=1792)
     parser.add_argument("--output-policy", required=True)
     parser.add_argument("--output-report", required=True)
     args = parser.parse_args()
@@ -54,6 +55,9 @@ def main() -> int:
             raise RuntimeError("calibration requires a non-empty dev split")
         if metrics.get("surge_core", {}).get("runtime_failures", 0) != 0:
             raise RuntimeError("runtime failures make dev calibration invalid")
+        peak_rss = metrics.get("peak_rss_kib", -1)
+        if peak_rss < 0 or peak_rss > args.max_rss_mib * 1024:
+            raise RuntimeError("dev calibration peak RSS is missing or exceeds configured limit")
         rows.append({"name": name, "weights": weights, "normalization_renderer": renderer,
                      "cer": metrics["surge_core"]["cer"],
                      "sentence_exact": metrics["surge_core"]["sentence_exact"],
@@ -73,7 +77,8 @@ def main() -> int:
               "corpus_sha256": sha256_file(Path(args.corpus)),
               "train_sequences_sha256": sha256_file(Path(args.train_sequences)),
               "calibrator_sha256": sha256_file(Path(__file__)),
-              "selection": "minimum CER, then maximum sentence exact, then fixed preset order",
+              "max_rss_mib": args.max_rss_mib,
+        "selection": "minimum CER, then maximum sentence exact, then fixed preset order",
               "best_policy": best, "candidates": rows}
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False))
