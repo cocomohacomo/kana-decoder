@@ -2,7 +2,7 @@
 
 更新日: 2026-11-19
 対象ブランチ: `refactor/surge-core-as-runtime`
-対象仕様: `SPECIFICATION_v0.47.md`
+対象仕様: `SPECIFICATION_v0.48.md`
 
 ## 0. 製品ゴール
 
@@ -128,3 +128,13 @@ v0.44のimmutable LanguagePack境界を前提に、次のコード変更はP0の
 - [x] Morphology expansion exhaustion rejects the decode rather than returning a partial best path.
 - [ ] Public host headers still expose Japanese implementation types; the provider-neutral type/API split remains the next architecture task.
 - [ ] CI and golden-corpus parity remain unverified.
+
+
+## 9. v0.48 provider-neutral streaming boundary
+
+- [x] Generic `StreamingSession` no longer accepts Japanese `LexiconTrie`, scorer or connection-model types.
+- [x] The Language Pack computes candidate paths and passes completed paths into `append_decoded`.
+- [x] The generic session owns only reading state, revision, bounded acceptance and commit behavior.
+- [x] Rejected over-limit chunks preserve the prior reading, snapshot and revision.
+- [ ] Remove the remaining Japanese decoder/resource declarations from the generic public `engine.hpp` header.
+- [ ] Verify all static/shared, C API, Python and streaming tests in CI.
