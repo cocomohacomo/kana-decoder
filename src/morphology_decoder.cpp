@@ -169,8 +169,10 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     ++expanded_states;
     State next=state;
     const std::int32_t transition=(connections&&state.has_last)?connections->cost(state.last_right_id,candidate.left_id):0;
-    const double morph=-static_cast<double>(candidate.word_cost)-
-                       static_cast<double>(candidate.connection_cost)-static_cast<double>(transition);
+    const double lexical_score=-static_cast<double>(candidate.word_cost)-
+                               static_cast<double>(candidate.connection_cost);
+    const double transition_score=-static_cast<double>(transition);
+    const double morph=lexical_score+transition_score;
     const double context_evidence=opt.surge_left_context_gate
       ? (surge_resolved&&candidate.surface==ngram_winner
           ? ngram_gap : 0.0)
@@ -181,8 +183,16 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     const double ngram_context=raw_context*opt.context_weight;
     const double cluster_context=(cluster_resolved&&candidate.surface==cluster_winner)
       ? cluster_override_bonus : 0.0;
-    const double pos_context=(opt.pos_ngram_scorer&&!candidate.pos.empty())
-      ? opt.pos_ngram_scorer->contextual_score(candidate.pos,state.pos_history,{})*opt.pos_context_weight : 0.0;
+    bool has_cluster_evidence=false;
+    const double cluster_raw_evidence=(opt.surge_cluster_model&&!state.history.empty())
+      ? opt.surge_cluster_model->evidence_score(candidate.id,state.history,&has_cluster_evidence) : 0.0;
+    const bool has_ngram_evidence=scorer.has_left_context_evidence(candidate.id,state.history) ||
+      scorer.has_right_context_evidence(candidate.id,right_context);
+    const double pos_raw=(opt.pos_ngram_scorer&&!candidate.pos.empty())
+      ? opt.pos_ngram_scorer->contextual_score(candidate.pos,state.pos_history,{}) : 0.0;
+    const bool has_pos_evidence=opt.pos_ngram_scorer&&!candidate.pos.empty() &&
+      opt.pos_ngram_scorer->has_left_context_evidence(candidate.pos,state.pos_history);
+    const double pos_context=pos_raw*opt.pos_context_weight;
     const double ctx=ngram_context+cluster_context+pos_context;
     const double local=morph+ctx;
     if(trace && trace->size()<trace_limit) trace->push_back(CandidateScoreTrace{
@@ -191,8 +201,24 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
       raw_context,context_evidence,opt.context_weight,morph,ctx,local,
       candidate.id.rfind("kana:",0)==0});
     next.path.score+=local;
-    next.path.tokens.push_back(DecodedToken{edge->start,edge->end,
-      Candidate{candidate.id,candidate.surface,candidate.pos,candidate.inflection_type,candidate.inflection_form},morph,ctx});
+    DecodedToken decoded_token;
+    decoded_token.start=edge->start;
+    decoded_token.end=edge->end;
+    decoded_token.candidate=Candidate{candidate.id,candidate.surface,candidate.pos,
+                                      candidate.inflection_type,candidate.inflection_form};
+    decoded_token.morphology_score=morph;
+    decoded_token.context_score=ctx;
+    decoded_token.lexical_score=lexical_score;
+    decoded_token.transition_score=transition_score;
+    decoded_token.ngram_score=ngram_context;
+    decoded_token.cluster_score=cluster_context;
+    decoded_token.cluster_raw_evidence=cluster_raw_evidence;
+    decoded_token.pos_score=pos_context;
+    decoded_token.has_transition_evidence=connections&&state.has_last;
+    decoded_token.has_ngram_evidence=has_ngram_evidence;
+    decoded_token.has_cluster_evidence=has_cluster_evidence;
+    decoded_token.has_pos_evidence=has_pos_evidence;
+    next.path.tokens.push_back(std::move(decoded_token));
     next.history.push_back(candidate.id);next.last_right_id=candidate.right_id;next.has_last=true;
     if(next.history.size()>3)next.history.erase(next.history.begin());
     if(!candidate.pos.empty())next.pos_history.push_back(candidate.pos);
