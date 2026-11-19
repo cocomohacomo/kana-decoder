@@ -131,3 +131,11 @@ No v0.32 accuracy gain is claimed until the new CI and full Pack workflow comple
 - Skip-Bigramは距離2関係を独立保持し、隣接Bigramと混同しない。未観測チャネルは平均の分母から除外し、0点の肯定証拠として扱わない。
 - 既定DecoderOptions、Language Pack形式、C ABIは変更しない。係数は初期値でありdevで校正し、testは凍結設定で一度評価する。
 - Character N-gramは同一読みスパンの候補間で入力文字列が共通となるため、候補スコアへ安易に加算しない。未知語候補生成・読み誤り検出の別タスクとして扱う。
+
+
+## 12. v0.38 可変長N-gram履歴
+
+- SURGE経験記憶の履歴上限を3候補へ拡張し、Unigram / Bigram / Trigram / 4-gram / Skip-Bigramを同時評価する。
+- 推論ではBeamごとの予測済み履歴のみを参照し、4-gram 0.50、Trigram 0.30、Bigram 0.15、Skip-Bigram 0.05を初期重みとして、観測された次数だけで重みを再正規化する。
+- Beamごとに直近3候補IDを保持し、分岐間で履歴を共有しない。Beam幅8・入力256 codepoints・展開262,144状態の既存ハード上限は維持する。
+- 重みは初期値でありdev splitで校正する。testデータを使った重み調整は禁止する。
