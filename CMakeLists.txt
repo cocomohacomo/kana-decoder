@@ -40,6 +40,9 @@ target_link_libraries(kana_decoder_eval PRIVATE kana_decoder_core)
 
 add_executable(kana_decoder_sequential_eval tools/evaluate_sequential_corpus.cpp)
 target_link_libraries(kana_decoder_sequential_eval PRIVATE kana_decoder_core)
+
+add_executable(kana_decoder_surge_eval tools/evaluate_surge_runtime.cpp)
+target_link_libraries(kana_decoder_surge_eval PRIVATE kana_decoder_core)
 add_test(NAME japanese_smoke_quality COMMAND kana_decoder_eval
   ${CMAKE_CURRENT_SOURCE_DIR}/packs/ja-lite
   ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/ja-smoke-gold.tsv)
@@ -82,6 +85,9 @@ add_executable(kana_decoder_surge_runtime_tests tests/test_surge_runtime.cpp)
 target_link_libraries(kana_decoder_surge_runtime_tests PRIVATE kana_decoder_core)
 target_compile_definitions(kana_decoder_surge_runtime_tests PRIVATE KANA_DECODER_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 add_test(NAME surge_core_normalization_integration COMMAND kana_decoder_surge_runtime_tests)
+add_test(NAME surge_core_real_data_eval_smoke COMMAND kana_decoder_surge_eval
+  ${CMAKE_CURRENT_SOURCE_DIR}/packs/ja-lite
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/ja-smoke-gold.tsv general)
 
 add_executable(kana_decoder_surge_bench tools/bench_surge_runtime.cpp)
 target_link_libraries(kana_decoder_surge_bench PRIVATE kana_decoder_core)
