@@ -5,8 +5,9 @@
 #include <sstream>
 namespace {
 bool valid_utf8_impl(const std::string& s){return kana_decoder::is_valid_utf8(s);}
-std::vector<std::string> utf8_chars(const std::string&s){std::vector<std::string>o;if(!valid_utf8_impl(s))return o;for(std::size_t i=0;i<s.size();){unsigned char c=static_cast<unsigned char>(s[i]);std::size_t n=c<0x80?1:(c&0xe0)==0xc0?2:(c&0xf0)==0xe0?3:4;o.push_back(s.substr(i,n));i+=n;}return o;}
-std::uint32_t utf8_codepoint(const std::string& s){const auto* p=reinterpret_cast<const unsigned char*>(s.data());if(s.size()==1)return p[0];if(s.size()==2)return (static_cast<std::uint32_t>(p[0]&0x1f)<<6)|(p[1]&0x3f);if(s.size()==3)return (static_cast<std::uint32_t>(p[0]&0x0f)<<12)|(static_cast<std::uint32_t>(p[1]&0x3f)<<6)|(p[2]&0x3f);return (static_cast<std::uint32_t>(p[0]&0x07)<<18)|(static_cast<std::uint32_t>(p[1]&0x3f)<<12)|(static_cast<std::uint32_t>(p[2]&0x3f)<<6)|(p[3]&0x3f);}
+std::size_t utf8_width(unsigned char c){return c<0x80?1:(c&0xe0)==0xc0?2:(c&0xf0)==0xe0?3:4;}
+std::uint32_t utf8_codepoint_at(const std::string& text,std::size_t offset){const auto* p=reinterpret_cast<const unsigned char*>(text.data()+offset);const auto n=utf8_width(*p);if(n==1)return p[0];if(n==2)return (static_cast<std::uint32_t>(p[0]&0x1f)<<6)|(p[1]&0x3f);if(n==3)return (static_cast<std::uint32_t>(p[0]&0x0f)<<12)|(static_cast<std::uint32_t>(p[1]&0x3f)<<6)|(p[2]&0x3f);return (static_cast<std::uint32_t>(p[0]&0x07)<<18)|(static_cast<std::uint32_t>(p[1]&0x3f)<<12)|(static_cast<std::uint32_t>(p[2]&0x3f)<<6)|(p[3]&0x3f);}
+std::vector<std::size_t> utf8_byte_offsets(const std::string& text){std::vector<std::size_t> offsets;offsets.reserve(text.size()+1);for(std::size_t i=0;i<text.size();i+=utf8_width(static_cast<unsigned char>(text[i])))offsets.push_back(i);offsets.push_back(text.size());return offsets;}
 bool parse_i32_strict(const std::string& text,std::int32_t& value,bool nonnegative=false){if(text.empty())return false;auto r=std::from_chars(text.data(),text.data()+text.size(),value);return r.ec==std::errc{}&&r.ptr==text.data()+text.size()&&(!nonnegative||value>=0);}
 std::int64_t candidate_cost(const kana_decoder::LatticeCandidate& c){return static_cast<std::int64_t>(c.word_cost)+c.connection_cost;}
 std::vector<const kana_decoder::LatticeCandidate*> retain_surface_diverse_ptr(const std::vector<kana_decoder::LatticeCandidate>& source,std::size_t limit){
@@ -43,8 +44,8 @@ std::vector<std::size_t> spread_indices(std::size_t count,std::size_t limit){
 namespace kana_decoder {
 bool LexiconTrie::add(const std::string& reading,const LatticeCandidate& candidate){
  if(reading.empty()||!valid_utf8_impl(reading)||!valid_utf8_impl(candidate.id)||!valid_utf8_impl(candidate.surface)||candidate.id.empty()||candidate.surface.empty())return false;
- auto chars=utf8_chars(reading);std::size_t node=0;
- for(const auto&ch:chars){const auto cp=utf8_codepoint(ch);auto& transitions=nodes_[node].next;auto it=std::lower_bound(transitions.begin(),transitions.end(),cp,[](const auto& edge,std::uint32_t value){return edge.first<value;});if(it==transitions.end()||it->first!=cp){
+ std::size_t node=0;
+ for(std::size_t offset=0;offset<reading.size();offset+=utf8_width(static_cast<unsigned char>(reading[offset]))){const auto cp=utf8_codepoint_at(reading,offset);auto& transitions=nodes_[node].next;auto it=std::lower_bound(transitions.begin(),transitions.end(),cp,[](const auto& edge,std::uint32_t value){return edge.first<value;});if(it==transitions.end()||it->first!=cp){
   std::size_t next=nodes_.size();transitions.insert(it,{cp,next});nodes_.push_back(Node{});node=next;
  }else node=it->second;}
  auto& values=nodes_[node].values;
@@ -109,13 +110,14 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
   if(resource_limit_exceeded)*resource_limit_exceeded=true;
   return out;
  }
- auto chars = utf8_chars(reading);
- if (chars.empty()) return out;
- if(chars.size()>256){
+ const auto byte_offsets=utf8_byte_offsets(reading);
+ const auto codepoint_count=byte_offsets.size()-1;
+ if (codepoint_count==0) return out;
+ if(codepoint_count>256){
   if(resource_limit_exceeded)*resource_limit_exceeded=true;
   return out;
  }
- for (std::size_t start = 0; start < chars.size(); ++start) {
+ for (std::size_t start = 0; start < codepoint_count; ++start) {
   if(out.size()>=max_total_edges){
    if(resource_limit_exceeded)*resource_limit_exceeded=true;
    break;
@@ -124,8 +126,8 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
   position_trace.start = start;
   position_trace.fallback_enabled = fallback;
   std::vector<LatticeEdge> available_edges;std::vector<std::size_t> raw_counts;std::size_t node=0;
-  if(max_matches)for(std::size_t end=start;end<chars.size();++end){
-   const auto cp=utf8_codepoint(chars[end]);const auto& transitions=nodes_[node].next;auto it=std::lower_bound(transitions.begin(),transitions.end(),cp,[](const auto& edge,std::uint32_t value){return edge.first<value;});if(it==transitions.end()||it->first!=cp)break;node=it->second;
+  if(max_matches)for(std::size_t end=start;end<codepoint_count;++end){
+   const auto cp=utf8_codepoint_at(reading,byte_offsets[end]);const auto& transitions=nodes_[node].next;auto it=std::lower_bound(transitions.begin(),transitions.end(),cp,[](const auto& edge,std::uint32_t value){return edge.first<value;});if(it==transitions.end()||it->first!=cp)break;node=it->second;
    if(!nodes_[node].values.empty()){position_trace.available_candidate_count+=nodes_[node].values.size();available_edges.push_back(LatticeEdge{start,end+1,{}});raw_counts.push_back(nodes_[node].values.size());available_edges.back().candidates=retain_surface_diverse(nodes_[node].values,std::min<std::size_t>(8,nodes_[node].values.size()));}
   }
   position_trace.available_dictionary_match_count=available_edges.size();
@@ -144,7 +146,7 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
   position_trace.dictionary_match_count=matches;
   position_trace.pruned_dictionary_match_count=position_trace.available_dictionary_match_count-matches;
   position_trace.pruned_candidate_count=position_trace.available_candidate_count-position_trace.retained_candidate_count;
-  if(fallback&&position_trace.available_dictionary_match_count==0&&max_matches){out.push_back(LatticeEdge{start,start+1,{LatticeCandidate{"kana:"+chars[start],chars[start],10000,0,0,0,{},{},{}}}});position_trace.fallback_generated=true;}
+  if(fallback&&position_trace.available_dictionary_match_count==0&&max_matches){out.push_back(LatticeEdge{start,start+1,{LatticeCandidate{"kana:"+reading.substr(byte_offsets[start],byte_offsets[start+1]-byte_offsets[start]),reading.substr(byte_offsets[start],byte_offsets[start+1]-byte_offsets[start]),10000,0,0,0,{},{},{}}}});position_trace.fallback_generated=true;}
   else if(fallback&&position_trace.available_dictionary_match_count)position_trace.fallback_suppressed_by_dictionary=true;
   if (trace) trace->push_back(std::move(position_trace));
  }
