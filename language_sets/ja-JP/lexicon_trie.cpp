@@ -160,14 +160,14 @@ void LexiconTrie::build_candidate_pos_index() {
    const auto id=candidate_string(it->id),pos=candidate_string(it->pos);
    if(id.empty()||pos.empty()) continue;
    auto found=candidate_pos_.find(std::string(id));
-   if(found==candidate_pos_.end()) candidate_pos_.emplace(std::string(id),std::string(pos));
-   else if(found->second!=pos) found->second.clear();
+   if(found==candidate_pos_.end()) candidate_pos_.emplace(std::string(id),it->pos);
+   else if(candidate_string(found->second)!=pos) found->second=CompactString{};
   }
  }
 }
 std::string LexiconTrie::candidate_pos(const std::string& candidate_id) const {
  auto found=candidate_pos_.find(candidate_id);
- return found==candidate_pos_.end()?std::string{}:found->second;
+ return found==candidate_pos_.end()?std::string{}:std::string(candidate_string(found->second));
 }
 std::vector<LatticeEdge> LexiconTrie::build_lattice(
  const std::string& reading,std::size_t max_matches,bool fallback,
