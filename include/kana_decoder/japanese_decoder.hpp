@@ -167,7 +167,7 @@ private:
   std::size_t edge_offset=0, edge_count=0;
   std::size_t candidate_offset=0, candidate_count=0;
  };
- std::unordered_map<std::string,std::string> candidate_pos_;
+ std::unordered_map<std::string,CompactString> candidate_pos_;
  std::string candidate_string_pool_;
  std::vector<Node> nodes_{1};
  CompactString store_candidate_string(const std::string& value);
