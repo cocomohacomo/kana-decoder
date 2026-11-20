@@ -39,7 +39,7 @@ After building `kana_decoder_eval` and preparing the UD-GSD TSV with
 ```sh
 python3 tools/evaluate_beam_ab.py \
   --evaluator build/kana_decoder_eval \
-  --pack packs/ja-lite \
+  --pack path/to/full-japanese-pack \
   --prepared-corpus build/ud_gsd_corpus.tsv \
   --split dev \
   --output build/beam-ab-dev.json
