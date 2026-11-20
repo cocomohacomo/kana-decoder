@@ -148,14 +148,10 @@ bool LexiconTrie::load_tsv(const std::string& path,std::size_t* loaded){
 }
 void LexiconTrie::build_candidate_pos_index() {
  candidate_pos_index_.clear();
- for(const auto& node:nodes_) {
-  const auto begin=candidate_arena_.begin()+static_cast<std::ptrdiff_t>(node.candidate_offset);
-  const auto end=begin+static_cast<std::ptrdiff_t>(node.candidate_count);
-  for(auto it=begin;it!=end;++it) {
-   if(it->id.size==0||it->pos.size==0) continue;
-   candidate_pos_index_.push_back(PosIndexEntry{it->id,it->pos});
-  }
- }
+ auto append=[&](const CompactCandidate& item){if(item.id.size&&item.pos.size)candidate_pos_index_.push_back(PosIndexEntry{item.id,item.pos});};
+ if(candidates_compacted_){for(const auto& node:nodes_){auto begin=candidate_arena_.begin()+node.candidate_offset;for(auto it=begin;it!=begin+node.candidate_count;++it)append(*it);}}
+ else{for(const auto& node:build_nodes_)for(const auto& item:node.values)append(item);}
+
  // Sort the sole backing buffer to avoid retaining a temporary entries vector.
  std::sort(candidate_pos_index_.begin(),candidate_pos_index_.end(),[this](const PosIndexEntry& a,const PosIndexEntry& b) {
   return candidate_string(a.id)<candidate_string(b.id);
@@ -236,12 +232,11 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
    if(edges_compacted_){const auto& current=nodes_[node];auto first=edge_arena_.begin()+current.edge_offset;auto last=first+current.edge_count;auto it=std::lower_bound(first,last,cp,[](const auto& edge,std::uint32_t value){return edge.first<value;});if(it!=last&&it->first==cp){child=it->second;found=true;}}
    else{const auto& edges=build_nodes_[node].next;auto it=std::lower_bound(edges.begin(),edges.end(),cp,[](const auto& edge,std::uint32_t value){return edge.first<value;});if(it!=edges.end()&&it->first==cp){child=it->second;found=true;}}
    if(!found)break;node=child;
-   const auto& terminal=nodes_[node];
-   const auto candidate_count=candidates_compacted_?terminal.candidate_count:build_nodes_[node].values.size();
+   const auto candidate_count=candidates_compacted_?nodes_[node].candidate_count:build_nodes_[node].values.size();
    if(candidate_count){
     position_trace.available_candidate_count+=candidate_count;
     std::vector<LatticeCandidate> materialized;materialized.reserve(candidate_count);
-    if(candidates_compacted_){auto first=candidate_arena_.begin()+terminal.candidate_offset;for(auto it=first;it!=first+candidate_count;++it)materialized.push_back(materialize_candidate(*it));}
+    if(candidates_compacted_){const auto& terminal=nodes_[node];auto first=candidate_arena_.begin()+terminal.candidate_offset;for(auto it=first;it!=first+candidate_count;++it)materialized.push_back(materialize_candidate(*it));}
     else for(const auto& item:build_nodes_[node].values)materialized.push_back(materialize_candidate(item));
     available_edges.push_back(LatticeEdge{start,end+1,{}});raw_counts.push_back(candidate_count);
     available_edges.back().candidates=retain_surface_diverse(materialized,std::min<std::size_t>(8,materialized.size()));
