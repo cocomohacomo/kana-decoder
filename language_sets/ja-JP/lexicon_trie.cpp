@@ -61,7 +61,7 @@ bool LexiconTrie::load_tsv(const std::string& path,std::size_t* loaded){
  auto parse_line=[&](const std::string& row)->bool{
   if(row.empty()||row[0]=='#')return true;
   std::vector<std::string> cols;std::stringstream ss(row);std::string field;
-  while(std::getline(ss,field,'\\t'))cols.push_back(field);
+  while(std::getline(ss,field,'\t'))cols.push_back(field);
   if(cols.size()<5||cols.size()>12)return false;
   LatticeCandidate candidate;candidate.id=cols.size()>5&&!cols[5].empty()?cols[5]:cols[4];candidate.surface=cols[1];
   if(cols.size()>6&&!cols[6].empty()&&!parse_i32_strict(cols[6],candidate.word_cost))return false;
@@ -79,7 +79,7 @@ bool LexiconTrie::load_tsv(const std::string& path,std::size_t* loaded){
   char buffer[8192];int status=Z_OK;bool ok=true;
   while(ok&&gzgets(input,buffer,sizeof(buffer))){
    line.append(buffer);
-   if(!line.empty()&&line.back()=='\\n'){line.pop_back();if(!line.empty()&&line.back()=='\\r')line.pop_back();ok=parse_line(line);line.clear();}
+   if(!line.empty()&&line.back()=='\n'){line.pop_back();if(!line.empty()&&line.back()=='\r')line.pop_back();ok=parse_line(line);line.clear();}
    else if(line.size()>1024u*1024u)ok=false;
   }
   if(ok&&!line.empty())ok=parse_line(line);
