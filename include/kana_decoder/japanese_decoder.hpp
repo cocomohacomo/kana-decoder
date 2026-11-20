@@ -167,10 +167,12 @@ private:
  };
  struct PosIndexEntry { CompactString id, pos; };
  struct Node {
-  std::vector<std::pair<std::uint32_t,std::size_t>> next;
+  // 32-bit child indices and arena ranges halve edge-reference width and
+  // reduce per-node range metadata on the bounded Japanese dictionary pack.
+  std::vector<std::pair<std::uint32_t,std::uint32_t>> next;
   std::vector<CompactCandidate> values;
-  std::size_t edge_offset=0, edge_count=0;
-  std::size_t candidate_offset=0, candidate_count=0;
+  std::uint32_t edge_offset=0, edge_count=0;
+  std::uint32_t candidate_offset=0, candidate_count=0;
  };
  std::vector<PosIndexEntry> candidate_pos_index_;
  // POS and inflection labels have a small repeated vocabulary. Keep one pool
@@ -182,7 +184,7 @@ private:
  CompactString store_metadata_string(const std::string& value);
  std::string_view candidate_string(CompactString value) const;
  LatticeCandidate materialize_candidate(const CompactCandidate& value) const;
- std::vector<std::pair<std::uint32_t,std::size_t>> edge_arena_;
+ std::vector<std::pair<std::uint32_t,std::uint32_t>> edge_arena_;
  std::vector<CompactCandidate> candidate_arena_;
  bool edges_compacted_=false, candidates_compacted_=false;
  void compact_edges();
