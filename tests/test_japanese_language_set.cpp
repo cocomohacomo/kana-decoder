@@ -84,6 +84,27 @@ int main() {
   assert(interned_lattice[0].candidates.front().pos == "名詞/普通名詞");
   assert(interned_lattice[1].candidates.front().inflection_form == "連用形-一般");
 
+  // The POS index stores offsets into the existing pool, not owned ID keys.
+  LexiconTrie pos_indexed;
+  auto pos_one = candidate("shared-id", "共有", 0);
+  pos_one.pos = "名詞";
+  auto pos_two = candidate("another-id", "別", 1);
+  pos_two.pos = "動詞";
+  auto pos_conflict = candidate("conflict-id", "競合A", 2);
+  pos_conflict.pos = "名詞";
+  auto pos_conflict_other = candidate("conflict-id", "競合B", 3);
+  pos_conflict_other.pos = "動詞";
+  assert(pos_indexed.add("きょうゆう", pos_one));
+  assert(pos_indexed.add("べつ", pos_two));
+  assert(pos_indexed.add("きょうごう", pos_conflict));
+  assert(pos_indexed.add("きょうごう", pos_conflict_other));
+  pos_indexed.build_candidate_pos_index();
+  assert(pos_indexed.candidate_pos_index_size() == 3);
+  assert(pos_indexed.candidate_pos("shared-id") == "名詞");
+  assert(pos_indexed.candidate_pos("another-id") == "動詞");
+  assert(pos_indexed.candidate_pos("conflict-id").empty());
+  assert(pos_indexed.candidate_pos("missing-id").empty());
+
   // Candidate and edge ceilings are signalled, never silently treated as
   // complete lattice results.
   exceeded = false;
