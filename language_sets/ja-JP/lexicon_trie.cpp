@@ -44,8 +44,8 @@ namespace kana_decoder {
 bool LexiconTrie::add(const std::string& reading,const LatticeCandidate& candidate){
  if(reading.empty()||!valid_utf8_impl(reading)||!valid_utf8_impl(candidate.id)||!valid_utf8_impl(candidate.surface)||candidate.id.empty()||candidate.surface.empty())return false;
  auto chars=utf8_chars(reading);std::size_t node=0;
- for(const auto&ch:chars){const auto cp=utf8_codepoint(ch);auto& transitions=nodes_[node].next;auto it=std::find_if(transitions.begin(),transitions.end(),[&](const auto& edge){return edge.first==cp;});if(it==transitions.end()){
-  std::size_t next=nodes_.size();transitions.emplace_back(cp,next);nodes_.push_back(Node{});node=next;
+ for(const auto&ch:chars){const auto cp=utf8_codepoint(ch);auto& transitions=nodes_[node].next;auto it=std::lower_bound(transitions.begin(),transitions.end(),cp,[](const auto& edge,std::uint32_t value){return edge.first<value;});if(it==transitions.end()||it->first!=cp){
+  std::size_t next=nodes_.size();transitions.insert(it,{cp,next});nodes_.push_back(Node{});node=next;
  }else node=it->second;}
  auto& values=nodes_[node].values;
  auto duplicate=std::find_if(values.begin(),values.end(),[&](const LatticeCandidate&v){return v.id==candidate.id&&v.surface==candidate.surface;});
@@ -125,7 +125,7 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
   position_trace.fallback_enabled = fallback;
   std::vector<LatticeEdge> available_edges;std::vector<std::size_t> raw_counts;std::size_t node=0;
   if(max_matches)for(std::size_t end=start;end<chars.size();++end){
-   const auto cp=utf8_codepoint(chars[end]);const auto& transitions=nodes_[node].next;auto it=std::find_if(transitions.begin(),transitions.end(),[&](const auto& edge){return edge.first==cp;});if(it==transitions.end())break;node=it->second;
+   const auto cp=utf8_codepoint(chars[end]);const auto& transitions=nodes_[node].next;auto it=std::lower_bound(transitions.begin(),transitions.end(),cp,[](const auto& edge,std::uint32_t value){return edge.first<value;});if(it==transitions.end()||it->first!=cp)break;node=it->second;
    if(!nodes_[node].values.empty()){position_trace.available_candidate_count+=nodes_[node].values.size();available_edges.push_back(LatticeEdge{start,end+1,{}});raw_counts.push_back(nodes_[node].values.size());available_edges.back().candidates=retain_surface_diverse(nodes_[node].values,std::min<std::size_t>(8,nodes_[node].values.size()));}
   }
   position_trace.available_dictionary_match_count=available_edges.size();
