@@ -187,6 +187,15 @@ void LexiconTrie::build_candidate_pos_index() {
   read=next;
  }
  candidate_pos_index_.resize(write);
+ // Release the excess capacity retained from pre-folding candidate IDs.
+ // Allocate only the compacted size, then swap so the old oversized buffer
+ // is released when the temporary goes out of scope.
+ if(write<candidate_pos_index_.capacity()) {
+  std::vector<PosIndexEntry> compact;
+  compact.reserve(write);
+  compact.insert(compact.end(),candidate_pos_index_.begin(),candidate_pos_index_.end());
+  candidate_pos_index_.swap(compact);
+ }
 }
 std::string LexiconTrie::candidate_pos(const std::string& candidate_id) const {
  const auto found=std::lower_bound(candidate_pos_index_.begin(),candidate_pos_index_.end(),candidate_id,
