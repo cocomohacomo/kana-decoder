@@ -113,7 +113,7 @@ int main() {
   {
     std::ofstream frozen_file(frozen_path, std::ios::binary);
     assert(frozen_file);
-    frozen_file << "ふる\t古\t名詞\t名詞\tfrozen-id\\n";
+    frozen_file << "ふる\t古\t名詞\t名詞\tfrozen-id\n";
   }
   LexiconTrie thawed;
   std::size_t frozen_loaded = 0;
