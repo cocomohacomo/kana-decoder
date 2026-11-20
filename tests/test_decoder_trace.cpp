@@ -214,7 +214,9 @@ int main() {
  auto direct_diverse_paths=direct_decoder.decode(1,direct_diverse_lattice,scorer);
  assert(direct_diverse_paths.size()==8);
  std::vector<std::string> direct_surfaces;
- for(const auto& path:direct_diverse_paths)if(std::find(direct_surfaces.begin(),direct_surfaces.end(),path.text)==direct_surfaces.end())direct_surfaces.push_back(path.text);
+ for(const auto& path:direct_diverse_paths)for(const auto& token:path.tokens)
+  if(std::find(direct_surfaces.begin(),direct_surfaces.end(),token.candidate.surface)==direct_surfaces.end())
+   direct_surfaces.push_back(token.candidate.surface);
  assert(direct_surfaces.size()==8);
  std::cout << "decoder trace and resource budget tests passed\n";
 }
