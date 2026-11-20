@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <charconv>
 #include <fstream>
+#include <limits>
+#include <stdexcept>
 #include <sstream>
 #include <zlib.h>
 namespace {
