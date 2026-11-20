@@ -313,6 +313,17 @@ int main() {
   kept_alternative=kept_alternative||surface=="丙";
  }
  assert(kept_compound&&kept_alternative);
+ // A/B control: legacy score-only pruning reproduces the duplicate-surface
+ // crowding case, proving the regression test distinguishes the two policies.
+ DecoderOptions legacy_beam_options=diversity_options;
+ legacy_beam_options.preserve_rendered_surface_diversity=false;
+ auto legacy_segmentation_paths=direct_decoder.decode(2,segmentation_lattice,scorer,{},legacy_beam_options);
+ bool legacy_kept_alternative=false;
+ for(const auto& path:legacy_segmentation_paths){
+  std::string surface;for(const auto& token:path.tokens)surface+=token.candidate.surface;
+  legacy_kept_alternative=legacy_kept_alternative||surface=="丙";
+ }
+ assert(!legacy_kept_alternative);
  // Deterministic adversarial cap stress: repeated surface duplicates must not
  // crowd out unique alternatives across varied candidate costs and insertion order.
  for(int trial=0;trial<100;++trial){
