@@ -11,14 +11,13 @@ import json
 import subprocess
 import sys
 import tempfile
-from collections import defaultdict
 from pathlib import Path
 
 
 def build_eval_rows(source, split):
     grouped = {}
     with source.open(encoding="utf-8", newline="") as stream:
-        reader = csv.DictReader(stream, delimiter="\\t")
+        reader = csv.DictReader(stream, delimiter="\t")
         required = {"document_id", "sentence_id", "reading", "surface", "domain", "split"}
         if not reader.fieldnames or not required.issubset(reader.fieldnames):
             raise ValueError("prepared corpus is missing required columns: " +
@@ -80,6 +79,9 @@ def compare(new, old, rows, split):
     changed = []
     exact_gains = exact_regressions = both_correct = both_wrong = 0
     for source_row, candidate, baseline in zip(rows, new_cases, old_cases):
+        if (candidate["reading"], candidate["expected"], candidate["domain"]) != (
+                source_row[2], source_row[3], source_row[4]):
+            raise ValueError("prepared corpus rows do not match evaluator case details")
         candidate_correct = candidate["predicted"] == candidate["expected"]
         baseline_correct = baseline["predicted"] == baseline["expected"]
         both_correct += candidate_correct and baseline_correct
@@ -147,18 +149,18 @@ def main():
             corpus = Path(tmp) / "evaluation.tsv"
             with corpus.open("w", encoding="utf-8", newline="") as stream:
                 for _, _, reading, surface, domain in rows:
-                    stream.write(f"{reading}\\t{surface}\\t{domain}\\n")
+                    stream.write(f"{reading}\t{surface}\t{domain}\n")
             diversity = _run(args.evaluator, args.pack, corpus, False)
             legacy = _run(args.evaluator, args.pack, corpus, True)
         report = compare(diversity, legacy, rows, args.split)
-        rendered = json.dumps(report, ensure_ascii=False, indent=2) + "\\n"
+        rendered = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_text(rendered, encoding="utf-8")
         else:
             sys.stdout.write(rendered)
     except (OSError, ValueError, RuntimeError, csv.Error) as exc:
-        parser.exit(2, f"error: {exc}\\n")
+        parser.exit(2, f"error: {exc}\n")
 
 
 if __name__ == "__main__":
