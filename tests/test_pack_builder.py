@@ -1,4 +1,5 @@
-import gzip\nimport json
+import gzip
+import json
 import pathlib
 import subprocess
 import sys
