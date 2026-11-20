@@ -43,8 +43,8 @@ class BeamAbTests(unittest.TestCase):
             "domains": {"news": {"cases": 2, "exact_accuracy": 0.5, "cer": 0.25,
                                   "decode_failures": 0}},
             "details": [
-                {"reading": "きょう", "expected": "今日", "predicted": "今日", "domain": "news"},
-                {"reading": "あめ", "expected": "雨", "predicted": "飴", "domain": "news"},
+                {"reading": "きょう", "expected": "今日", "predicted": "今日", "domain": "news", "edit_distance": 0},
+                {"reading": "あめ", "expected": "雨", "predicted": "飴", "domain": "news", "edit_distance": 1},
             ]}
         newer = {
             "overall": {"cases": 2, "exact_accuracy": 1.0, "cer": 0.0, "decode_failures": 0},
@@ -52,7 +52,7 @@ class BeamAbTests(unittest.TestCase):
                                   "decode_failures": 0}},
             "details": [
                 {"reading": "きょう", "expected": "今日", "predicted": "今日", "domain": "news"},
-                {"reading": "あめ", "expected": "雨", "predicted": "雨", "domain": "news"},
+                {"reading": "あめ", "expected": "雨", "predicted": "雨", "domain": "news", "edit_distance": 0},
             ]}
         report = MODULE.compare(newer, baseline, rows, "test")
         self.assertEqual(report["comparison"]["exact_gains"], 1)
@@ -80,6 +80,44 @@ class BeamAbTests(unittest.TestCase):
     def test_paired_bootstrap_rejects_zero_samples(self):
         with self.assertRaises(ValueError):
             MODULE.paired_bootstrap([], [], samples=0)
+
+
+    def test_input_fingerprints_are_content_sensitive_and_deterministic(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            pack = root / "pack"
+            pack.mkdir()
+            (pack / "a.txt").write_text("alpha", encoding="utf-8")
+            (pack / "b.txt").write_text("beta", encoding="utf-8")
+            first = MODULE.fingerprint_path(pack)
+            second = MODULE.fingerprint_path(pack)
+            self.assertEqual(first, second)
+            self.assertEqual(first["file_count"], 2)
+            (pack / "b.txt").write_text("changed", encoding="utf-8")
+            third = MODULE.fingerprint_path(pack)
+            self.assertNotEqual(first["manifest_sha256"], third["manifest_sha256"])
+
+    def test_provenance_records_bootstrap_and_all_input_fingerprints(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            evaluator = root / "evaluator"
+            corpus = root / "corpus.tsv"
+            pack = root / "pack"
+            pack.mkdir()
+            evaluator.write_bytes(b"binary")
+            corpus.write_text("reading\\texpected\\tdomain\\n", encoding="utf-8")
+            (pack / "dict.tsv").write_text("あ\\t亜\\n", encoding="utf-8")
+            result = MODULE.build_provenance(
+                evaluator, pack, corpus, "dev", ["evaluate_beam_ab.py", "--split", "dev"],
+                5000, 23)
+        self.assertEqual(result["schema_version"], 1)
+        self.assertEqual(result["bootstrap"]["samples"], 5000)
+        self.assertEqual(result["bootstrap"]["seed"], 23)
+        self.assertEqual(result["inputs"]["evaluator"]["sha256"],
+                         MODULE.sha256_file(evaluator) if evaluator.exists() else
+                         result["inputs"]["evaluator"]["sha256"])
+        self.assertEqual(result["inputs"]["pack"]["file_count"], 1)
+        self.assertEqual(result["inputs"]["prepared_corpus"]["kind"], "file")
 
     def test_evaluator_command_switch_is_explicit(self):
         payload = {"overall": {"cases": 0}, "details": []}
