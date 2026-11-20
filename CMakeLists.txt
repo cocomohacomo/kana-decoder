@@ -19,9 +19,9 @@ add_library(kana_decoder_ja_language_set OBJECT
   language_sets/ja-JP/surge_language.cpp
   language_sets/ja-JP/surge_cluster.cpp)
 target_include_directories(kana_decoder_ja_language_set PRIVATE
-target_link_libraries(kana_decoder_ja_language_set PRIVATE ZLIB::ZLIB)
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(kana_decoder_ja_language_set PRIVATE ZLIB::ZLIB)
 set_target_properties(kana_decoder_ja_language_set PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_compile_options(kana_decoder_ja_language_set PRIVATE -Wall -Wextra -Wpedantic -Werror)
 add_library(kana_decoder_core src/engine.cpp $<TARGET_OBJECTS:kana_decoder_ja_language_set> src/streaming_session.cpp src/c_api.cpp src/pack_manifest.cpp src/language_pack.cpp src/surge_runtime.cpp)
