@@ -5,6 +5,9 @@
 #include <iostream>
 #include <limits>
 #include <algorithm>
+#include <cstdio>
+#include <filesystem>
+#include <zlib.h>
 int main() {
  using namespace kana_decoder;
  LexiconTrie lexicon;
@@ -22,6 +25,18 @@ int main() {
  const std::string invalid_utf8("\xff",1);
  assert(!utf8_lexicon.add(invalid_utf8,{"invalid","x",0,0,0,0}));
  assert(utf8_lexicon.build_lattice(invalid_utf8,16,false).empty());
+ // Gzip dictionary input is decompressed incrementally and preserves entries.
+ const auto gzip_path=(std::filesystem::temp_directory_path()/"kana_decoder_trace_lexicon.tsv.gz").string();
+ const std::string gzip_row="あめ\\t雨\\t雨\\t名詞\\t雨\\t雨\\t-10\\t0\\t0\\t0\\n";
+ gzFile gzip_output=gzopen(gzip_path.c_str(),"wb");assert(gzip_output);
+ assert(gzwrite(gzip_output,gzip_row.data(),static_cast<unsigned int>(gzip_row.size()))==static_cast<int>(gzip_row.size()));
+ assert(gzclose(gzip_output)==Z_OK);
+ LexiconTrie compressed_lexicon;std::size_t compressed_count=0;
+ assert(compressed_lexicon.load_tsv(gzip_path,&compressed_count));
+ assert(compressed_count==1);
+ auto compressed_lattice=compressed_lexicon.build_lattice("あめ",16,false);
+ assert(!compressed_lattice.empty()&&compressed_lattice.front().candidates.front().surface=="雨");
+ std::remove(gzip_path.c_str());
  assert(lexicon.add("あめ", {"rain", "雨", -1200, 25, 1, 2}));
  assert(lexicon.add("あめ", {"candy", "飴", -900, 15, 3, 4}));
  assert(lexicon.add("あ", {"first", "あ", -100, 0, 0, 2}));
