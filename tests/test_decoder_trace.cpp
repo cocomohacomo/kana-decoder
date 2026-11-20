@@ -47,6 +47,8 @@ int main() {
  const auto arena_path=(std::filesystem::temp_directory_path()/"kana_decoder_trace_arena.tsv").string();
  { std::ofstream arena_file(arena_path);assert(arena_file);arena_file<<"あめ\t雨\t雨\t名詞\t雨\t雨\t-10\t0\t0\t0\n"; }
  LexiconTrie arena_lexicon;assert(arena_lexicon.load_tsv(arena_path));
+ arena_lexicon.build_candidate_pos_index();
+ assert(arena_lexicon.candidate_pos("雨")=="名詞");
  auto arena_before=arena_lexicon.build_lattice("あめ",16,false);
  assert(!arena_before.empty()&&arena_before.front().candidates.front().surface=="雨");
  assert(arena_lexicon.add("あま",{"arena-new","天",-20,0,0,0}));
