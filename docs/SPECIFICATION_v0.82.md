@@ -13,3 +13,7 @@ Calling `add()` after loading expands frozen arenas into builder nodes before mu
 ## Safety and verification
 
 32-bit node and arena bounds remain enforced. CI must cover loading, traversal, duplicate handling, POS lookup, mutation after load, and RSS. The 100 MiB synthetic guard is not a full Japanese-pack memory claim.
+
+## Progressive arena transfer
+
+Freezing transfers each builder node's edge and candidate buffers into the contiguous runtime arenas using move iterators, then releases that node's source buffer immediately. This avoids retaining already-transferred per-node vector capacities until the entire arena has been built. Arena capacity is precomputed and reserved before transfer; 32-bit range checks run before mutation.
