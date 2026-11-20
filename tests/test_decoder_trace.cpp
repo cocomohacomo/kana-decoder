@@ -45,7 +45,7 @@ int main() {
  assert(!preserved_lattice.empty()&&preserved_lattice.front().candidates.front().surface=="雨");
  // Candidate arena is compacted after load, expanded on mutation, then compacted again.
  const auto arena_path=(std::filesystem::temp_directory_path()/"kana_decoder_trace_arena.tsv").string();
- { std::ofstream arena_file(arena_path);assert(arena_file);arena_file<<"あめ\\t雨\\t雨\\t名詞\\t雨\\t雨\\t-10\\t0\\t0\\t0\\n"; }
+ { std::ofstream arena_file(arena_path);assert(arena_file);arena_file<<"あめ\t雨\t雨\t名詞\t雨\t雨\t-10\t0\t0\t0\n"; }
  LexiconTrie arena_lexicon;assert(arena_lexicon.load_tsv(arena_path));
  auto arena_before=arena_lexicon.build_lattice("あめ",16,false);
  assert(!arena_before.empty()&&arena_before.front().candidates.front().surface=="雨");
