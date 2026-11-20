@@ -18,7 +18,7 @@ class BeamAbTests(unittest.TestCase):
         with path.open("w", encoding="utf-8", newline="") as stream:
             writer = csv.DictWriter(stream, fieldnames=[
                 "document_id", "sentence_id", "reading", "surface", "domain", "split"
-            ], delimiter="\\t")
+            ], delimiter="\t")
             writer.writeheader()
             writer.writerows([
                 {"document_id": "d1", "sentence_id": "s1", "reading": "きょう",
