@@ -59,6 +59,31 @@ int main() {
   assert(unknown.front().candidates.front().id == "kana:ぬ");
   assert(unknown.front().candidates.front().surface == "ぬ");
 
+  // Repeated POS and inflection labels are interned once in the compact
+  // string pool, while candidate IDs and surfaces remain independently owned.
+  LexiconTrie interned;
+  auto metadata_a = candidate("intern-a", "甲", 0);
+  metadata_a.pos = "名詞/普通名詞";
+  metadata_a.inflection_type = "五段-ラ行";
+  metadata_a.inflection_form = "連用形-一般";
+  auto metadata_b = candidate("intern-b", "乙", 1);
+  metadata_b.pos = "名詞/普通名詞";
+  metadata_b.inflection_type = "五段-ラ行";
+  metadata_b.inflection_form = "連用形-一般";
+  assert(interned.add("こう", metadata_a));
+  assert(interned.add("おつ", metadata_b));
+  assert(interned.interned_metadata_string_count() == 3);
+  const std::size_t expected_pool_bytes =
+      metadata_a.id.size() + metadata_a.surface.size() +
+      metadata_b.id.size() + metadata_b.surface.size() +
+      metadata_a.pos.size() + metadata_a.inflection_type.size() +
+      metadata_a.inflection_form.size();
+  assert(interned.candidate_string_pool_bytes() == expected_pool_bytes);
+  const auto interned_lattice = interned.build_lattice("こうおつ", 16, false);
+  assert(interned_lattice.size() == 2);
+  assert(interned_lattice[0].candidates.front().pos == "名詞/普通名詞");
+  assert(interned_lattice[1].candidates.front().inflection_form == "連用形-一般");
+
   // Candidate and edge ceilings are signalled, never silently treated as
   // complete lattice results.
   exceeded = false;
