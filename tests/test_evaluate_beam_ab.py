@@ -51,7 +51,7 @@ class BeamAbTests(unittest.TestCase):
             "domains": {"news": {"cases": 2, "exact_accuracy": 1.0, "cer": 0.0,
                                   "decode_failures": 0}},
             "details": [
-                {"reading": "きょう", "expected": "今日", "predicted": "今日", "domain": "news"},
+                {"reading": "きょう", "expected": "今日", "predicted": "今日", "domain": "news", "edit_distance": 0},
                 {"reading": "あめ", "expected": "雨", "predicted": "雨", "domain": "news", "edit_distance": 0},
             ]}
         report = MODULE.compare(newer, baseline, rows, "test")
@@ -59,6 +59,7 @@ class BeamAbTests(unittest.TestCase):
         self.assertEqual(report["comparison"]["exact_regressions"], 0)
         self.assertEqual(report["comparison"]["delta_diversity_minus_legacy"]["cer"], -0.25)
         self.assertEqual(report["comparison"]["changed_output_cases"], 1)
+        self.assertIn("exact_accuracy_delta_ci95", report["paired_bootstrap"])
 
 
     def test_paired_bootstrap_is_deterministic_and_reports_intervals(self):
@@ -107,6 +108,7 @@ class BeamAbTests(unittest.TestCase):
             evaluator.write_bytes(b"binary")
             corpus.write_text("reading\\texpected\\tdomain\\n", encoding="utf-8")
             (pack / "dict.tsv").write_text("あ\\t亜\\n", encoding="utf-8")
+            evaluator_hash = MODULE.sha256_file(evaluator)
             result = MODULE.build_provenance(
                 evaluator, pack, corpus, "dev", ["evaluate_beam_ab.py", "--split", "dev"],
                 5000, 23)
@@ -114,8 +116,7 @@ class BeamAbTests(unittest.TestCase):
         self.assertEqual(result["bootstrap"]["samples"], 5000)
         self.assertEqual(result["bootstrap"]["seed"], 23)
         self.assertEqual(result["inputs"]["evaluator"]["sha256"],
-                         MODULE.sha256_file(evaluator) if evaluator.exists() else
-                         result["inputs"]["evaluator"]["sha256"])
+                         evaluator_hash)
         self.assertEqual(result["inputs"]["pack"]["file_count"], 1)
         self.assertEqual(result["inputs"]["prepared_corpus"]["kind"], "file")
 
