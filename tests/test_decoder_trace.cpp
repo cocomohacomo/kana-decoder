@@ -292,6 +292,27 @@ int main() {
   if(std::find(direct_surfaces.begin(),direct_surfaces.end(),token.candidate.surface)==direct_surfaces.end())
    direct_surfaces.push_back(token.candidate.surface);
  assert(direct_surfaces.size()==8);
+ // Beam pruning preserves distinct rendered outputs when multiple segmentations
+ // produce the same string. Without this, two high-scoring segmentations of
+ // 甲乙 can crowd 丙 out of a width-two beam.
+ LatticeEdge whole_edge;whole_edge.start=0;whole_edge.end=2;
+ whole_edge.candidates.push_back({"whole-best","甲乙",-2000,0,1,1});
+ whole_edge.candidates.push_back({"whole-alt","丙",-1000,0,1,1});
+ LatticeEdge first_piece;first_piece.start=0;first_piece.end=1;
+ first_piece.candidates.push_back({"piece-first","甲",-1200,0,1,1});
+ LatticeEdge second_piece;second_piece.start=1;second_piece.end=2;
+ second_piece.candidates.push_back({"piece-second","乙",-1200,0,1,1});
+ std::vector<LatticeEdge> segmentation_lattice{whole_edge,first_piece,second_piece};
+ DecoderOptions diversity_options;diversity_options.beam_width=2;diversity_options.max_paths=8;
+ auto segmentation_paths=direct_decoder.decode(2,segmentation_lattice,scorer,{},diversity_options);
+ assert(segmentation_paths.size()==2);
+ bool kept_compound=false,kept_alternative=false;
+ for(const auto& path:segmentation_paths){
+  std::string surface;for(const auto& token:path.tokens)surface+=token.candidate.surface;
+  kept_compound=kept_compound||surface=="甲乙";
+  kept_alternative=kept_alternative||surface=="丙";
+ }
+ assert(kept_compound&&kept_alternative);
  // Deterministic adversarial cap stress: repeated surface duplicates must not
  // crowd out unique alternatives across varied candidate costs and insertion order.
  for(int trial=0;trial<100;++trial){
