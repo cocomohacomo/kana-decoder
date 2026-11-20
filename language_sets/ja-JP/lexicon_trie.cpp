@@ -89,6 +89,14 @@ std::string_view LexiconTrie::candidate_string(CompactString ref) const{
  if(static_cast<std::size_t>(ref.offset)+ref.size>candidate_string_pool_.size())return {};
  return std::string_view(candidate_string_pool_.data()+ref.offset,ref.size);
 }
+LexiconTrie::CompactString LexiconTrie::store_metadata_string(const std::string& value){
+ if(value.empty())return {};
+ const auto found=interned_metadata_strings_.find(value);
+ if(found!=interned_metadata_strings_.end())return found->second;
+ const auto ref=store_candidate_string(value);
+ interned_metadata_strings_.emplace(value,ref);
+ return ref;
+}
 LatticeCandidate LexiconTrie::materialize_candidate(const CompactCandidate& value) const{
  LatticeCandidate out;out.id=candidate_string(value.id);out.surface=candidate_string(value.surface);out.pos=candidate_string(value.pos);
  out.inflection_type=candidate_string(value.inflection_type);out.inflection_form=candidate_string(value.inflection_form);
@@ -105,7 +113,7 @@ bool LexiconTrie::add(const std::string& reading,const LatticeCandidate& candida
  auto& values=nodes_[node].values;
  auto duplicate=std::find_if(values.begin(),values.end(),[&](const CompactCandidate&v){return candidate_string(v.id)==candidate.id&&candidate_string(v.surface)==candidate.surface;});
  if(duplicate!=values.end())return false;
- CompactCandidate compact;compact.id=store_candidate_string(candidate.id);compact.surface=store_candidate_string(candidate.surface);compact.pos=store_candidate_string(candidate.pos);compact.inflection_type=store_candidate_string(candidate.inflection_type);compact.inflection_form=store_candidate_string(candidate.inflection_form);
+ CompactCandidate compact;compact.id=store_candidate_string(candidate.id);compact.surface=store_candidate_string(candidate.surface);compact.pos=store_metadata_string(candidate.pos);compact.inflection_type=store_metadata_string(candidate.inflection_type);compact.inflection_form=store_metadata_string(candidate.inflection_form);
  compact.word_cost=candidate.word_cost;compact.connection_cost=candidate.connection_cost;compact.left_id=candidate.left_id;compact.right_id=candidate.right_id;
  values.push_back(compact);++entry_count_;return true;
 }
