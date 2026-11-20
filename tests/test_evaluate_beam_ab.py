@@ -60,7 +60,23 @@ class BeamAbTests(unittest.TestCase):
         self.assertEqual(report["comparison"]["delta_diversity_minus_legacy"]["cer"], -0.25)
         self.assertEqual(report["comparison"]["changed_output_cases"], 1)
 
-    def test_evaluator_command_switch_is_explicit(self):
+
+    def test_paired_bootstrap_is_deterministic_and_reports_intervals(self):
+        newer = [
+            {"reading": "あ", "expected": "亜", "predicted": "亜", "edit_distance": 0},
+            {"reading": "い", "expected": "伊", "predicted": "伊", "edit_distance": 0},
+        ]
+        older = [
+            {"reading": "あ", "expected": "亜", "predicted": "阿", "edit_distance": 1},
+            {"reading": "い", "expected": "伊", "predicted": "伊", "edit_distance": 0},
+        ]
+        first = MODULE.paired_bootstrap(newer, older, samples=300, seed=17)
+        second = MODULE.paired_bootstrap(newer, older, samples=300, seed=17)
+        self.assertEqual(first, second)
+        self.assertEqual(first["samples"], 300)
+        self.assertEqual(first["exact_accuracy_delta_ci95"], [0.0, 0.5])
+        self.assertEqual(first["cer_delta_ci95"], [-0.5, 0.0])
+\n    def test_evaluator_command_switch_is_explicit(self):
         payload = {"overall": {"cases": 0}, "details": []}
         runner = Mock(return_value=Mock(returncode=0, stdout=json.dumps(payload), stderr=""))
         MODULE._run("eval", "pack", "corpus", True, runner=runner)
