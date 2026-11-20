@@ -158,19 +158,21 @@ public:
  // Read-only diagnostics for validating compact dictionary storage.
  std::size_t candidate_string_pool_bytes() const { return candidate_string_pool_.size(); }
  std::size_t interned_metadata_string_count() const { return interned_metadata_strings_.size(); }
+ std::size_t candidate_pos_index_size() const { return candidate_pos_index_.size(); }
 private:
  struct CompactString { std::uint32_t offset=0, size=0; };
  struct CompactCandidate {
   CompactString id, surface, pos, inflection_type, inflection_form;
   std::int32_t word_cost=0, connection_cost=0, left_id=0, right_id=0;
  };
+ struct PosIndexEntry { CompactString id, pos; };
  struct Node {
   std::vector<std::pair<std::uint32_t,std::size_t>> next;
   std::vector<CompactCandidate> values;
   std::size_t edge_offset=0, edge_count=0;
   std::size_t candidate_offset=0, candidate_count=0;
  };
- std::unordered_map<std::string,CompactString> candidate_pos_;
+ std::vector<PosIndexEntry> candidate_pos_index_;
  // POS and inflection labels have a small repeated vocabulary. Keep one pool
  // copy per distinct metadata value instead of one copy per candidate.
  std::unordered_map<std::string,CompactString> interned_metadata_strings_;
