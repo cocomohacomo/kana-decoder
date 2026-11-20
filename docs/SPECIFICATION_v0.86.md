@@ -53,8 +53,8 @@ now embeds a provenance block containing the source revision (when available),
 Python/runtime platform, exact CLI argument vector, split and bootstrap settings,
 and SHA-256 fingerprints for the evaluator binary, prepared corpus, and every file
 in the dictionary pack. Directory fingerprints are deterministic manifests over
-sorted relative paths, sizes, and file hashes. Input paths are represented by their
-basenames rather than absolute local paths. Re-running with identical inputs and
+sorted relative paths, sizes, and file hashes. Path arguments in the recorded command
+are reduced to basenames, avoiding disclosure of absolute local directory paths. Re-running with identical inputs and
 settings therefore allows the artifacts to be checked before comparing metrics.
 
 ## Validation boundaries
