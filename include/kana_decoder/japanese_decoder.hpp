@@ -134,6 +134,8 @@ struct DecoderOptions {
  const SurgeClusterModel* surge_cluster_model=nullptr;
  double surge_cluster_weight=1.0;
  double surge_context_margin=0.5;
+ // Disable only for controlled A/B evaluation against score-only beam pruning.
+ bool preserve_rendered_surface_diversity=true;
  // Deterministic per-decode resource ceilings. Exceeding a ceiling rejects
  // the decode rather than returning a silently truncated/low-quality result.
  std::size_t max_input_codepoints=256;
