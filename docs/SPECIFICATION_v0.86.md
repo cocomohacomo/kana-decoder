@@ -42,6 +42,8 @@ python3 tools/evaluate_beam_ab.py \
   --pack path/to/full-japanese-pack \
   --prepared-corpus build/ud_gsd_corpus.tsv \
   --split dev \
+  --bootstrap-samples 5000 \
+  --bootstrap-seed 20261121 \
   --output build/beam-ab-dev.json
 ```
 
