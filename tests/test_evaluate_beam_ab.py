@@ -76,7 +76,8 @@ class BeamAbTests(unittest.TestCase):
         self.assertEqual(first["samples"], 300)
         self.assertEqual(first["exact_accuracy_delta_ci95"], [0.0, 1.0])
         self.assertEqual(first["cer_delta_ci95"], [-1.0, 0.0])
-\n    def test_evaluator_command_switch_is_explicit(self):
+
+    def test_evaluator_command_switch_is_explicit(self):
         payload = {"overall": {"cases": 0}, "details": []}
         runner = Mock(return_value=Mock(returncode=0, stdout=json.dumps(payload), stderr=""))
         MODULE._run("eval", "pack", "corpus", True, runner=runner)
