@@ -27,7 +27,7 @@ int main() {
  assert(utf8_lexicon.build_lattice(invalid_utf8,16,false).empty());
  // Gzip dictionary input is decompressed incrementally and preserves entries.
  const auto gzip_path=(std::filesystem::temp_directory_path()/"kana_decoder_trace_lexicon.tsv.gz").string();
- const std::string gzip_row="あめ\\t雨\\t雨\\t名詞\\t雨\\t雨\\t-10\\t0\\t0\\t0\\n";
+ const std::string gzip_row="あめ\t雨\t雨\t名詞\t雨\t雨\t-10\t0\t0\t0\n";
  gzFile gzip_output=gzopen(gzip_path.c_str(),"wb");assert(gzip_output);
  assert(gzwrite(gzip_output,gzip_row.data(),static_cast<unsigned int>(gzip_row.size()))==static_cast<int>(gzip_row.size()));
  assert(gzclose(gzip_output)==Z_OK);
