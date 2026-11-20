@@ -8,6 +8,7 @@ unknown/OOV tokens never create fabricated adjacency.
 import argparse
 import csv
 import json
+import random
 import subprocess
 import sys
 import tempfile
@@ -67,7 +68,52 @@ def _delta(new, old, key):
     return None
 
 
-def compare(new, old, rows, split):
+def paired_bootstrap(new_cases, old_cases, samples=2000, seed=20261121):
+    if samples < 1:
+        raise ValueError("bootstrap samples must be positive")
+    count = len(new_cases)
+    if count == 0:
+        raise ValueError("cannot bootstrap an empty evaluation")
+    rng = random.Random(seed)
+    exact_deltas = []
+    cer_deltas = []
+    for _ in range(samples):
+        indices = [rng.randrange(count) for _ in range(count)]
+        new_exact = old_exact = 0
+        new_edits = old_edits = reference_chars = 0
+        for index in indices:
+            newer, older = new_cases[index], old_cases[index]
+            expected = newer["expected"]
+            reference_length = len(expected)
+            reference_chars += reference_length
+            new_edits += newer["edit_distance"]
+            old_edits += older["edit_distance"]
+            new_exact += newer["predicted"] == expected
+            old_exact += older["predicted"] == expected
+        exact_deltas.append((new_exact - old_exact) / count)
+        if reference_chars:
+            cer_deltas.append((new_edits - old_edits) / reference_chars)
+        else:
+            cer_deltas.append(0.0)
+
+    def interval(values):
+        ordered = sorted(values)
+        lower = ordered[int(0.025 * (len(ordered) - 1))]
+        upper = ordered[int(0.975 * (len(ordered) - 1))]
+        return [lower, upper]
+
+    return {
+        "method": "paired percentile bootstrap over evaluation cases",
+        "samples": samples,
+        "seed": seed,
+        "confidence_level": 0.95,
+        "exact_accuracy_delta_ci95": interval(exact_deltas),
+        "cer_delta_ci95": interval(cer_deltas),
+        "interpretation": "Intervals are descriptive uncertainty estimates for this corpus split; they do not establish causality or generalization to other domains."
+    }
+
+
+def compare(new, old, rows, split, bootstrap_samples=2000, bootstrap_seed=20261121):
     new_cases = new["details"]
     old_cases = old["details"]
     if len(new_cases) != len(old_cases) or len(rows) != len(new_cases):
