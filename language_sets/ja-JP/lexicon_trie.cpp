@@ -46,21 +46,21 @@ std::vector<std::size_t> spread_indices(std::size_t count,std::size_t limit){
 namespace kana_decoder {
 void LexiconTrie::compact_edges(){
  if(edges_compacted_)return;
- std::size_t total=0;for(const auto& node:nodes_)total+=node.next.size();
+ std::size_t total=0;for(const auto& node:nodes_){if(node.next.size()>std::numeric_limits<std::uint32_t>::max()-total)throw std::length_error("trie edge arena exceeds 32-bit ranges");total+=node.next.size();}
  edge_arena_.clear();edge_arena_.reserve(total);
- for(auto& node:nodes_){node.edge_offset=edge_arena_.size();node.edge_count=node.next.size();edge_arena_.insert(edge_arena_.end(),node.next.begin(),node.next.end());std::vector<std::pair<std::uint32_t,std::size_t>>().swap(node.next);}
+ for(auto& node:nodes_){node.edge_offset=edge_arena_.size();node.edge_count=node.next.size();edge_arena_.insert(edge_arena_.end(),node.next.begin(),node.next.end());std::vector<std::pair<std::uint32_t,std::uint32_t>>().swap(node.next);}
  edges_compacted_=true;
 }
 void LexiconTrie::expand_edges(){
  if(!edges_compacted_)return;
  for(auto& node:nodes_){node.next.assign(edge_arena_.begin()+static_cast<std::ptrdiff_t>(node.edge_offset),edge_arena_.begin()+static_cast<std::ptrdiff_t>(node.edge_offset+node.edge_count));node.edge_offset=0;node.edge_count=0;}
- std::vector<std::pair<std::uint32_t,std::size_t>>().swap(edge_arena_);edges_compacted_=false;
+ std::vector<std::pair<std::uint32_t,std::uint32_t>>().swap(edge_arena_);edges_compacted_=false;
 }
 void LexiconTrie::compact_candidates(){
  if(candidates_compacted_)return;
  std::size_t total=0;
  for(const auto& node:nodes_){
-  if(node.values.size()>std::numeric_limits<std::size_t>::max()-total)throw std::length_error("candidate arena size overflow");
+  if(node.values.size()>std::numeric_limits<std::uint32_t>::max()-total)throw std::length_error("candidate arena exceeds 32-bit ranges");
   total+=node.values.size();
  }
  candidate_arena_.clear();candidate_arena_.reserve(total);
@@ -108,13 +108,15 @@ bool LexiconTrie::add(const std::string& reading,const LatticeCandidate& candida
  if(reading.empty()||!valid_utf8_impl(reading)||!valid_utf8_impl(candidate.id)||!valid_utf8_impl(candidate.surface)||!valid_utf8_impl(candidate.pos)||!valid_utf8_impl(candidate.inflection_type)||!valid_utf8_impl(candidate.inflection_form)||candidate.id.empty()||candidate.surface.empty())return false;
  std::size_t node=0;
  for(std::size_t offset=0;offset<reading.size();offset+=utf8_width(static_cast<unsigned char>(reading[offset]))){const auto cp=utf8_codepoint_at(reading,offset);auto& transitions=nodes_[node].next;auto it=std::lower_bound(transitions.begin(),transitions.end(),cp,[](const auto& edge,std::uint32_t value){return edge.first<value;});if(it==transitions.end()||it->first!=cp){
-  std::size_t next=nodes_.size();transitions.insert(it,{cp,next});nodes_.push_back(Node{});node=next;
+  if(nodes_.size()>=std::numeric_limits<std::uint32_t>::max())return false;
+  const auto next=static_cast<std::uint32_t>(nodes_.size());transitions.insert(it,{cp,next});nodes_.push_back(Node{});node=next;
  }else node=it->second;}
  auto& values=nodes_[node].values;
  auto duplicate=std::find_if(values.begin(),values.end(),[&](const CompactCandidate&v){return candidate_string(v.id)==candidate.id&&candidate_string(v.surface)==candidate.surface;});
  if(duplicate!=values.end())return false;
  CompactCandidate compact;compact.id=store_candidate_string(candidate.id);compact.surface=store_candidate_string(candidate.surface);compact.pos=store_metadata_string(candidate.pos);compact.inflection_type=store_metadata_string(candidate.inflection_type);compact.inflection_form=store_metadata_string(candidate.inflection_form);
  compact.word_cost=candidate.word_cost;compact.connection_cost=candidate.connection_cost;compact.left_id=candidate.left_id;compact.right_id=candidate.right_id;
+ if(values.size()>=std::numeric_limits<std::uint32_t>::max())return false;
  values.push_back(compact);++entry_count_;return true;
 }
 bool LexiconTrie::load_tsv(const std::string& path,std::size_t* loaded){
