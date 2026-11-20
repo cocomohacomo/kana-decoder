@@ -77,6 +77,10 @@ class BeamAbTests(unittest.TestCase):
         self.assertEqual(first["exact_accuracy_delta_ci95"], [0.0, 1.0])
         self.assertEqual(first["cer_delta_ci95"], [-1.0, 0.0])
 
+    def test_paired_bootstrap_rejects_zero_samples(self):
+        with self.assertRaises(ValueError):
+            MODULE.paired_bootstrap([], [], samples=0)
+
     def test_evaluator_command_switch_is_explicit(self):
         payload = {"overall": {"cases": 0}, "details": []}
         runner = Mock(return_value=Mock(returncode=0, stdout=json.dumps(payload), stderr=""))
