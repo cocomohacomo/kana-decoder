@@ -65,3 +65,19 @@ The rule is deterministic and remains bounded by the configured hard beam cap.
 It changes only intermediate hypothesis retention; it does not guarantee a
 CER improvement. Held-out corpus evaluation is required before changing the
 default beam width or scoring weights.
+
+
+## v0.85 Beam-pruning A/B control
+
+`DecoderOptions::preserve_rendered_surface_diversity` defaults to true.
+Setting it to false restores score-only top-k beam pruning for controlled
+comparisons. The corpus evaluator exposes this control as
+`--legacy-beam-pruning`. It is intended for evaluation and reproducibility,
+not as a recommended production setting. Compare both modes on the same pinned
+corpus, pack, and runtime configuration; do not infer quality gains from
+synthetic regression cases or the small `ja-lite` smoke corpus.
+
+The CI memory workflow currently measures `packs/ja-lite` with a four-row
+smoke corpus. It is a bounded integration check, not a full Japanese dictionary
+or UD Japanese-GSD benchmark. Full-pack RSS and pinned held-out corpus results
+remain separate release gates.
