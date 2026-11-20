@@ -132,6 +132,14 @@ void accumulate(Stats& stats, const CaseResult& result) {
     if (result.decode_failure) ++stats.decode_failures;
 }
 
+std::string reading_length_bucket(const std::string& reading) {
+    const auto length = to_codepoints(reading).size();
+    if (length <= 4) return "1-4";
+    if (length <= 8) return "5-8";
+    if (length <= 16) return "9-16";
+    return "17+";
+}
+
 void print_stats(const Stats& stats) {
     const double exact_accuracy = stats.cases
         ? static_cast<double>(stats.exact_matches) / stats.cases : 0.0;
@@ -275,6 +283,7 @@ int main(int argc, char** argv) {
 
     Stats overall;
     std::map<std::string, Stats> by_domain;
+    std::map<std::string, Stats> by_reading_length;
     std::vector<CaseResult> case_results;
     std::string line;
     std::size_t line_number = 0;
@@ -294,6 +303,7 @@ int main(int argc, char** argv) {
         evaluate_case(input, lexicon, scorer, connections, result, trace, lattice_trace);
         accumulate(overall, result);
         accumulate(by_domain[input.domain], result);
+        accumulate(by_reading_length[reading_length_bucket(input.reading)], result);
         if (details) case_results.push_back(std::move(result));
     }
 
@@ -314,6 +324,14 @@ int main(int argc, char** argv) {
     for (const auto& entry : by_domain) {
         if (!first_domain) std::cout << ',';
         first_domain = false;
+        std::cout << "\"" << json_escape(entry.first) << "\":";
+        print_stats(entry.second);
+    }
+    std::cout << "},\"reading_length_buckets\":{";
+    bool first_length_bucket = true;
+    for (const auto& entry : by_reading_length) {
+        if (!first_length_bucket) std::cout << ',';
+        first_length_bucket = false;
         std::cout << "\"" << json_escape(entry.first) << "\":";
         print_stats(entry.second);
     }
