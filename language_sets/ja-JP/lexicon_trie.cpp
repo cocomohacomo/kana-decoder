@@ -3,6 +3,7 @@
 #include <charconv>
 #include <fstream>
 #include <sstream>
+#include <zlib.h>
 namespace {
 bool valid_utf8_impl(const std::string& s){return kana_decoder::is_valid_utf8(s);}
 std::size_t utf8_width(unsigned char c){return c<0x80?1:(c&0xe0)==0xc0?2:(c&0xf0)==0xe0?3:4;}
@@ -53,12 +54,14 @@ bool LexiconTrie::add(const std::string& reading,const LatticeCandidate& candida
  values.push_back(candidate);++entry_count_;return true;
 }
 bool LexiconTrie::load_tsv(const std::string& path,std::size_t* loaded){
- std::ifstream in(path);if(!in)return false;
- LexiconTrie parsed;std::string line;std::size_t count=0;
- while(std::getline(in,line)){
-  if(line.empty()||line[0]=='#')continue;
-  std::vector<std::string> cols;std::stringstream ss(line);std::string field;
-  while(std::getline(ss,field,'\t'))cols.push_back(field);
+ std::ifstream probe(path,std::ios::binary);if(!probe)return false;
+ unsigned char magic[2]{};probe.read(reinterpret_cast<char*>(magic),2);
+ const bool gzip=probe.gcount()==2&&magic[0]==0x1f&&magic[1]==0x8b;probe.close();
+ LexiconTrie parsed;std::size_t count=0;std::string line;
+ auto parse_line=[&](const std::string& row)->bool{
+  if(row.empty()||row[0]=='#')return true;
+  std::vector<std::string> cols;std::stringstream ss(row);std::string field;
+  while(std::getline(ss,field,'\\t'))cols.push_back(field);
   if(cols.size()<5||cols.size()>12)return false;
   LatticeCandidate candidate;candidate.id=cols.size()>5&&!cols[5].empty()?cols[5]:cols[4];candidate.surface=cols[1];
   if(cols.size()>6&&!cols[6].empty()&&!parse_i32_strict(cols[6],candidate.word_cost))return false;
@@ -68,10 +71,27 @@ bool LexiconTrie::load_tsv(const std::string& path,std::size_t* loaded){
   candidate.pos=cols.size()>3?cols[3]:std::string{};
   if(cols.size()>10)candidate.inflection_type=cols[10];
   if(cols.size()>11)candidate.inflection_form=cols[11];
-  if (!parsed.add(cols[0], candidate)) return false;
-  ++count;
+  if(!parsed.add(cols[0],candidate))return false;
+  ++count;return true;
+ };
+ if(gzip){
+  gzFile input=gzopen(path.c_str(),"rb");if(!input)return false;
+  char buffer[8192];int status=Z_OK;bool ok=true;
+  while(ok&&gzgets(input,buffer,sizeof(buffer))){
+   line.append(buffer);
+   if(!line.empty()&&line.back()=='\\n'){line.pop_back();if(!line.empty()&&line.back()=='\\r')line.pop_back();ok=parse_line(line);line.clear();}
+   else if(line.size()>1024u*1024u)ok=false;
+  }
+  if(ok&&!line.empty())ok=parse_line(line);
+  int code=Z_OK;gzerror(input,&code);if(code!=Z_OK&&code!=Z_STREAM_END)ok=false;
+  if(gzclose(input)!=Z_OK)ok=false;
+  if(!ok)return false;
+ }else{
+  std::ifstream input(path);if(!input)return false;
+  while(std::getline(input,line))if(!parse_line(line))return false;
+  if(!input.eof())return false;
  }
- if(!in.eof())return false;
+ if(count==0)return false;
  *this=std::move(parsed);if(loaded)*loaded=count;return true;
 }
 void LexiconTrie::build_candidate_pos_index() {
