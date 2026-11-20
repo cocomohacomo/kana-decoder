@@ -59,8 +59,9 @@ def verify_pack(root:Path,max_bytes=None):
     actual_expanded+=len(block)
     if actual_expanded>effective:raise ValueError("compressed lexicon expands beyond resource limit")
   if actual_expanded!=expanded:raise ValueError("compressed lexicon expanded size mismatch")
+  total=payload+manifest_path.stat().st_size+expanded-(root/"lexicon.tsv.gz").stat().st_size
  elif compression is not None:raise ValueError("compression metadata present without compressed lexicon")
- total=payload+manifest_path.stat().st_size
+ else:total=payload+manifest_path.stat().st_size
  if total>effective:raise ValueError(f"pack exceeds resource limit: {total} > {effective}")
  return {"pack_id":manifest["pack_id"],"payload_bytes":payload,"manifest_bytes":manifest_path.stat().st_size,"installed_bytes":total,"installed_mib":total/(1024*1024),"files_verified":verified,"limit_bytes":effective,"within_limit":True}
 def main():
