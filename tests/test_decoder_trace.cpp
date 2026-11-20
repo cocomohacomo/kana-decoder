@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cmath>
 #include <iostream>
+#include <fstream>
 #include <limits>
 #include <algorithm>
 #include <cstdio>
@@ -42,6 +43,20 @@ int main() {
  assert(!post_load_lattice.empty()&&post_load_lattice.front().candidates.front().surface=="天");
  auto preserved_lattice=compressed_lexicon.build_lattice("あめ",16,false);
  assert(!preserved_lattice.empty()&&preserved_lattice.front().candidates.front().surface=="雨");
+ // Candidate arena is compacted after load, expanded on mutation, then compacted again.
+ const auto arena_path=(std::filesystem::temp_directory_path()/"kana_decoder_trace_arena.tsv").string();
+ { std::ofstream arena_file(arena_path);assert(arena_file);arena_file<<"あめ\\t雨\\t雨\\t名詞\\t雨\\t雨\\t-10\\t0\\t0\\t0\\n"; }
+ LexiconTrie arena_lexicon;assert(arena_lexicon.load_tsv(arena_path));
+ auto arena_before=arena_lexicon.build_lattice("あめ",16,false);
+ assert(!arena_before.empty()&&arena_before.front().candidates.front().surface=="雨");
+ assert(arena_lexicon.add("あま",{"arena-new","天",-20,0,0,0}));
+ auto arena_after=arena_lexicon.build_lattice("あま",16,false);
+ assert(!arena_after.empty()&&arena_after.front().candidates.front().surface=="天");
+ auto arena_preserved=arena_lexicon.build_lattice("あめ",16,false);
+ assert(!arena_preserved.empty()&&arena_preserved.front().candidates.front().surface=="雨");
+ arena_lexicon.build_candidate_pos_index();
+ assert(arena_lexicon.candidate_pos("arena-new")=="名詞");
+ std::remove(arena_path.c_str());
  // Compact candidate string pool must materialize all public fields without loss.
  LatticeCandidate rich;rich.id="candidate-rich";rich.surface="天気";rich.word_cost=-123;rich.connection_cost=7;rich.left_id=11;rich.right_id=12;rich.pos="名詞,一般";rich.inflection_type="五段";rich.inflection_form="基本形";
  assert(compressed_lexicon.add("てんき",rich));
