@@ -11,6 +11,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <zlib.h>
 
 namespace {
 constexpr std::array<std::uint32_t,64> K = {
@@ -113,8 +114,17 @@ bool verify_pack_manifest(const std::string& directory,std::string* error){
      !capture(compression_block,std::regex(R"rx("algorithm"\s*:\s*"([^"]+)")rx"),algorithm)||
      !capture(compression_block,std::regex(R"("uncompressed_size"\s*:\s*([0-9]+))"),expanded_text)||
      compression_path!="lexicon.tsv.gz"||algorithm!="gzip")return fail(error,"invalid dictionary compression metadata");
-  try{if(std::stoull(expanded_text)>limit)return fail(error,"compressed lexicon exceeds expanded size limit");}
+  std::uint64_t expected_expanded=0;
+  try{expected_expanded=std::stoull(expanded_text);if(expected_expanded==0||expected_expanded>limit)return fail(error,"compressed lexicon exceeds expanded size limit");}
   catch(...){return fail(error,"invalid compressed lexicon expanded size");}
+  gzFile compressed=gzopen((root/"lexicon.tsv.gz").string().c_str(),"rb");
+  if(!compressed)return fail(error,"compressed lexicon cannot be opened");
+  std::array<unsigned char,65536> buffer{};std::uint64_t expanded=0;bool valid=true;
+  for(;;){const int count=gzread(compressed,buffer.data(),static_cast<unsigned int>(buffer.size()));if(count<0){valid=false;break;}if(count==0)break;
+   if(static_cast<std::uint64_t>(count)>expected_expanded-expanded){valid=false;break;}expanded+=static_cast<std::uint64_t>(count);}
+  int gzip_status=Z_OK;gzerror(compressed,&gzip_status);if(gzip_status!=Z_OK&&gzip_status!=Z_STREAM_END)valid=false;
+  if(gzclose(compressed)!=Z_OK)valid=false;
+  if(!valid||expanded!=expected_expanded)return fail(error,"compressed lexicon integrity or expanded size mismatch");
  }
  for(fs::recursive_directory_iterator it(root),end;it!=end;++it){if(it->is_symlink())return fail(error,"symlink found in Pack directory");if(it->is_regular_file()){auto rel=it->path().lexically_relative(root).generic_string();if(rel!="manifest.json"&&!listed.count(rel))return fail(error,"unlisted Pack payload");}}
  if (error) error->clear();
