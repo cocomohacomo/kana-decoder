@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cmath>
 #include <limits>
+#include <unordered_set>
 namespace {
 std::int64_t candidate_cost(const kana_decoder::LatticeCandidate& c){return static_cast<std::int64_t>(c.word_cost)+c.connection_cost;}
 std::vector<const kana_decoder::LatticeCandidate*> retain_surface_diverse(const std::vector<kana_decoder::LatticeCandidate>& source,std::size_t limit){
@@ -23,6 +24,11 @@ std::vector<const kana_decoder::LatticeCandidate*> retain_surface_diverse(const 
   selected.insert(where,ptr);
  }
  return selected;
+}
+std::string rendered_surface(const kana_decoder::DecodedPath& path){
+ std::string surface;
+ for(const auto& token:path.tokens)surface+=token.candidate.surface;
+ return surface;
 }
 std::vector<const kana_decoder::LatticeEdge*> retain_span_diverse(std::vector<const kana_decoder::LatticeEdge*> edges,std::size_t limit){
  std::stable_sort(edges.begin(),edges.end(),[](const auto* a,const auto* b){return a->end<b->end;});if(edges.size()<=limit)return edges;
@@ -80,7 +86,28 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  beams[0].push_back(State{});
  auto prune=[&](std::vector<State>& states){
   std::stable_sort(states.begin(),states.end(),[](const State&a,const State&b){return a.path.score>b.path.score;});
-  if(states.size()>beam_limit)states.resize(beam_limit);
+  if(states.size()<=beam_limit)return;
+  // Preserve distinct rendered hypotheses before filling remaining beam slots
+  // by score. Different segmentations of the same surface must not crowd out
+  // a lower-scoring but genuinely different kanji/kana alternative.
+  std::vector<std::size_t> retained_indices;
+  retained_indices.reserve(beam_limit);
+  std::unordered_set<std::string> seen_surfaces;
+  seen_surfaces.reserve(beam_limit);
+  std::vector<bool> retained(states.size(),false);
+  for(std::size_t i=0;i<states.size()&&retained_indices.size()<beam_limit;++i){
+   if(seen_surfaces.insert(rendered_surface(states[i].path)).second){
+    retained_indices.push_back(i);
+    retained[i]=true;
+   }
+  }
+  for(std::size_t i=0;i<states.size()&&retained_indices.size()<beam_limit;++i){
+   if(!retained[i])retained_indices.push_back(i);
+  }
+  std::vector<State> diverse;
+  diverse.reserve(beam_limit);
+  for(const auto index:retained_indices)diverse.push_back(std::move(states[index]));
+  states.swap(diverse);
  };
  for(std::size_t pos=0;pos<length;++pos){
   if(beams[pos].empty())continue;
