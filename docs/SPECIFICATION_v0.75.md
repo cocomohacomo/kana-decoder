@@ -1,7 +1,7 @@
-# kana-decoder: Compact candidate storage v0.74
+# kana-decoder: Compact candidate arena v0.75
 
-Version: 0.74.0
-Parent: SPECIFICATION_v0.73.md
+Version: 0.75.0
+Parent: SPECIFICATION_v0.74.md
 
 ## 1. Goal
 
