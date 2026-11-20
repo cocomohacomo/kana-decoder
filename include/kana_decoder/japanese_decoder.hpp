@@ -155,13 +155,22 @@ public:
  void build_candidate_pos_index();
  std::string candidate_pos(const std::string& candidate_id) const;
 private:
+ struct CompactString { std::uint32_t offset=0, size=0; };
+ struct CompactCandidate {
+  CompactString id, surface, pos, inflection_type, inflection_form;
+  std::int32_t word_cost=0, connection_cost=0, left_id=0, right_id=0;
+ };
  struct Node {
   std::vector<std::pair<std::uint32_t,std::size_t>> next;
-  std::vector<LatticeCandidate> values;
+  std::vector<CompactCandidate> values;
   std::size_t edge_offset=0, edge_count=0;
  };
  std::unordered_map<std::string,std::string> candidate_pos_;
+ std::string candidate_string_pool_;
  std::vector<Node> nodes_{1};
+ CompactString store_candidate_string(const std::string& value);
+ std::string_view candidate_string(CompactString value) const;
+ LatticeCandidate materialize_candidate(const CompactCandidate& value) const;
  std::vector<std::pair<std::uint32_t,std::size_t>> edge_arena_;
  bool edges_compacted_=false;
  void compact_edges();
