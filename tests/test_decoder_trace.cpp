@@ -292,5 +292,26 @@ int main() {
   if(std::find(direct_surfaces.begin(),direct_surfaces.end(),token.candidate.surface)==direct_surfaces.end())
    direct_surfaces.push_back(token.candidate.surface);
  assert(direct_surfaces.size()==8);
+ // Deterministic adversarial cap stress: repeated surface duplicates must not
+ // crowd out unique alternatives across varied candidate costs and insertion order.
+ for(int trial=0;trial<100;++trial){
+  LexiconTrie stress;
+  const std::string reading="あ";
+  for(int i=0;i<24;++i){
+   const int surface_group=(i*7+trial*3)%12;
+   const int cost=-1200+((i*31+trial*17)%400);
+   assert(stress.add(reading,{"stress-"+std::to_string(trial)+"-"+std::to_string(i),
+    "候補群"+std::to_string(surface_group),cost,0,1,1}));
+  }
+  auto stress_lattice=stress.build_lattice(reading,16,false);
+  assert(stress_lattice.size()==1);
+  assert(stress_lattice.front().candidates.size()==8);
+  std::vector<std::string> stress_surfaces;
+  for(const auto& candidate:stress_lattice.front().candidates){
+   if(std::find(stress_surfaces.begin(),stress_surfaces.end(),candidate.surface)==stress_surfaces.end())
+    stress_surfaces.push_back(candidate.surface);
+  }
+  assert(stress_surfaces.size()==8);
+ }
  std::cout << "decoder trace and resource budget tests passed\n";
 }
