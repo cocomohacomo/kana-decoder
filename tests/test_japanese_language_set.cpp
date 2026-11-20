@@ -3,6 +3,8 @@
 #include "kana_decoder/japanese_language.hpp"
 
 #include <cassert>
+#include <cstdio>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -104,6 +106,35 @@ int main() {
   assert(pos_indexed.candidate_pos("another-id") == "動詞");
   assert(pos_indexed.candidate_pos("conflict-id").empty());
   assert(pos_indexed.candidate_pos("missing-id").empty());
+
+  // Loading freezes both arenas. Mutation must thaw them, preserve existing
+  // entries, invalidate the derived POS index, and remain traversable.
+  const std::string frozen_path = "kana_decoder_frozen_trie_test.tsv";
+  {
+    std::ofstream frozen_file(frozen_path, std::ios::binary);
+    assert(frozen_file);
+    frozen_file << "ふる\t古\t名詞\t名詞\tfrozen-id\\n";
+  }
+  LexiconTrie thawed;
+  std::size_t frozen_loaded = 0;
+  assert(thawed.load_tsv(frozen_path, &frozen_loaded));
+  assert(frozen_loaded == 1);
+  assert(thawed.candidate_pos_index_size() == 0);
+  thawed.build_candidate_pos_index();
+  assert(thawed.candidate_pos("frozen-id") == "名詞");
+  auto appended = candidate("appended-id", "新", 0);
+  appended.pos = "動詞";
+  assert(thawed.add("あたら", appended));
+  const auto thawed_lattice = thawed.build_lattice("ふるあたら", 16, false);
+  assert(thawed_lattice.size() == 2);
+  assert(thawed_lattice[0].candidates.front().surface == "古");
+  assert(thawed_lattice[1].candidates.front().surface == "新");
+  // Rebuilding after thaw must include the appended candidate and preserve
+  // the original POS mapping.
+  thawed.build_candidate_pos_index();
+  assert(thawed.candidate_pos("frozen-id") == "名詞");
+  assert(thawed.candidate_pos("appended-id") == "動詞");
+  std::remove(frozen_path.c_str());
 
   // Candidate and edge ceilings are signalled, never silently treated as
   // complete lattice results.
