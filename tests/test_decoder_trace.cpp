@@ -51,7 +51,7 @@ int main() {
  assert(arena_lexicon.candidate_pos("雨")=="名詞");
  auto arena_before=arena_lexicon.build_lattice("あめ",16,false);
  assert(!arena_before.empty()&&arena_before.front().candidates.front().surface=="雨");
- assert(arena_lexicon.add("あま",{"arena-new","天",-20,0,0,0}));
+ assert(arena_lexicon.add("あま",{"arena-new","天",-20,0,0,0,"名詞"}));
  auto arena_after=arena_lexicon.build_lattice("あま",16,false);
  assert(!arena_after.empty()&&arena_after.front().candidates.front().surface=="天");
  auto arena_preserved=arena_lexicon.build_lattice("あめ",16,false);
