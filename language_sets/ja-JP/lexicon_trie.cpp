@@ -114,9 +114,9 @@ bool LexiconTrie::add(const std::string& reading,const LatticeCandidate& candida
  auto& values=nodes_[node].values;
  auto duplicate=std::find_if(values.begin(),values.end(),[&](const CompactCandidate&v){return candidate_string(v.id)==candidate.id&&candidate_string(v.surface)==candidate.surface;});
  if(duplicate!=values.end())return false;
+ if(values.size()>=std::numeric_limits<std::uint32_t>::max())return false;
  CompactCandidate compact;compact.id=store_candidate_string(candidate.id);compact.surface=store_candidate_string(candidate.surface);compact.pos=store_metadata_string(candidate.pos);compact.inflection_type=store_metadata_string(candidate.inflection_type);compact.inflection_form=store_metadata_string(candidate.inflection_form);
  compact.word_cost=candidate.word_cost;compact.connection_cost=candidate.connection_cost;compact.left_id=candidate.left_id;compact.right_id=candidate.right_id;
- if(values.size()>=std::numeric_limits<std::uint32_t>::max())return false;
  values.push_back(compact);++entry_count_;return true;
 }
 bool LexiconTrie::load_tsv(const std::string& path,std::size_t* loaded){
