@@ -39,6 +39,18 @@ int main() {
  std::vector<std::string> retained_surfaces;
  for(const auto& c:diverse_lattice.front().candidates)if(std::find(retained_surfaces.begin(),retained_surfaces.end(),c.surface)==retained_surfaces.end())retained_surfaces.push_back(c.surface);
  assert(retained_surfaces.size()==8);
+ // Transition vectors remain searchable after out-of-order insertions.
+ LexiconTrie branching_lexicon;
+ assert(branching_lexicon.add("あん",{"branch-n","案",-10,0,1,1}));
+ assert(branching_lexicon.add("あか",{"branch-k","赤",-10,0,1,1}));
+ assert(branching_lexicon.add("あさ",{"branch-s","朝",-10,0,1,1}));
+ assert(branching_lexicon.add("あき",{"branch-i","秋",-10,0,1,1}));
+ for(const auto& reading:std::vector<std::string>{"あか","あき","あさ","あん"}){
+  auto matches=branching_lexicon.build_lattice(reading,16,false);
+  assert(!matches.empty());
+  assert(matches.front().start==0&&matches.front().end==2);
+  assert(!matches.front().candidates.empty());
+ }
  // Prefix-edge pruning samples the full matched span range.
  LexiconTrie span_lexicon;std::string nested_reading;
  for(int i=1;i<=20;++i){nested_reading+="あ";assert(span_lexicon.add(nested_reading,{"prefix-"+std::to_string(i),"候補"+std::to_string(i),-100*i,0,1,1}));}
