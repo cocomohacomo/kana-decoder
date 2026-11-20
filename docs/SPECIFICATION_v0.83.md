@@ -45,3 +45,11 @@ not a quality benchmark and does not imply a CER or sentence-exact improvement.
 - Re-run the pinned UD Japanese-GSD evaluation and compare Top-1, candidate
   recall, oracle CER, and SURGE policy results against the v0.65 baseline.
 - Decoder and contextual scoring changes require held-out evidence before promotion.
+
+## Evaluation diagnostics by reading length
+
+The corpus evaluator reports aggregate exact-match accuracy, CER, and decode
+failures in deterministic Unicode-code-point reading-length buckets:
+1-4, 5-8, 9-16, and 17+ code points. These slices expose length-dependent
+candidate loss and search degradation that can be hidden by corpus-wide means.
+The buckets are diagnostic only; they do not alter decoding policy or scoring.
