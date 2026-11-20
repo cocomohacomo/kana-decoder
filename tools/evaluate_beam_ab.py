@@ -242,6 +242,27 @@ def source_revision():
     return None
 
 
+def sanitized_command(command):
+    path_options = {"--evaluator", "--pack", "--prepared-corpus", "--output"}
+    result = []
+    redact_next = False
+    for argument in command:
+        if redact_next:
+            result.append(Path(argument).name)
+            redact_next = False
+            continue
+        result.append(argument)
+        if argument in path_options:
+            redact_next = True
+        else:
+            for option in path_options:
+                prefix = option + "="
+                if argument.startswith(prefix):
+                    result[-1] = prefix + Path(argument[len(prefix):]).name
+                    break
+    return result
+
+
 def build_provenance(evaluator, pack, prepared_corpus, split, command,
                      bootstrap_samples, bootstrap_seed):
     return {
@@ -249,7 +270,7 @@ def build_provenance(evaluator, pack, prepared_corpus, split, command,
         "source_revision": source_revision(),
         "python_version": platform.python_version(),
         "platform": platform.platform(),
-        "command": list(command),
+        "command": sanitized_command(command),
         "split": split,
         "bootstrap": {
             "method": "paired percentile bootstrap over evaluation cases",
@@ -263,8 +284,9 @@ def build_provenance(evaluator, pack, prepared_corpus, split, command,
             "prepared_corpus": fingerprint_path(prepared_corpus),
         },
         "reproducibility_note": (
-            "Input fingerprints identify exact file contents. Reproduction also "
-            "requires a compatible runtime and the recorded source revision."
+            "Input fingerprints identify exact file contents. Local path arguments "
+            "are reduced to basenames. Reproduction also requires a compatible "
+            "runtime and the recorded source revision."
         ),
     }
 
