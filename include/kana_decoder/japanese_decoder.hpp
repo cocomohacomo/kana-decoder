@@ -165,6 +165,7 @@ private:
   std::vector<std::pair<std::uint32_t,std::size_t>> next;
   std::vector<CompactCandidate> values;
   std::size_t edge_offset=0, edge_count=0;
+  std::size_t candidate_offset=0, candidate_count=0;
  };
  std::unordered_map<std::string,std::string> candidate_pos_;
  std::string candidate_string_pool_;
@@ -173,9 +174,12 @@ private:
  std::string_view candidate_string(CompactString value) const;
  LatticeCandidate materialize_candidate(const CompactCandidate& value) const;
  std::vector<std::pair<std::uint32_t,std::size_t>> edge_arena_;
- bool edges_compacted_=false;
+ std::vector<CompactCandidate> candidate_arena_;
+ bool edges_compacted_=false, candidates_compacted_=false;
  void compact_edges();
  void expand_edges();
+ void compact_candidates();
+ void expand_candidates();
  std::size_t entry_count_=0;
 };
 
