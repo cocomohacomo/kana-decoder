@@ -134,6 +134,22 @@ int main() {
   thawed.build_candidate_pos_index();
   assert(thawed.candidate_pos("frozen-id") == "名詞");
   assert(thawed.candidate_pos("appended-id") == "動詞");
+  // Repeated freeze/thaw cycles must not accumulate stale arena state or lose
+  // the original entry. Reload (freeze), append (thaw), and traverse each cycle.
+  for (int cycle = 0; cycle < 3; ++cycle) {
+    assert(thawed.load_tsv(frozen_path, &frozen_loaded));
+    assert(frozen_loaded == 1);
+    const auto base_lattice = thawed.build_lattice("ふる", 16, false);
+    assert(base_lattice.size() == 1);
+    assert(base_lattice.front().candidates.front().surface == "古");
+    auto cycle_candidate = candidate("cycle-" + std::to_string(cycle),
+                                    "循環" + std::to_string(cycle), 0);
+    assert(thawed.add("じゅんかん", cycle_candidate));
+    const auto cycle_lattice = thawed.build_lattice("ふるじゅんかん", 16, false);
+    assert(cycle_lattice.size() == 2);
+    assert(cycle_lattice[1].candidates.front().surface ==
+           "循環" + std::to_string(cycle));
+  }
   std::remove(frozen_path.c_str());
 
   // Candidate and edge ceilings are signalled, never silently treated as
