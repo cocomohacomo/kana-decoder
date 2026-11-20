@@ -16,7 +16,7 @@ The report includes Top-1 exact accuracy, CER, decode failures, per-domain delta
 counts of exact-match gains and regressions, and every case whose rendered output
 changed. Deltas are calculated as diversity policy minus legacy policy. Therefore,
 a positive exact-accuracy delta and a negative CER delta favor the diversity policy.
-The report is a paired descriptive comparison, not a significance test.
+The report also includes deterministic paired percentile-bootstrap 95% intervals for exact-accuracy and corpus CER deltas. Bootstrap resampling uses paired cases and a recorded seed (default 20261121, 2,000 replicates). These intervals quantify sampling uncertainty within the selected corpus split; they do not establish causality or generalization to other domains. The report remains a descriptive comparison, not a substitute for a preregistered statistical analysis.
 
 ## Corpus alignment and leakage safeguards
 
