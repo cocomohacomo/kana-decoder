@@ -155,7 +155,7 @@ public:
  void build_candidate_pos_index();
  std::string candidate_pos(const std::string& candidate_id) const;
 private:
- struct Node { std::unordered_map<std::string,std::size_t> next; std::vector<LatticeCandidate> values; };
+ struct Node { std::vector<std::pair<std::uint32_t,std::size_t>> next; std::vector<LatticeCandidate> values; };
  std::unordered_map<std::string,std::string> candidate_pos_;
  std::vector<Node> nodes_{1};
  std::size_t entry_count_=0;
