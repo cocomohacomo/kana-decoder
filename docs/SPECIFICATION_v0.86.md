@@ -16,7 +16,7 @@ The report includes Top-1 exact accuracy, CER, decode failures, per-domain delta
 counts of exact-match gains and regressions, and every case whose rendered output
 changed. Deltas are calculated as diversity policy minus legacy policy. Therefore,
 a positive exact-accuracy delta and a negative CER delta favor the diversity policy.
-The report also includes deterministic paired percentile-bootstrap 95% intervals for exact-accuracy and corpus CER deltas. Bootstrap resampling uses paired cases and a recorded seed (default 20261121, 2,000 replicates). These intervals quantify sampling uncertainty within the selected corpus split; they do not establish causality or generalization to other domains. The report remains a descriptive comparison, not a substitute for a preregistered statistical analysis.
+The report also includes deterministic paired percentile-bootstrap 95% intervals for exact-accuracy and corpus CER deltas. Bootstrap resampling uses paired cases and a recorded seed (default 20261121, 2,000 replicates). These intervals quantify sampling uncertainty within the selected corpus split; they do not establish causality or generalization to other domains. The report remains a descriptive comparison, not a substitute for a preregistered statistical analysis. Bootstrap settings and intervals are emitted together in the JSON report.
 
 ## Corpus alignment and leakage safeguards
 
@@ -48,14 +48,20 @@ python3 tools/evaluate_beam_ab.py \
 ```
 
 For the final held-out comparison, repeat with `--split test`. Both invocations
-must use the same pack build, evaluator binary, and prepared corpus. Record the
-pack identity, source commit, corpus manifest hashes, and exact command alongside
-the JSON report when publishing results.
+must use the same pack build, evaluator binary, and prepared corpus. The JSON report
+now embeds a provenance block containing the source revision (when available),
+Python/runtime platform, exact CLI argument vector, split and bootstrap settings,
+and SHA-256 fingerprints for the evaluator binary, prepared corpus, and every file
+in the dictionary pack. Directory fingerprints are deterministic manifests over
+sorted relative paths, sizes, and file hashes. Input paths are represented by their
+basenames rather than absolute local paths. Re-running with identical inputs and
+settings therefore allows the artifacts to be checked before comparing metrics.
 
 ## Validation boundaries
 
-CI unit tests cover segment joining, split isolation, paired metric deltas, and
-the legacy CLI switch. They do not establish an accuracy gain. The current
+CI unit tests cover segment joining, split isolation, paired metric deltas,
+deterministic bootstrap intervals, and content-sensitive input provenance
+fingerprints, as well as the legacy CLI switch. They do not establish an accuracy gain. The current
 `ja-lite` smoke tests remain integration checks only; they are not a substitute
 for a full dictionary pack or the pinned UD Japanese-GSD evaluation. No production
 beam policy change should be justified by synthetic fixtures alone.
