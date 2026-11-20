@@ -76,7 +76,7 @@ bool LexiconTrie::load_tsv(const std::string& path,std::size_t* loaded){
  };
  if(gzip){
   gzFile input=gzopen(path.c_str(),"rb");if(!input)return false;
-  char buffer[8192];int status=Z_OK;bool ok=true;
+  char buffer[8192];bool ok=true;
   while(ok&&gzgets(input,buffer,sizeof(buffer))){
    line.append(buffer);
    if(!line.empty()&&line.back()=='\n'){line.pop_back();if(!line.empty()&&line.back()=='\r')line.pop_back();ok=parse_line(line);line.clear();}
