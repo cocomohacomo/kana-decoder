@@ -7,7 +7,10 @@ unknown/OOV tokens never create fabricated adjacency.
 """
 import argparse
 import csv
+import hashlib
 import json
+import os
+import platform
 import random
 import subprocess
 import sys
@@ -158,6 +161,8 @@ def compare(new, old, rows, split, bootstrap_samples=2000, bootstrap_seed=202611
     return {
         "split": split,
         "case_count": len(rows),
+        "paired_bootstrap": paired_bootstrap(
+            new_cases, old_cases, samples=bootstrap_samples, seed=bootstrap_seed),
         "comparison": {
             "legacy_beam_pruning": old["overall"],
             "rendered_surface_diversity": new["overall"],
@@ -181,6 +186,89 @@ def compare(new, old, rows, split, bootstrap_samples=2000, bootstrap_seed=202611
     }
 
 
+def sha256_file(path):
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def fingerprint_path(path):
+    """Hash a file or a deterministic recursive file manifest."""
+    path = path.resolve()
+    if not path.exists():
+        raise FileNotFoundError(f"input path does not exist: {path}")
+    if path.is_file():
+        return {
+            "kind": "file",
+            "name": path.name,
+            "size_bytes": path.stat().st_size,
+            "sha256": sha256_file(path),
+            "file_count": 1,
+        }
+    entries = []
+    for child in sorted(p for p in path.rglob("*") if p.is_file()):
+        if child.is_symlink():
+            raise ValueError(f"symlink is not allowed in fingerprinted input: {child}")
+        relative = child.relative_to(path).as_posix()
+        entries.append({
+            "path": relative,
+            "size_bytes": child.stat().st_size,
+            "sha256": sha256_file(child),
+        })
+    manifest = json.dumps(entries, ensure_ascii=False, sort_keys=True,
+                          separators=(",", ":")).encode("utf-8")
+    return {
+        "kind": "directory",
+        "name": path.name,
+        "file_count": len(entries),
+        "total_size_bytes": sum(item["size_bytes"] for item in entries),
+        "manifest_sha256": hashlib.sha256(manifest).hexdigest(),
+    }
+
+
+def source_revision():
+    if os.environ.get("GITHUB_SHA"):
+        return os.environ["GITHUB_SHA"]
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"], text=True, capture_output=True,
+            check=False)
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except OSError:
+        pass
+    return None
+
+
+def build_provenance(evaluator, pack, prepared_corpus, split, command,
+                     bootstrap_samples, bootstrap_seed):
+    return {
+        "schema_version": 1,
+        "source_revision": source_revision(),
+        "python_version": platform.python_version(),
+        "platform": platform.platform(),
+        "command": list(command),
+        "split": split,
+        "bootstrap": {
+            "method": "paired percentile bootstrap over evaluation cases",
+            "samples": bootstrap_samples,
+            "seed": bootstrap_seed,
+            "confidence_level": 0.95,
+        },
+        "inputs": {
+            "evaluator": fingerprint_path(evaluator),
+            "pack": fingerprint_path(pack),
+            "prepared_corpus": fingerprint_path(prepared_corpus),
+        },
+        "reproducibility_note": (
+            "Input fingerprints identify exact file contents. Reproduction also "
+            "requires a compatible runtime and the recorded source revision."
+        ),
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--evaluator", type=Path, required=True)
@@ -188,6 +276,8 @@ def main():
     parser.add_argument("--prepared-corpus", type=Path, required=True)
     parser.add_argument("--split", choices=("train", "dev", "test"), default="test")
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--bootstrap-samples", type=int, default=2000)
+    parser.add_argument("--bootstrap-seed", type=int, default=20261121)
     args = parser.parse_args()
     try:
         rows = build_eval_rows(args.prepared_corpus, args.split)
@@ -198,7 +288,12 @@ def main():
                     stream.write(f"{reading}\t{surface}\t{domain}\n")
             diversity = _run(args.evaluator, args.pack, corpus, False)
             legacy = _run(args.evaluator, args.pack, corpus, True)
-        report = compare(diversity, legacy, rows, args.split)
+        report = compare(diversity, legacy, rows, args.split,
+                         bootstrap_samples=args.bootstrap_samples,
+                         bootstrap_seed=args.bootstrap_seed)
+        report["provenance"] = build_provenance(
+            args.evaluator, args.pack, args.prepared_corpus, args.split,
+            sys.argv, args.bootstrap_samples, args.bootstrap_seed)
         rendered = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
