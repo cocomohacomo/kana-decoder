@@ -87,6 +87,10 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  auto prune=[&](std::vector<State>& states){
   std::stable_sort(states.begin(),states.end(),[](const State&a,const State&b){return a.path.score>b.path.score;});
   if(states.size()<=beam_limit)return;
+  if(!opt.preserve_rendered_surface_diversity){
+   states.resize(beam_limit);
+   return;
+  }
   // Preserve distinct rendered hypotheses before filling remaining beam slots
   // by score. Different segmentations of the same surface must not crowd out
   // a lower-scoring but genuinely different kanji/kana alternative.
