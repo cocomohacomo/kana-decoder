@@ -155,6 +155,9 @@ public:
  std::size_t size() const { return entry_count_; }
  void build_candidate_pos_index();
  std::string candidate_pos(const std::string& candidate_id) const;
+ // Read-only diagnostics for validating compact dictionary storage.
+ std::size_t candidate_string_pool_bytes() const { return candidate_string_pool_.size(); }
+ std::size_t interned_metadata_string_count() const { return interned_metadata_strings_.size(); }
 private:
  struct CompactString { std::uint32_t offset=0, size=0; };
  struct CompactCandidate {
@@ -168,9 +171,13 @@ private:
   std::size_t candidate_offset=0, candidate_count=0;
  };
  std::unordered_map<std::string,CompactString> candidate_pos_;
+ // POS and inflection labels have a small repeated vocabulary. Keep one pool
+ // copy per distinct metadata value instead of one copy per candidate.
+ std::unordered_map<std::string,CompactString> interned_metadata_strings_;
  std::string candidate_string_pool_;
  std::vector<Node> nodes_{1};
  CompactString store_candidate_string(const std::string& value);
+ CompactString store_metadata_string(const std::string& value);
  std::string_view candidate_string(CompactString value) const;
  LatticeCandidate materialize_candidate(const CompactCandidate& value) const;
  std::vector<std::pair<std::uint32_t,std::size_t>> edge_arena_;
