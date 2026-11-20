@@ -36,6 +36,12 @@ int main() {
  assert(compressed_count==1);
  auto compressed_lattice=compressed_lexicon.build_lattice("あめ",16,false);
  assert(!compressed_lattice.empty()&&compressed_lattice.front().candidates.front().surface=="雨");
+ // Mutating a loaded/compacted trie expands its edge arena without changing lookup semantics.
+ assert(compressed_lexicon.add("あま",{"rain2","天",-20,0,0,0}));
+ auto post_load_lattice=compressed_lexicon.build_lattice("あま",16,false);
+ assert(!post_load_lattice.empty()&&post_load_lattice.front().candidates.front().surface=="天");
+ auto preserved_lattice=compressed_lexicon.build_lattice("あめ",16,false);
+ assert(!preserved_lattice.empty()&&preserved_lattice.front().candidates.front().surface=="雨");
  std::remove(gzip_path.c_str());
  assert(lexicon.add("あめ", {"rain", "雨", -1200, 25, 1, 2}));
  assert(lexicon.add("あめ", {"candy", "飴", -900, 15, 3, 4}));
