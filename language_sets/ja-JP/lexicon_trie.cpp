@@ -7,7 +7,6 @@ namespace {
 bool valid_utf8_impl(const std::string& s){return kana_decoder::is_valid_utf8(s);}
 std::size_t utf8_width(unsigned char c){return c<0x80?1:(c&0xe0)==0xc0?2:(c&0xf0)==0xe0?3:4;}
 std::uint32_t utf8_codepoint_at(const std::string& text,std::size_t offset){const auto* p=reinterpret_cast<const unsigned char*>(text.data()+offset);const auto n=utf8_width(*p);if(n==1)return p[0];if(n==2)return (static_cast<std::uint32_t>(p[0]&0x1f)<<6)|(p[1]&0x3f);if(n==3)return (static_cast<std::uint32_t>(p[0]&0x0f)<<12)|(static_cast<std::uint32_t>(p[1]&0x3f)<<6)|(p[2]&0x3f);return (static_cast<std::uint32_t>(p[0]&0x07)<<18)|(static_cast<std::uint32_t>(p[1]&0x3f)<<12)|(static_cast<std::uint32_t>(p[2]&0x3f)<<6)|(p[3]&0x3f);}
-std::vector<std::size_t> utf8_byte_offsets(const std::string& text){std::vector<std::size_t> offsets;offsets.reserve(text.size()+1);for(std::size_t i=0;i<text.size();i+=utf8_width(static_cast<unsigned char>(text[i])))offsets.push_back(i);offsets.push_back(text.size());return offsets;}
 bool parse_i32_strict(const std::string& text,std::int32_t& value,bool nonnegative=false){if(text.empty())return false;auto r=std::from_chars(text.data(),text.data()+text.size(),value);return r.ec==std::errc{}&&r.ptr==text.data()+text.size()&&(!nonnegative||value>=0);}
 std::int64_t candidate_cost(const kana_decoder::LatticeCandidate& c){return static_cast<std::int64_t>(c.word_cost)+c.connection_cost;}
 std::vector<const kana_decoder::LatticeCandidate*> retain_surface_diverse_ptr(const std::vector<kana_decoder::LatticeCandidate>& source,std::size_t limit){
