@@ -143,6 +143,17 @@ struct DecoderOptions {
  std::size_t max_trace_records=4096;
 };
 
+struct TrieStorageStats {
+ std::size_t frozen_node_capacity_bytes=0;
+ std::size_t edge_arena_capacity_bytes=0;
+ std::size_t candidate_arena_capacity_bytes=0;
+ std::size_t builder_node_capacity_bytes=0;
+ std::size_t builder_edge_capacity_bytes=0;
+ std::size_t builder_candidate_capacity_bytes=0;
+ std::size_t string_pool_capacity_bytes=0;
+ std::size_t estimated_bytes=0;
+};
+
 class LexiconTrie {
 public:
  bool add(const std::string& reading,const LatticeCandidate& candidate);
@@ -159,6 +170,23 @@ public:
  std::size_t candidate_string_pool_bytes() const { return candidate_string_pool_.size(); }
  std::size_t interned_metadata_string_count() const { return interned_metadata_strings_.size(); }
  std::size_t candidate_pos_index_size() const { return candidate_pos_index_.size(); }
+ TrieStorageStats storage_stats() const {
+  TrieStorageStats stats;
+  stats.frozen_node_capacity_bytes=nodes_.capacity()*sizeof(Node);
+  stats.edge_arena_capacity_bytes=edge_arena_.capacity()*sizeof(edge_arena_[0]);
+  stats.candidate_arena_capacity_bytes=candidate_arena_.capacity()*sizeof(CompactCandidate);
+  stats.builder_node_capacity_bytes=build_nodes_.capacity()*sizeof(BuildNode);
+  for(const auto& node:build_nodes_){
+   stats.builder_edge_capacity_bytes+=node.next.capacity()*sizeof(node.next[0]);
+   stats.builder_candidate_capacity_bytes+=node.values.capacity()*sizeof(CompactCandidate);
+  }
+  stats.string_pool_capacity_bytes=candidate_string_pool_.capacity();
+  stats.estimated_bytes=stats.frozen_node_capacity_bytes+stats.edge_arena_capacity_bytes+
+   stats.candidate_arena_capacity_bytes+stats.builder_node_capacity_bytes+
+   stats.builder_edge_capacity_bytes+stats.builder_candidate_capacity_bytes+
+   stats.string_pool_capacity_bytes;
+  return stats;
+ }
 private:
  struct CompactString { std::uint32_t offset=0, size=0; };
  struct CompactCandidate {
