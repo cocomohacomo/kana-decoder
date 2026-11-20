@@ -159,23 +159,39 @@ bool LexiconTrie::load_tsv(const std::string& path,std::size_t* loaded){
  parsed.compact_edges();parsed.compact_candidates();*this=std::move(parsed);if(loaded)*loaded=count;return true;
 }
 void LexiconTrie::build_candidate_pos_index() {
- candidate_pos_.clear();
+ candidate_pos_index_.clear();
+ std::vector<PosIndexEntry> entries;
  for(const auto& node:nodes_) {
   const auto begin=candidates_compacted_?
    candidate_arena_.begin()+static_cast<std::ptrdiff_t>(node.candidate_offset):node.values.begin();
   const auto end=begin+static_cast<std::ptrdiff_t>(candidates_compacted_?node.candidate_count:node.values.size());
   for(auto it=begin;it!=end;++it) {
-   const auto id=candidate_string(it->id),pos=candidate_string(it->pos);
-   if(id.empty()||pos.empty()) continue;
-   auto found=candidate_pos_.find(std::string(id));
-   if(found==candidate_pos_.end()) candidate_pos_.emplace(std::string(id),it->pos);
-   else if(candidate_string(found->second)!=pos) found->second=CompactString{};
+   if(it->id.size==0||it->pos.size==0) continue;
+   entries.push_back(PosIndexEntry{it->id,it->pos});
   }
+ }
+ std::sort(entries.begin(),entries.end(),[this](const PosIndexEntry& a,const PosIndexEntry& b) {
+  return candidate_string(a.id)<candidate_string(b.id);
+ });
+ candidate_pos_index_.reserve(entries.size());
+ for(std::size_t i=0;i<entries.size();) {
+  std::size_t next=i+1;
+  CompactString pos=entries[i].pos;
+  while(next<entries.size()&&candidate_string(entries[next].id)==candidate_string(entries[i].id)) {
+   if(candidate_string(entries[next].pos)!=candidate_string(pos)) pos=CompactString{};
+   ++next;
+  }
+  candidate_pos_index_.push_back(PosIndexEntry{entries[i].id,pos});
+  i=next;
  }
 }
 std::string LexiconTrie::candidate_pos(const std::string& candidate_id) const {
- auto found=candidate_pos_.find(candidate_id);
- return found==candidate_pos_.end()?std::string{}:std::string(candidate_string(found->second));
+ const auto found=std::lower_bound(candidate_pos_index_.begin(),candidate_pos_index_.end(),candidate_id,
+  [this](const PosIndexEntry& entry,const std::string& id) {
+   return candidate_string(entry.id).compare(id)<0;
+  });
+ if(found==candidate_pos_index_.end()||candidate_string(found->id)!=candidate_id) return {};
+ return std::string(candidate_string(found->pos));
 }
 std::vector<LatticeEdge> LexiconTrie::build_lattice(
  const std::string& reading,std::size_t max_matches,bool fallback,
