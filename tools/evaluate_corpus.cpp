@@ -224,10 +224,11 @@ bool evaluate_case(const EvaluationCase& input,
                    const kana_decoder::LexiconTrie& lexicon,
                    const kana_decoder::MaskedNgramScorer& scorer,
                    const kana_decoder::ConnectionModel& connections,
-                   CaseResult& result, bool include_trace, bool include_lattice_trace) {
+                   CaseResult& result, bool include_trace, bool include_lattice_trace,
+                   const kana_decoder::DecoderOptions& decoder_options) {
     result.input = input;
     const auto paths = kana_decoder::decode_reading(
-        input.reading, lexicon, scorer, {}, &connections,
+        input.reading, lexicon, scorer, decoder_options, &connections,
         include_trace ? &result.trace : nullptr,
         include_lattice_trace ? &result.lattice_trace : nullptr);
 
@@ -254,11 +255,13 @@ int main(int argc, char** argv) {
     bool details = false;
     bool trace = false;
     bool lattice_trace = false;
+    kana_decoder::DecoderOptions decoder_options;
     for (int i = 3; i < argc; ++i) {
         const std::string option(argv[i]);
         if (option == "--details") details = true;
         else if (option == "--trace") { trace = true; details = true; }
         else if (option == "--lattice-trace") { lattice_trace = true; details = true; }
+        else if (option == "--legacy-beam-pruning") decoder_options.preserve_rendered_surface_diversity = false;
         else return usage();
     }
 
@@ -300,7 +303,7 @@ int main(int argc, char** argv) {
         }
 
         CaseResult result;
-        evaluate_case(input, lexicon, scorer, connections, result, trace, lattice_trace);
+        evaluate_case(input, lexicon, scorer, connections, result, trace, lattice_trace, decoder_options);
         accumulate(overall, result);
         accumulate(by_domain[input.domain], result);
         accumulate(by_reading_length[reading_length_bucket(input.reading)], result);
