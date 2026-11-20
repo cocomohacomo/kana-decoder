@@ -119,6 +119,10 @@ class BeamAbTests(unittest.TestCase):
                          evaluator_hash)
         self.assertEqual(result["inputs"]["pack"]["file_count"], 1)
         self.assertEqual(result["inputs"]["prepared_corpus"]["kind"], "file")
+        self.assertEqual(result["command"][-1], "dev")
+        self.assertEqual(
+            MODULE.sanitized_command(["--pack", "/private/user/data/pack"]),
+            ["--pack", "pack"])
 
     def test_evaluator_command_switch_is_explicit(self):
         payload = {"overall": {"cases": 0}, "details": []}
