@@ -101,11 +101,21 @@ bool verify_pack_manifest(const std::string& directory,std::string* error){
   if (actual > limit - total) return fail(error, "Pack expanded size exceeds declared limit");
   total += actual;
   if(sha256_file(file)!=hash)return fail(error,"Pack payload SHA-256 mismatch");
-  if (relative == "lexicon.tsv") has_lex = true;
+  if (relative == "lexicon.tsv" || relative == "lexicon.tsv.gz") has_lex = true;
   if (relative == "ngram.tsv") has_ngram = true;
   if (relative == license_file) has_license = true;
  }
  if(listed.empty()||!has_lex||!has_ngram||!has_license)return fail(error,"required Pack payload or hashed license missing");
+ if(listed.count("lexicon.tsv.gz")){
+  std::string compression_block,compression_path,algorithm,expanded_text;
+  if(!capture(json,std::regex(R"("dictionary_compression"\\s*:\\s*\\{([\\s\\S]*?)\\})"),compression_block)||
+     !capture(compression_block,std::regex(R"rx("path"\\s*:\\s*"([^"]+)")rx"),compression_path)||
+     !capture(compression_block,std::regex(R"rx("algorithm"\\s*:\\s*"([^"]+)")rx"),algorithm)||
+     !capture(compression_block,std::regex(R"("uncompressed_size"\\s*:\\s*([0-9]+))"),expanded_text)||
+     compression_path!="lexicon.tsv.gz"||algorithm!="gzip")return fail(error,"invalid dictionary compression metadata");
+  try{if(std::stoull(expanded_text)>limit)return fail(error,"compressed lexicon exceeds expanded size limit");}
+  catch(...){return fail(error,"invalid compressed lexicon expanded size");}
+ }
  for(fs::recursive_directory_iterator it(root),end;it!=end;++it){if(it->is_symlink())return fail(error,"symlink found in Pack directory");if(it->is_regular_file()){auto rel=it->path().lexically_relative(root).generic_string();if(rel!="manifest.json"&&!listed.count(rel))return fail(error,"unlisted Pack payload");}}
  if (error) error->clear();
  return true;
