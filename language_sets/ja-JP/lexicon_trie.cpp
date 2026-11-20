@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <charconv>
 #include <fstream>
+#include <iterator>
 #include <limits>
 #include <stdexcept>
 #include <sstream>
@@ -48,7 +49,7 @@ void LexiconTrie::compact_edges(){
  if(edges_compacted_)return;
  std::size_t total=0;for(const auto& n:build_nodes_){if(n.next.size()>std::numeric_limits<std::uint32_t>::max()-total)throw std::length_error("trie edge arena exceeds 32-bit ranges");total+=n.next.size();}
  edge_arena_.clear();edge_arena_.reserve(total);nodes_.assign(build_nodes_.size(),Node{});
- for(std::size_t i=0;i<build_nodes_.size();++i){const auto& s=build_nodes_[i];auto& d=nodes_[i];d.edge_offset=static_cast<std::uint32_t>(edge_arena_.size());d.edge_count=static_cast<std::uint32_t>(s.next.size());edge_arena_.insert(edge_arena_.end(),s.next.begin(),s.next.end());}edges_compacted_=true;
+ for(std::size_t i=0;i<build_nodes_.size();++i){auto& source=build_nodes_[i].next;auto& target=nodes_[i];target.edge_offset=static_cast<std::uint32_t>(edge_arena_.size());target.edge_count=static_cast<std::uint32_t>(source.size());edge_arena_.insert(edge_arena_.end(),std::make_move_iterator(source.begin()),std::make_move_iterator(source.end()));std::vector<std::pair<std::uint32_t,std::uint32_t>>().swap(source);}edges_compacted_=true;
 }
 void LexiconTrie::expand_edges(){
  if(!edges_compacted_)return;
@@ -60,7 +61,7 @@ void LexiconTrie::compact_candidates(){
  if(candidates_compacted_)return;
  std::size_t total=0;for(const auto& n:build_nodes_){if(n.values.size()>std::numeric_limits<std::uint32_t>::max()-total)throw std::length_error("candidate arena exceeds 32-bit ranges");total+=n.values.size();}
  candidate_arena_.clear();candidate_arena_.reserve(total);
- for(std::size_t i=0;i<build_nodes_.size();++i){const auto& s=build_nodes_[i];auto& d=nodes_[i];d.candidate_offset=static_cast<std::uint32_t>(candidate_arena_.size());d.candidate_count=static_cast<std::uint32_t>(s.values.size());candidate_arena_.insert(candidate_arena_.end(),s.values.begin(),s.values.end());}candidates_compacted_=true;
+ for(std::size_t i=0;i<build_nodes_.size();++i){auto& source=build_nodes_[i].values;auto& target=nodes_[i];target.candidate_offset=static_cast<std::uint32_t>(candidate_arena_.size());target.candidate_count=static_cast<std::uint32_t>(source.size());candidate_arena_.insert(candidate_arena_.end(),std::make_move_iterator(source.begin()),std::make_move_iterator(source.end()));std::vector<CompactCandidate>().swap(source);}candidates_compacted_=true;
  if(edges_compacted_)std::vector<BuildNode>().swap(build_nodes_);
 }
 void LexiconTrie::expand_candidates(){
