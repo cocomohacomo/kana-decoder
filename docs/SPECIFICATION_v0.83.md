@@ -53,3 +53,15 @@ failures in deterministic Unicode-code-point reading-length buckets:
 1-4, 5-8, 9-16, and 17+ code points. These slices expose length-dependent
 candidate loss and search degradation that can be hidden by corpus-wide means.
 The buckets are diagnostic only; they do not alter decoding policy or scoring.
+
+
+## v0.84 Rendered-hypothesis beam diversity
+
+Beam pruning first retains the highest-scoring state for each distinct rendered
+surface string, then fills any remaining beam slots in score order. This prevents
+multiple token segmentations that render the same output from consuming the
+entire beam and eliminating a lower-scoring distinct kanji/kana hypothesis.
+The rule is deterministic and remains bounded by the configured hard beam cap.
+It changes only intermediate hypothesis retention; it does not guarantee a
+CER improvement. Held-out corpus evaluation is required before changing the
+default beam width or scoring weights.
