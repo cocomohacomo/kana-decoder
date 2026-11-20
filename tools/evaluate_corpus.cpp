@@ -244,14 +244,14 @@ bool evaluate_case(const EvaluationCase& input,
 }
 
 int usage() {
-    std::cerr << "usage: kana_decoder_eval PACK_DIR CORPUS_TSV [--details] [--trace] [--lattice-trace]\n";
+    std::cerr << "usage: kana_decoder_eval PACK_DIR CORPUS_TSV [--details] [--trace] [--lattice-trace] [--legacy-beam-pruning]\n";
     return 2;
 }
 
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc < 3 || argc > 5) return usage();
+    if (argc < 3 || argc > 6) return usage();
     bool details = false;
     bool trace = false;
     bool lattice_trace = false;
