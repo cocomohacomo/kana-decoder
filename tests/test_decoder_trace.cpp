@@ -42,6 +42,16 @@ int main() {
  assert(!post_load_lattice.empty()&&post_load_lattice.front().candidates.front().surface=="天");
  auto preserved_lattice=compressed_lexicon.build_lattice("あめ",16,false);
  assert(!preserved_lattice.empty()&&preserved_lattice.front().candidates.front().surface=="雨");
+ // Compact candidate string pool must materialize all public fields without loss.
+ LatticeCandidate rich;rich.id="candidate-rich";rich.surface="天気";rich.word_cost=-123;rich.connection_cost=7;rich.left_id=11;rich.right_id=12;rich.pos="名詞,一般";rich.inflection_type="五段";rich.inflection_form="基本形";
+ assert(compressed_lexicon.add("てんき",rich));
+ auto rich_lattice=compressed_lexicon.build_lattice("てんき",16,false);
+ assert(!rich_lattice.empty()&&!rich_lattice.front().candidates.empty());
+ const auto& restored=rich_lattice.front().candidates.front();
+ assert(restored.id==rich.id&&restored.surface==rich.surface&&restored.word_cost==rich.word_cost&&restored.connection_cost==rich.connection_cost);
+ assert(restored.left_id==rich.left_id&&restored.right_id==rich.right_id&&restored.pos==rich.pos&&restored.inflection_type==rich.inflection_type&&restored.inflection_form==rich.inflection_form);
+ compressed_lexicon.build_candidate_pos_index();
+ assert(compressed_lexicon.candidate_pos("candidate-rich")==rich.pos);
  std::remove(gzip_path.c_str());
  assert(lexicon.add("あめ", {"rain", "雨", -1200, 25, 1, 2}));
  assert(lexicon.add("あめ", {"candy", "飴", -900, 15, 3, 4}));
