@@ -125,6 +125,10 @@ bool verify_pack_manifest(const std::string& directory,std::string* error){
   int gzip_status=Z_OK;gzerror(compressed,&gzip_status);if(gzip_status!=Z_OK&&gzip_status!=Z_STREAM_END)valid=false;
   if(gzclose(compressed)!=Z_OK)valid=false;
   if(!valid||expanded!=expected_expanded)return fail(error,"compressed lexicon integrity or expanded size mismatch");
+  const auto compressed_size=fs::file_size(root/"lexicon.tsv.gz");
+  if(expected_expanded>=compressed_size)total+=expected_expanded-compressed_size;
+  else total-=compressed_size-expected_expanded;
+  if(total>limit)return fail(error,"Pack expanded size exceeds declared limit");
  }
  for(fs::recursive_directory_iterator it(root),end;it!=end;++it){if(it->is_symlink())return fail(error,"symlink found in Pack directory");if(it->is_regular_file()){auto rel=it->path().lexically_relative(root).generic_string();if(rel!="manifest.json"&&!listed.count(rel))return fail(error,"unlisted Pack payload");}}
  if (error) error->clear();
