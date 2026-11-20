@@ -13,7 +13,7 @@ This reduces each edge reference from a typical 16-byte pair to 8 bytes on 64-bi
 
 - Node creation rejects insertion before a child index would exceed the 32-bit representation.
 - Edge and candidate arena compaction checks aggregate sizes before narrowing offsets/counts.
-- Per-node candidate insertion is bounded to the representable 32-bit count.
+- Per-node candidate insertion is bounded to the representable 32-bit count before candidate strings are appended to the pool, avoiding orphaned pool allocations on a rejected insertion.
 - Existing compacted/uncompacted traversal, sorting, and lookup behavior is preserved.
 - The string pool retains its existing 32-bit offset guard.
 
