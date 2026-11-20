@@ -13,7 +13,7 @@ int main() {
  assert(utf8_lexicon.add("😀",{ "emoji","😀",-1,0,0,0 }));
  auto emoji_lattice=utf8_lexicon.build_lattice("😀",16,false);
  assert(emoji_lattice.size()==1&&emoji_lattice.front().start==0&&emoji_lattice.front().end==1);
- const std::string invalid_utf8("\\xff",1);
+ const std::string invalid_utf8("\xff",1);
  assert(!utf8_lexicon.add(invalid_utf8,{"invalid","x",0,0,0,0}));
  assert(utf8_lexicon.build_lattice(invalid_utf8,16,false).empty());
  assert(lexicon.add("あめ", {"rain", "雨", -1200, 25, 1, 2}));
