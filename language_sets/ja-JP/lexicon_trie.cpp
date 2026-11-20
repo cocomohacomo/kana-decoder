@@ -110,13 +110,14 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
   if(resource_limit_exceeded)*resource_limit_exceeded=true;
   return out;
  }
- const auto byte_offsets=utf8_byte_offsets(reading);
- const auto codepoint_count=byte_offsets.size()-1;
+ std::size_t codepoint_count=0;
+ for(std::size_t offset=0;offset<reading.size();offset+=utf8_width(static_cast<unsigned char>(reading[offset])))++codepoint_count;
  if (codepoint_count==0) return out;
  if(codepoint_count>256){
   if(resource_limit_exceeded)*resource_limit_exceeded=true;
   return out;
  }
+ std::size_t start_byte=0;
  for (std::size_t start = 0; start < codepoint_count; ++start) {
   if(out.size()>=max_total_edges){
    if(resource_limit_exceeded)*resource_limit_exceeded=true;
@@ -126,8 +127,9 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
   position_trace.start = start;
   position_trace.fallback_enabled = fallback;
   std::vector<LatticeEdge> available_edges;std::vector<std::size_t> raw_counts;std::size_t node=0;
+  std::size_t current_byte=start_byte;
   if(max_matches)for(std::size_t end=start;end<codepoint_count;++end){
-   const auto cp=utf8_codepoint_at(reading,byte_offsets[end]);const auto& transitions=nodes_[node].next;auto it=std::lower_bound(transitions.begin(),transitions.end(),cp,[](const auto& edge,std::uint32_t value){return edge.first<value;});if(it==transitions.end()||it->first!=cp)break;node=it->second;
+   const auto cp=utf8_codepoint_at(reading,current_byte);current_byte+=utf8_width(static_cast<unsigned char>(reading[current_byte]));const auto& transitions=nodes_[node].next;auto it=std::lower_bound(transitions.begin(),transitions.end(),cp,[](const auto& edge,std::uint32_t value){return edge.first<value;});if(it==transitions.end()||it->first!=cp)break;node=it->second;
    if(!nodes_[node].values.empty()){position_trace.available_candidate_count+=nodes_[node].values.size();available_edges.push_back(LatticeEdge{start,end+1,{}});raw_counts.push_back(nodes_[node].values.size());available_edges.back().candidates=retain_surface_diverse(nodes_[node].values,std::min<std::size_t>(8,nodes_[node].values.size()));}
   }
   position_trace.available_dictionary_match_count=available_edges.size();
@@ -146,9 +148,10 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
   position_trace.dictionary_match_count=matches;
   position_trace.pruned_dictionary_match_count=position_trace.available_dictionary_match_count-matches;
   position_trace.pruned_candidate_count=position_trace.available_candidate_count-position_trace.retained_candidate_count;
-  if(fallback&&position_trace.available_dictionary_match_count==0&&max_matches){out.push_back(LatticeEdge{start,start+1,{LatticeCandidate{"kana:"+reading.substr(byte_offsets[start],byte_offsets[start+1]-byte_offsets[start]),reading.substr(byte_offsets[start],byte_offsets[start+1]-byte_offsets[start]),10000,0,0,0,{},{},{}}}});position_trace.fallback_generated=true;}
+  if(fallback&&position_trace.available_dictionary_match_count==0&&max_matches){const auto width=utf8_width(static_cast<unsigned char>(reading[start_byte]));const auto surface=reading.substr(start_byte,width);out.push_back(LatticeEdge{start,start+1,{LatticeCandidate{"kana:"+surface,surface,10000,0,0,0,{},{},{}}}});position_trace.fallback_generated=true;}
   else if(fallback&&position_trace.available_dictionary_match_count)position_trace.fallback_suppressed_by_dictionary=true;
   if (trace) trace->push_back(std::move(position_trace));
+  start_byte+=utf8_width(static_cast<unsigned char>(reading[start_byte]));
  }
  return out;
 }
