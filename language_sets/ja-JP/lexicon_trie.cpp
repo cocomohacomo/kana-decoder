@@ -42,7 +42,20 @@ std::vector<std::size_t> spread_indices(std::size_t count,std::size_t limit){
 }
 }
 namespace kana_decoder {
+void LexiconTrie::compact_edges(){
+ if(edges_compacted_)return;
+ std::size_t total=0;for(const auto& node:nodes_)total+=node.next.size();
+ edge_arena_.clear();edge_arena_.reserve(total);
+ for(auto& node:nodes_){node.edge_offset=edge_arena_.size();node.edge_count=node.next.size();edge_arena_.insert(edge_arena_.end(),node.next.begin(),node.next.end());std::vector<std::pair<std::uint32_t,std::size_t>>().swap(node.next);}
+ edges_compacted_=true;
+}
+void LexiconTrie::expand_edges(){
+ if(!edges_compacted_)return;
+ for(auto& node:nodes_){node.next.assign(edge_arena_.begin()+static_cast<std::ptrdiff_t>(node.edge_offset),edge_arena_.begin()+static_cast<std::ptrdiff_t>(node.edge_offset+node.edge_count));node.edge_offset=0;node.edge_count=0;}
+ std::vector<std::pair<std::uint32_t,std::size_t>>().swap(edge_arena_);edges_compacted_=false;
+}
 bool LexiconTrie::add(const std::string& reading,const LatticeCandidate& candidate){
+ if(edges_compacted_)expand_edges();
  if(reading.empty()||!valid_utf8_impl(reading)||!valid_utf8_impl(candidate.id)||!valid_utf8_impl(candidate.surface)||candidate.id.empty()||candidate.surface.empty())return false;
  std::size_t node=0;
  for(std::size_t offset=0;offset<reading.size();offset+=utf8_width(static_cast<unsigned char>(reading[offset]))){const auto cp=utf8_codepoint_at(reading,offset);auto& transitions=nodes_[node].next;auto it=std::lower_bound(transitions.begin(),transitions.end(),cp,[](const auto& edge,std::uint32_t value){return edge.first<value;});if(it==transitions.end()||it->first!=cp){
@@ -92,7 +105,7 @@ bool LexiconTrie::load_tsv(const std::string& path,std::size_t* loaded){
   if(!input.eof())return false;
  }
  if(count==0)return false;
- *this=std::move(parsed);if(loaded)*loaded=count;return true;
+ parsed.compact_edges();*this=std::move(parsed);if(loaded)*loaded=count;return true;
 }
 void LexiconTrie::build_candidate_pos_index() {
  candidate_pos_.clear();
@@ -148,7 +161,7 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
   std::vector<LatticeEdge> available_edges;std::vector<std::size_t> raw_counts;std::size_t node=0;
   std::size_t current_byte=start_byte;
   if(max_matches)for(std::size_t end=start;end<codepoint_count;++end){
-   const auto cp=utf8_codepoint_at(reading,current_byte);current_byte+=utf8_width(static_cast<unsigned char>(reading[current_byte]));const auto& transitions=nodes_[node].next;auto it=std::lower_bound(transitions.begin(),transitions.end(),cp,[](const auto& edge,std::uint32_t value){return edge.first<value;});if(it==transitions.end()||it->first!=cp)break;node=it->second;
+   const auto cp=utf8_codepoint_at(reading,current_byte);current_byte+=utf8_width(static_cast<unsigned char>(reading[current_byte]));const auto& current=nodes_[node];const auto edge_begin=edges_compacted_?edge_arena_.begin()+static_cast<std::ptrdiff_t>(current.edge_offset):current.next.begin();const auto edge_end=edges_compacted_?edge_begin+static_cast<std::ptrdiff_t>(current.edge_count):current.next.end();auto it=std::lower_bound(edge_begin,edge_end,cp,[](const auto& edge,std::uint32_t value){return edge.first<value;});if(it==edge_end||it->first!=cp)break;node=it->second;
    if(!nodes_[node].values.empty()){position_trace.available_candidate_count+=nodes_[node].values.size();available_edges.push_back(LatticeEdge{start,end+1,{}});raw_counts.push_back(nodes_[node].values.size());available_edges.back().candidates=retain_surface_diverse(nodes_[node].values,std::min<std::size_t>(8,nodes_[node].values.size()));}
   }
   position_trace.available_dictionary_match_count=available_edges.size();
