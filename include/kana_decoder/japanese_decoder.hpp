@@ -166,20 +166,15 @@ private:
   std::int32_t word_cost=0, connection_cost=0, left_id=0, right_id=0;
  };
  struct PosIndexEntry { CompactString id, pos; };
- struct Node {
-  // 32-bit child indices and arena ranges halve edge-reference width and
-  // reduce per-node range metadata on the bounded Japanese dictionary pack.
-  std::vector<std::pair<std::uint32_t,std::uint32_t>> next;
-  std::vector<CompactCandidate> values;
-  std::uint32_t edge_offset=0, edge_count=0;
-  std::uint32_t candidate_offset=0, candidate_count=0;
- };
+ struct Node { std::uint32_t edge_offset=0, edge_count=0, candidate_offset=0, candidate_count=0; };
+ struct BuildNode { std::vector<std::pair<std::uint32_t,std::uint32_t>> next; std::vector<CompactCandidate> values; };
  std::vector<PosIndexEntry> candidate_pos_index_;
  // POS and inflection labels have a small repeated vocabulary. Keep one pool
  // copy per distinct metadata value instead of one copy per candidate.
  std::unordered_map<std::string,CompactString> interned_metadata_strings_;
  std::string candidate_string_pool_;
  std::vector<Node> nodes_{1};
+ std::vector<BuildNode> build_nodes_{1};
  CompactString store_candidate_string(const std::string& value);
  CompactString store_metadata_string(const std::string& value);
  std::string_view candidate_string(CompactString value) const;
