@@ -160,30 +160,33 @@ bool LexiconTrie::load_tsv(const std::string& path,std::size_t* loaded){
 }
 void LexiconTrie::build_candidate_pos_index() {
  candidate_pos_index_.clear();
- std::vector<PosIndexEntry> entries;
  for(const auto& node:nodes_) {
   const auto begin=candidates_compacted_?
    candidate_arena_.begin()+static_cast<std::ptrdiff_t>(node.candidate_offset):node.values.begin();
   const auto end=begin+static_cast<std::ptrdiff_t>(candidates_compacted_?node.candidate_count:node.values.size());
   for(auto it=begin;it!=end;++it) {
    if(it->id.size==0||it->pos.size==0) continue;
-   entries.push_back(PosIndexEntry{it->id,it->pos});
+   candidate_pos_index_.push_back(PosIndexEntry{it->id,it->pos});
   }
  }
- std::sort(entries.begin(),entries.end(),[this](const PosIndexEntry& a,const PosIndexEntry& b) {
+ // Sort the sole backing buffer to avoid retaining a temporary entries vector.
+ std::sort(candidate_pos_index_.begin(),candidate_pos_index_.end(),[this](const PosIndexEntry& a,const PosIndexEntry& b) {
   return candidate_string(a.id)<candidate_string(b.id);
  });
- candidate_pos_index_.reserve(entries.size());
- for(std::size_t i=0;i<entries.size();) {
-  std::size_t next=i+1;
-  CompactString pos=entries[i].pos;
-  while(next<entries.size()&&candidate_string(entries[next].id)==candidate_string(entries[i].id)) {
-   if(candidate_string(entries[next].pos)!=candidate_string(pos)) pos=CompactString{};
+ // Fold duplicate IDs in place; differing POS values resolve to empty.
+ std::size_t write=0;
+ for(std::size_t read=0;read<candidate_pos_index_.size();) {
+  const auto id=candidate_pos_index_[read].id;
+  CompactString pos=candidate_pos_index_[read].pos;
+  std::size_t next=read+1;
+  while(next<candidate_pos_index_.size()&&candidate_string(candidate_pos_index_[next].id)==candidate_string(id)) {
+   if(candidate_string(candidate_pos_index_[next].pos)!=candidate_string(pos)) pos=CompactString{};
    ++next;
   }
-  candidate_pos_index_.push_back(PosIndexEntry{entries[i].id,pos});
-  i=next;
+  candidate_pos_index_[write++]=PosIndexEntry{id,pos};
+  read=next;
  }
+ candidate_pos_index_.resize(write);
 }
 std::string LexiconTrie::candidate_pos(const std::string& candidate_id) const {
  const auto found=std::lower_bound(candidate_pos_index_.begin(),candidate_pos_index_.end(),candidate_id,
