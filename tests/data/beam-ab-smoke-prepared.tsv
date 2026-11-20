@@ -1,0 +1,5 @@
+document_id	sentence_id	reading	surface	domain	split
+smoke-1	1-1	あめ	雨	general	test
+smoke-2	2-1	はし	橋	general	test
+smoke-3	3-1	きしゃ	汽車	general	test
+smoke-4	4-1	ぴ	ぴ	unknown	test
