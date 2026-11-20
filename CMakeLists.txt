@@ -7,6 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # SURGE is the sole context cognition and decision runtime. The vendored
 # upstream Core keeps the complete application offline and reproducible.
 add_subdirectory(third_party/surge)
+find_package(ZLIB REQUIRED)
 add_library(kana_decoder_ja_language_set OBJECT
   language_sets/ja-JP/decoder.cpp
   language_sets/ja-JP/morphology_decoder.cpp
@@ -24,11 +25,11 @@ set_target_properties(kana_decoder_ja_language_set PROPERTIES POSITION_INDEPENDE
 target_compile_options(kana_decoder_ja_language_set PRIVATE -Wall -Wextra -Wpedantic -Werror)
 add_library(kana_decoder_core src/engine.cpp $<TARGET_OBJECTS:kana_decoder_ja_language_set> src/streaming_session.cpp src/c_api.cpp src/pack_manifest.cpp src/language_pack.cpp src/surge_runtime.cpp)
 target_include_directories(kana_decoder_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(kana_decoder_core PUBLIC surge_core)
+target_link_libraries(kana_decoder_core PUBLIC surge_core ZLIB::ZLIB)
 target_compile_options(kana_decoder_core PRIVATE -Wall -Wextra -Wpedantic -Werror)
 add_library(kana_decoder_shared SHARED src/engine.cpp $<TARGET_OBJECTS:kana_decoder_ja_language_set>    src/streaming_session.cpp  src/c_api.cpp src/pack_manifest.cpp src/language_pack.cpp src/surge_runtime.cpp)
 target_include_directories(kana_decoder_shared PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(kana_decoder_shared PRIVATE surge_core)
+target_link_libraries(kana_decoder_shared PRIVATE surge_core ZLIB::ZLIB)
 target_compile_options(kana_decoder_shared PRIVATE -Wall -Wextra -Wpedantic -Werror)
 set_target_properties(kana_decoder_shared PROPERTIES OUTPUT_NAME kana_decoder)
 # Release builds define NDEBUG. Keep C/C++ conformance assertions active so
