@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Offline Language Pack manifest, checksum and license verifier."""
-import argparse,hashlib,json,re
+import argparse,gzip,hashlib,json,re
 from pathlib import Path,PurePosixPath
 def _safe_relative(value):
  if not isinstance(value,str) or not value or "\\" in value:return False
@@ -36,8 +36,8 @@ def verify_pack(root:Path,max_bytes=None):
   if len(data)!=size:raise ValueError(f"size mismatch: {rel}")
   if hashlib.sha256(data).hexdigest()!=digest:raise ValueError(f"checksum mismatch: {rel}")
   verified.append(rel)
- required={"lexicon.tsv","ngram.tsv",license_meta["file"]}
- if not required.issubset(seen):raise ValueError("manifest must include lexicon.tsv, ngram.tsv and the license file")
+ required={"ngram.tsv",license_meta["file"]}
+ if not ({"lexicon.tsv","lexicon.tsv.gz"}&seen) or not required.issubset(seen):raise ValueError("manifest must include a lexicon, ngram.tsv and the license file")
  actual=set()
  for path in root.rglob("*"):
   if path.is_symlink():raise ValueError(f"symlink is not permitted in a Language Pack: {path.relative_to(root)}")
@@ -48,6 +48,18 @@ def verify_pack(root:Path,max_bytes=None):
  declared=limits.get("max_expanded_bytes",8*1024*1024*1024)
  if not isinstance(declared,int) or isinstance(declared,bool) or declared<=0:raise ValueError("invalid declared max_expanded_bytes")
  effective=declared if max_bytes is None else min(max_bytes,declared)
+ compression=manifest.get("dictionary_compression")
+ if "lexicon.tsv.gz" in seen:
+  if not isinstance(compression,dict) or compression.get("path")!="lexicon.tsv.gz" or compression.get("algorithm")!="gzip":raise ValueError("compressed lexicon metadata is missing or invalid")
+  expanded=compression.get("uncompressed_size")
+  if not isinstance(expanded,int) or isinstance(expanded,bool) or expanded<=0 or expanded>effective:raise ValueError("compressed lexicon expanded size exceeds resource limit")
+  actual_expanded=0
+  with gzip.open(root/"lexicon.tsv.gz","rb") as stream:
+   for block in iter(lambda:stream.read(1024*1024),b""):
+    actual_expanded+=len(block)
+    if actual_expanded>effective:raise ValueError("compressed lexicon expands beyond resource limit")
+  if actual_expanded!=expanded:raise ValueError("compressed lexicon expanded size mismatch")
+ elif compression is not None:raise ValueError("compression metadata present without compressed lexicon")
  total=payload+manifest_path.stat().st_size
  if total>effective:raise ValueError(f"pack exceeds resource limit: {total} > {effective}")
  return {"pack_id":manifest["pack_id"],"payload_bytes":payload,"manifest_bytes":manifest_path.stat().st_size,"installed_bytes":total,"installed_mib":total/(1024*1024),"files_verified":verified,"limit_bytes":effective,"within_limit":True}
