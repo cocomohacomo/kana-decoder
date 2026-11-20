@@ -12,7 +12,7 @@ Calling `add()` after loading expands frozen arenas into builder nodes before mu
 
 ## Safety and verification
 
-32-bit node and arena bounds remain enforced. CI must cover loading, traversal, duplicate handling, POS lookup, mutation after load, and RSS. The 100 MiB synthetic guard is not a full Japanese-pack memory claim.
+32-bit node and arena bounds remain enforced. CI covers loading, traversal, duplicate handling, POS lookup, mutation after load, and repeated freeze/thaw cycles. The 100 MiB synthetic guard is not a full Japanese-pack memory claim.
 
 ## Progressive arena transfer
 
