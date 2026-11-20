@@ -45,23 +45,27 @@ std::vector<std::size_t> spread_indices(std::size_t count,std::size_t limit){
 }
 namespace kana_decoder {
 void LexiconTrie::compact_edges(){
- if(edges_compacted_)return;std::size_t total=0;for(const auto& n:build_nodes_){if(n.next.size()>std::numeric_limits<std::uint32_t>::max()-total)throw std::length_error("trie edge arena exceeds 32-bit ranges");total+=n.next.size();}
+ if(edges_compacted_)return;
+ std::size_t total=0;for(const auto& n:build_nodes_){if(n.next.size()>std::numeric_limits<std::uint32_t>::max()-total)throw std::length_error("trie edge arena exceeds 32-bit ranges");total+=n.next.size();}
  edge_arena_.clear();edge_arena_.reserve(total);nodes_.assign(build_nodes_.size(),Node{});
  for(std::size_t i=0;i<build_nodes_.size();++i){const auto& s=build_nodes_[i];auto& d=nodes_[i];d.edge_offset=static_cast<std::uint32_t>(edge_arena_.size());d.edge_count=static_cast<std::uint32_t>(s.next.size());edge_arena_.insert(edge_arena_.end(),s.next.begin(),s.next.end());}edges_compacted_=true;
 }
 void LexiconTrie::expand_edges(){
- if(!edges_compacted_)return;build_nodes_.resize(nodes_.size());
+ if(!edges_compacted_)return;
+ build_nodes_.resize(nodes_.size());
  for(std::size_t i=0;i<nodes_.size();++i){const auto& s=nodes_[i];auto& d=build_nodes_[i].next;d.assign(edge_arena_.begin()+s.edge_offset,edge_arena_.begin()+s.edge_offset+s.edge_count);}
  std::vector<std::pair<std::uint32_t,std::uint32_t>>().swap(edge_arena_);edges_compacted_=false;
 }
 void LexiconTrie::compact_candidates(){
- if(candidates_compacted_)return;std::size_t total=0;for(const auto& n:build_nodes_){if(n.values.size()>std::numeric_limits<std::uint32_t>::max()-total)throw std::length_error("candidate arena exceeds 32-bit ranges");total+=n.values.size();}
+ if(candidates_compacted_)return;
+ std::size_t total=0;for(const auto& n:build_nodes_){if(n.values.size()>std::numeric_limits<std::uint32_t>::max()-total)throw std::length_error("candidate arena exceeds 32-bit ranges");total+=n.values.size();}
  candidate_arena_.clear();candidate_arena_.reserve(total);
  for(std::size_t i=0;i<build_nodes_.size();++i){const auto& s=build_nodes_[i];auto& d=nodes_[i];d.candidate_offset=static_cast<std::uint32_t>(candidate_arena_.size());d.candidate_count=static_cast<std::uint32_t>(s.values.size());candidate_arena_.insert(candidate_arena_.end(),s.values.begin(),s.values.end());}candidates_compacted_=true;
  if(edges_compacted_)std::vector<BuildNode>().swap(build_nodes_);
 }
 void LexiconTrie::expand_candidates(){
- if(!candidates_compacted_)return;if(build_nodes_.empty())build_nodes_.resize(nodes_.size());
+ if(!candidates_compacted_)return;
+ if(build_nodes_.empty())build_nodes_.resize(nodes_.size());
  for(std::size_t i=0;i<nodes_.size();++i){const auto& s=nodes_[i];auto& d=build_nodes_[i].values;const auto b=candidate_arena_.begin()+s.candidate_offset;d.assign(b,b+s.candidate_count);}
  std::vector<CompactCandidate>().swap(candidate_arena_);candidates_compacted_=false;
 }
@@ -231,7 +235,8 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
    std::uint32_t child=0;bool found=false;
    if(edges_compacted_){const auto& current=nodes_[node];auto first=edge_arena_.begin()+current.edge_offset;auto last=first+current.edge_count;auto it=std::lower_bound(first,last,cp,[](const auto& edge,std::uint32_t value){return edge.first<value;});if(it!=last&&it->first==cp){child=it->second;found=true;}}
    else{const auto& edges=build_nodes_[node].next;auto it=std::lower_bound(edges.begin(),edges.end(),cp,[](const auto& edge,std::uint32_t value){return edge.first<value;});if(it!=edges.end()&&it->first==cp){child=it->second;found=true;}}
-   if(!found)break;node=child;
+   if(!found)break;
+   node=child;
    const auto candidate_count=candidates_compacted_?nodes_[node].candidate_count:build_nodes_[node].values.size();
    if(candidate_count){
     position_trace.available_candidate_count+=candidate_count;
