@@ -66,8 +66,16 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
             self.assertIn("cer", result["surge_evidence_gated_left_context"])
             survival = result["candidate_survival_diagnostic"]
             self.assertEqual(survival["gold_tokens"], result["source_test_tokens"])
+            self.assertEqual(survival["classified_gold_tokens"], survival["gold_tokens"])
+            self.assertEqual(survival["unclassified_gold_tokens"], 0)
+            self.assertEqual(
+                survival["classified_gold_tokens"],
+                survival["lattice_missing"] + survival["shortlist_drop"]
+                + survival["expansion_drop"] + survival["trace_censored"]
+                + survival["beam_pruning_drop"] + survival["final_selection_drop"])
             for key in ("lattice_present", "morphology_top8", "scored_or_expanded",
                         "beam_survived", "beam_pruning_drop",
+                        "classified_gold_tokens", "unclassified_gold_tokens",
                         "final_aligned", "nbest_aligned", "nbest_recoverable",
                         "scored_not_in_nbest", "lattice_missing", "shortlist_drop",
                         "expansion_drop", "trace_censored", "final_selection_drop"):
