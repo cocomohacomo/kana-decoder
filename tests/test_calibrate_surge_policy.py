@@ -80,12 +80,14 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
             )
             result = json.loads(report.read_text(encoding="utf-8"))
             self.assertEqual(result["split"], "dev")
-            self.assertEqual(len(result["candidates"]), 11)
+            self.assertEqual(len(result["candidates"]), 14)
             self.assertEqual(
                 result["source_lock_sha256"],
                 hashlib.sha256(lock.read_bytes()).hexdigest(),
             )
             self.assertEqual(result["best_policy"]["name"], "typed_entity_strong")
+            margins = {row["minimum_recognition_margin"] for row in result["candidates"]}
+            self.assertTrue({0.25, 0.5, 1.0, 1.5, 2.0, 3.0}.issubset(margins))
             self.assertTrue(policy.is_file())
             self.assertIn("typed_entity\t1.5", policy.read_text(encoding="utf-8"))
             self.assertEqual(result["best_policy"]["typed_entities_found"], 3)

@@ -21,6 +21,9 @@ PRESETS = (
     ("margin_guard_025", {name: 1.0 for name in FAMILIES}, 0.0, 0.25),
     ("margin_guard_050", {name: 1.0 for name in FAMILIES}, 0.0, 0.50),
     ("margin_guard_100", {name: 1.0 for name in FAMILIES}, 0.0, 1.00),
+    ("margin_guard_150", {name: 1.0 for name in FAMILIES}, 0.0, 1.50),
+    ("margin_guard_200", {name: 1.0 for name in FAMILIES}, 0.0, 2.00),
+    ("margin_guard_300", {name: 1.0 for name in FAMILIES}, 0.0, 3.00),
 )
 
 def sha256_file(path: Path) -> str:
