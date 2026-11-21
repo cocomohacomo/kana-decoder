@@ -9,20 +9,33 @@ namespace {
 std::int64_t candidate_cost(const kana_decoder::LatticeCandidate& c){return static_cast<std::int64_t>(c.word_cost)+c.connection_cost;}
 std::vector<const kana_decoder::LatticeCandidate*> retain_surface_diverse(const std::vector<kana_decoder::LatticeCandidate>& source,std::size_t limit){
  std::vector<const kana_decoder::LatticeCandidate*> selected;selected.reserve(std::min(limit,source.size()));
- auto sort_selected=[&](){std::stable_sort(selected.begin(),selected.end(),[](const auto* a,const auto* b){return candidate_cost(*a)<candidate_cost(*b);});};
+ auto insert_ordered=[&](const kana_decoder::LatticeCandidate* candidate){
+  const auto cost=candidate_cost(*candidate);
+  const auto where=std::upper_bound(selected.begin(),selected.end(),cost,
+   [](std::int64_t value,const auto* item){return value<candidate_cost(*item);});
+  selected.insert(where,candidate);
+ };
  for(const auto& candidate:source){
   const auto* ptr=&candidate;
   auto same=std::find_if(selected.begin(),selected.end(),[&](const auto* item){return item->surface==candidate.surface;});
-  if(same!=selected.end()){if(candidate_cost(candidate)<candidate_cost(**same)){*same=ptr;sort_selected();}continue;}
-  if(selected.size()<limit){selected.push_back(ptr);sort_selected();}
-  else if(limit&&candidate_cost(candidate)<candidate_cost(*selected.back())){selected.back()=ptr;sort_selected();}
+  if(same!=selected.end()){
+   if(candidate_cost(candidate)<candidate_cost(**same){
+    selected.erase(same);
+    insert_ordered(ptr);
+   }
+   continue;
+  }
+  if(selected.size()<limit)insert_ordered(ptr);
+  else if(limit&&candidate_cost(candidate)<candidate_cost(*selected.back())){
+   selected.pop_back();
+   insert_ordered(ptr);
+  }
  }
  if(selected.size()<limit)for(const auto& candidate:source){
   if(selected.size()>=limit)break;
   const auto* ptr=&candidate;
   if(std::find(selected.begin(),selected.end(),ptr)!=selected.end())continue;
-  auto where=std::find_if(selected.begin(),selected.end(),[&](const auto* item){return candidate_cost(candidate)<candidate_cost(*item);});
-  selected.insert(where,ptr);
+  insert_ordered(ptr);
  }
  return selected;
 }
