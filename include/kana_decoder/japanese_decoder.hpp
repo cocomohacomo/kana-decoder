@@ -87,6 +87,8 @@ struct CandidateScoreTrace {
  std::int32_t word_cost=0,candidate_connection_cost=0,transition_cost=0;
  double raw_context_score=0.0,context_evidence_score=0.0,context_weight=1.0,morphology_score=0.0,weighted_context_score=0.0,local_score=0.0;
  bool unknown_fallback=false;
+ // True when the expanded state survives pruning at its destination beam.
+ bool beam_survived=false;
 };
 struct LatticeMatchTrace {
  std::size_t start=0,end=0;
