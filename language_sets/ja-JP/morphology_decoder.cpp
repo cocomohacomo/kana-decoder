@@ -45,10 +45,23 @@ std::string rendered_surface(const kana_decoder::DecodedPath& path){
 }
 template<class LeftPath,class RightPath>
 bool same_rendered_surface(const LeftPath& left,const RightPath& right){
- if(left.tokens.size()!=right.tokens.size())return false;
- for(std::size_t i=0;i<left.tokens.size();++i)
-  if(left.tokens[i].candidate.surface!=right.tokens[i].candidate.surface)return false;
- return true;
+ std::size_t left_token=0,right_token=0,left_offset=0,right_offset=0;
+ auto next_character=[](const auto& path,std::size_t& token,std::size_t& offset,char& value){
+  while(token<path.tokens.size()){
+   const auto& surface=path.tokens[token].candidate.surface;
+   if(offset<surface.size()){value=surface[offset++];return true;}
+   ++token;offset=0;
+  }
+  return false;
+ };
+ for(;;){
+  char left_char=0,right_char=0;
+  const bool has_left=next_character(left,left_token,left_offset,left_char);
+  const bool has_right=next_character(right,right_token,right_offset,right_char);
+  if(has_left!=has_right)return false;
+  if(!has_left)return true;
+  if(left_char!=right_char)return false;
+ }
 }
 template<class State>
 bool same_beam_context(const State& left,const State& right){
