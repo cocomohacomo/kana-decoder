@@ -272,6 +272,41 @@ jobs:
                   if len(rates) != 7 or abs(sum(rates.values()) - 100.0) > 0.01:
                       raise SystemExit(f"{field}[{label}]: loss stage rates do not sum to 100 percent")
           print("quality_linked_candidate_bottleneck_diagnostics=validated")
+
+          outcome_keys = (
+              "cer_improved_exact_improved", "cer_improved_exact_tied",
+              "cer_improved_exact_regressed", "cer_tied_exact_improved",
+              "cer_tied_exact_tied", "cer_tied_exact_regressed",
+              "cer_regressed_exact_improved", "cer_regressed_exact_tied",
+              "cer_regressed_exact_regressed",
+          )
+          overall_outcomes = report.get("surge_paired_sentence_outcomes", {}).get("all")
+          if not isinstance(overall_outcomes, dict):
+              raise SystemExit("missing overall paired sentence outcome diagnostics")
+          def validate_outcome_group(label, group):
+              outcomes = group.get("outcomes", {})
+              if set(outcomes) != set(outcome_keys):
+                  raise SystemExit(f"{label}: paired outcome labels are incomplete")
+              if sum(outcomes.values()) != group.get("cases"):
+                  raise SystemExit(f"{label}: paired outcomes do not partition cases")
+          validate_outcome_group("overall", overall_outcomes)
+          if overall_outcomes["cases"] != report["surge_evidence_gated_left_context"]["cases"]:
+              raise SystemExit("overall paired outcomes do not match eligible SURGE cases")
+          for field in (
+              "surge_paired_sentence_outcomes_by_domain",
+              "surge_paired_sentence_outcomes_by_reading_length",
+          ):
+              groups = report.get(field)
+              if not isinstance(groups, dict) or not groups:
+                  raise SystemExit(f"{field}: expected non-empty paired outcome groups")
+              for label, group in groups.items():
+                  validate_outcome_group(f"{field}[{label}]", group)
+              grouped_cases = sum(group["cases"] for group in groups.values())
+              if field.endswith("_by_domain") and grouped_cases != overall_outcomes["cases"]:
+                  raise SystemExit(f"{field}: groups do not cover all eligible cases")
+              if field.endswith("_by_reading_length") and grouped_cases > overall_outcomes["cases"]:
+                  raise SystemExit(f"{field}: groups exceed eligible cases")
+          print("paired_sentence_outcomes=validated")
           PY
           cat "$RUNNER_TEMP/sequential-runtime-time.log"
           python tools/check_memory_budget.py --log "$RUNNER_TEMP/sequential-runtime-time.log" --max-rss-mib 1792
