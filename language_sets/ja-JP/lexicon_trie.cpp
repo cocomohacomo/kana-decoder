@@ -243,6 +243,19 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
    const auto candidate_count=candidates_compacted_?nodes_[node].candidate_count:build_nodes_[node].values.size();
    if(candidate_count){
     position_trace.available_candidate_count+=candidate_count;
+    LatticeEdge edge{start,end+1,{}};
+    if(candidate_count<=16) {
+     std::vector<LatticeCandidate> materialized;
+     materialized.reserve(candidate_count);
+     if(candidates_compacted_) {
+      const auto& terminal=nodes_[node];
+      auto first=candidate_arena_.begin()+terminal.candidate_offset;
+      for(auto it=first;it!=first+candidate_count;++it)materialized.push_back(materialize_candidate(*it));
+     } else {
+      for(const auto& item:build_nodes_[node].values)materialized.push_back(materialize_candidate(item));
+     }
+     edge.candidates=retain_surface_diverse(materialized,std::min<std::size_t>(8,materialized.size()));
+    } else {
     // Select the bounded, surface-diverse shortlist from compact records.
     // Materialize strings only for retained candidates, not every dictionary
     // candidate at this terminal node.
@@ -306,9 +319,10 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
      }
     }
     std::stable_sort(selected.begin(),selected.end(),[](const auto& a,const auto& b){return a.cost<b.cost;});
-    LatticeEdge edge{start,end+1,{}};
-    edge.candidates.reserve(selected.size());
-    for(const auto& item:selected)edge.candidates.push_back(materialize_candidate(*item.value));
+
+     edge.candidates.reserve(selected.size());
+     for(const auto& item:selected)edge.candidates.push_back(materialize_candidate(*item.value));
+    }
     available_edges.push_back(std::move(edge));
     raw_counts.push_back(candidate_count);
    }
