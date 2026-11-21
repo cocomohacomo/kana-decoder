@@ -366,8 +366,34 @@ void print_candidate_survival_summary(const CandidateSurvivalMetrics& m) {
     const auto classified = m.lattice_missing + m.shortlist_drop
         + m.expansion_drop + m.trace_censored + m.beam_pruning_drop
         + m.final_selection_drop + m.final_selected;
+    const std::pair<const char*, std::size_t> losses[] = {
+        {"lattice_missing", m.lattice_missing},
+        {"shortlist_drop", m.shortlist_drop},
+        {"expansion_drop", m.expansion_drop},
+        {"trace_censored", m.trace_censored},
+        {"beam_pruning_drop", m.beam_pruning_drop},
+        {"final_selection_drop", m.final_selection_drop},
+    };
+    const std::pair<const char*, std::size_t>* dominant = nullptr;
+    for (const auto& loss : losses) {
+        if (!dominant || loss.second > dominant->second) dominant = &loss;
+    }
+    const char* dominant_stage = dominant && dominant->second
+        ? dominant->first : "none";
+    const std::size_t dominant_count = dominant ? dominant->second : 0;
     std::cout << "{"
-        << "\"classified_gold_tokens\":" << classified
+        << "\"dominant_loss_stage\":" << std::quoted(dominant_stage)
+        << ",\"dominant_loss_tokens\":" << dominant_count
+        << ",\"dominant_loss_pct\":" << pct(dominant_count)
+        << ",\"loss_stage_rates_pct\":{"
+        << "\"lattice_missing\":" << pct(m.lattice_missing)
+        << ",\"shortlist_drop\":" << pct(m.shortlist_drop)
+        << ",\"expansion_drop\":" << pct(m.expansion_drop)
+        << ",\"trace_censored\":" << pct(m.trace_censored)
+        << ",\"beam_pruning_drop\":" << pct(m.beam_pruning_drop)
+        << ",\"final_selection_drop\":" << pct(m.final_selection_drop)
+        << ",\"final_selected\":" << pct(m.final_selected) << "}"
+        << ",\"classified_gold_tokens\":" << classified
         << ",\"unclassified_gold_tokens\":" << (m.gold_tokens - std::min(m.gold_tokens, classified))
         << ",\"gold_tokens\":" << m.gold_tokens
         << ",\"lattice_present\":" << m.lattice_present
