@@ -70,6 +70,25 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
                 result["surge_evidence_gated_left_context"]["cases"],
                 result["morphology_only"]["cases"])
             self.assertIn("cer", result["surge_evidence_gated_left_context"])
+            for grouped_key in ("surge_metrics_by_domain",
+                                "surge_metrics_by_reading_length"):
+                groups = result[grouped_key]
+                self.assertTrue(groups)
+                self.assertEqual(
+                    sum(group["cases"] for group in groups.values()),
+                    result["surge_evidence_gated_left_context"]["cases"])
+                self.assertEqual(
+                    sum(group["reference_codepoints"] for group in groups.values()),
+                    result["surge_evidence_gated_left_context"]["reference_codepoints"])
+                for group in groups.values():
+                    self.assertGreaterEqual(group["cer"], 0.0)
+                    self.assertGreaterEqual(group["exact_accuracy"], 0.0)
+                    self.assertLessEqual(group["exact_accuracy"], 1.0)
+            self.assertIn("news-blog", result["surge_metrics_by_domain"])
+            self.assertIn("1-4", result["surge_metrics_by_reading_length"])
+            self.assertEqual(
+                result["surge_metrics_by_domain"]["news-blog"]["cases"],
+                result["surge_evidence_gated_left_context"]["cases"])
             survival = result["candidate_survival_diagnostic"]
             for grouped_key in ("candidate_survival_by_domain",
                                 "candidate_survival_by_reading_length"):
