@@ -42,6 +42,18 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
             self.assertGreaterEqual(dev_result["selected_pos_context_weight"], 0.0)
             self.assertGreaterEqual(dev_result["selected_cluster_weight"], 0.0)
             self.assertIn(dev_result["selected_policy"], {"morphology", "ngram_only", "cluster_only", "combined"})
+            self.assertEqual(
+                dev_result["dev_ablation_scope"],
+                "development_only_diagnostic_not_selection")
+            for key in (
+                "dev_ablation_left_context_only",
+                "dev_ablation_pos_context_only",
+                "dev_ablation_selected_policy",
+            ):
+                self.assertEqual(dev_result[key]["cases"], dev_result["morphology_only"]["cases"])
+                self.assertGreaterEqual(dev_result[key]["cer"], 0.0)
+                self.assertGreaterEqual(dev_result[key]["exact_accuracy"], 0.0)
+                self.assertLessEqual(dev_result[key]["exact_accuracy"], 1.0)
             self.assertTrue(calibration.is_file())
             completed = subprocess.run(
                 [str(executable), str(pack), str(train), str(corpus),
