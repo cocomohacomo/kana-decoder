@@ -448,7 +448,7 @@ void print_paired_comparison_groups(
     const char* name,
     const std::map<std::string, Metrics>& baseline,
     const std::map<std::string, Metrics>& surge) {
-    std::cout << ",\\\""<< name << "\\\":{";
+    std::cout << ",\""<< name << "\":{";
     bool first = true;
     for (const auto& entry : baseline) {
         const auto found = surge.find(entry.first);
@@ -464,19 +464,19 @@ void print_paired_comparison_groups(
         const double surge_recall = s.gold_tokens
             ? static_cast<double>(s.aligned_tokens) / s.gold_tokens : 0.0;
         std::cout << std::quoted(entry.first) << ":{"
-            << "\\\"cases\\\":" << std::min(b.cases, s.cases)
-            << ",\\\"baseline_cer\\\":" << cer_of(b)
-            << ",\\\"surge_cer\\\":" << cer_of(s)
-            << ",\\\"cer_delta\\\":" << cer_delta
-            << ",\\\"baseline_exact_accuracy\\\":" << exact_of(b)
-            << ",\\\"surge_exact_accuracy\\\":" << exact_of(s)
-            << ",\\\"exact_accuracy_delta\\\":" << exact_delta
-            << ",\\\"baseline_token_alignment_recall\\\":" << baseline_recall
-            << ",\\\"surge_token_alignment_recall\\\":" << surge_recall
-            << ",\\\"token_alignment_recall_delta\\\":" << surge_recall - baseline_recall
-            << ",\\\"baseline_edit_distance\\\":" << b.edit_distance
-            << ",\\\"surge_edit_distance\\\":" << s.edit_distance
-            << ",\\\"reference_codepoints\\\":" << std::min(b.reference_codepoints, s.reference_codepoints)
+            << "\"cases\":" << std::min(b.cases, s.cases)
+            << ",\"baseline_cer\":" << cer_of(b)
+            << ",\"surge_cer\":" << cer_of(s)
+            << ",\"cer_delta\":" << cer_delta
+            << ",\"baseline_exact_accuracy\":" << exact_of(b)
+            << ",\"surge_exact_accuracy\":" << exact_of(s)
+            << ",\"exact_accuracy_delta\":" << exact_delta
+            << ",\"baseline_token_alignment_recall\":" << baseline_recall
+            << ",\"surge_token_alignment_recall\":" << surge_recall
+            << ",\"token_alignment_recall_delta\":" << surge_recall - baseline_recall
+            << ",\"baseline_edit_distance\":" << b.edit_distance
+            << ",\"surge_edit_distance\":" << s.edit_distance
+            << ",\"reference_codepoints\":" << std::min(b.reference_codepoints, s.reference_codepoints)
             << "}";
     }
     std::cout << "}";
