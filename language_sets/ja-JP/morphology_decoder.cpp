@@ -31,6 +31,21 @@ std::string rendered_surface(const kana_decoder::DecodedPath& path){
  for(const auto& token:path.tokens)surface+=token.candidate.surface;
  return surface;
 }
+template<class Range>
+void append_identity_range(std::string& key,const Range& values){
+ for(const auto& value:values){key+=std::to_string(value.size());key.push_back(':');key+=value;key.push_back('|');}
+}
+template<class State>
+std::string beam_context_identity(const State& state){
+ std::string key=rendered_surface(state.path);
+ key.push_back('|');
+ key+=std::to_string(state.has_last?state.last_right_id:0);
+ key.push_back('|');
+ append_identity_range(key,state.history);
+ key.push_back('|');
+ append_identity_range(key,state.pos_history);
+ return key;
+}
 std::vector<const kana_decoder::LatticeEdge*> retain_span_diverse(std::vector<const kana_decoder::LatticeEdge*> edges,std::size_t limit){
  std::stable_sort(edges.begin(),edges.end(),[](const auto* a,const auto* b){return a->end<b->end;});if(edges.size()<=limit)return edges;
  std::vector<const kana_decoder::LatticeEdge*> out;out.reserve(limit);if(limit==1){out.push_back(edges.back());return out;}for(std::size_t i=0;i<limit;++i)out.push_back(edges[i*(edges.size()-1)/(limit-1)]);return out;
@@ -92,13 +107,13 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
    states.resize(beam_limit);
    return;
   }
-  // Preserve distinct rendered hypotheses before filling remaining beam slots
-  // by score. Different segmentations of the same surface must not crowd out
-  // a lower-scoring but genuinely different kanji/kana alternative.
+  // Preserve distinct rendered surfaces and continuation contexts before
+  // filling remaining slots by score. POS/history/right-id states can lead to
+  // different future transitions even when the current surface is identical.
   std::vector<std::size_t> retained_indices;
   retained_indices.reserve(beam_limit);
-  std::unordered_set<std::string> seen_surfaces;
-  seen_surfaces.reserve(beam_limit);
+  std::unordered_set<std::string> seen_contexts;
+  seen_contexts.reserve(beam_limit);
   std::vector<bool> retained(states.size(),false);
   for(std::size_t i=0;i<states.size()&&retained_indices.size()<beam_limit;++i){
    if(seen_contexts.insert(beam_context_identity(states[i])).second){
