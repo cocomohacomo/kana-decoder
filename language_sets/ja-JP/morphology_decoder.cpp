@@ -148,19 +148,25 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     std::string cluster_winner;
     double cluster_gap=0.0;
     double cluster_override_bonus=0.0;
-    std::vector<std::pair<const LatticeCandidate*,double>> supported;
     std::unordered_map<const LatticeCandidate*,double> supported_scores;
     if(opt.surge_cluster_model&&!state.history.empty()){
      struct SurfaceScore { std::string surface; double score; };
      std::vector<SurfaceScore> surface_scores;
      std::unordered_map<std::string,std::size_t> surface_score_indices;
+     // Only a bounded prefix of supported candidates is needed: the expansion
+     // starts with at most four morphology candidates and can add at most
+     // candidate_limit more. Keep enough top evidence candidates to fill it
+     // even when every seeded candidate is already present in the evidence list.
+     std::vector<std::pair<const LatticeCandidate*,double>> supported_top;
+     const std::size_t seed_count=std::min<std::size_t>(4,candidates.size());
+     const std::size_t supported_limit=candidate_limit+seed_count;
+     supported_top.reserve(supported_limit);
      surface_score_indices.reserve(std::min<std::size_t>(edge->candidates.size(),256));
      supported_scores.reserve(std::min<std::size_t>(edge->candidates.size(),256));
      for(const auto& candidate:edge->candidates){
       bool has=false;
       const double score=opt.surge_cluster_model->evidence_score(candidate.id,state.history,&has);
       if(!has)continue;
-      supported.emplace_back(&candidate,score);
       supported_scores.emplace(&candidate,score);
       const auto inserted=surface_score_indices.emplace(candidate.surface,surface_scores.size());
       if(inserted.second)surface_scores.push_back({candidate.surface,score});
@@ -168,13 +174,31 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
        auto& current=surface_scores[inserted.first->second].score;
        if(score>current)current=score;
       }
+      if(supported_limit){
+       const auto where=std::find_if(supported_top.begin(),supported_top.end(),
+        [&](const auto& item){return score>item.second;});
+       if(where!=supported_top.end()||supported_top.size()<supported_limit){
+        supported_top.insert(where,{&candidate,score});
+        if(supported_top.size()>supported_limit)supported_top.pop_back();
+       }
+      }
      }
-     std::stable_sort(surface_scores.begin(),surface_scores.end(),
-      [](const SurfaceScore& a,const SurfaceScore& b){return a.score>b.score;});
-     if(surface_scores.size()>=2){
-      cluster_gap=surface_scores[0].score-surface_scores[1].score;
+     // A linear best-two scan avoids sorting every distinct surface. Strict
+     // comparisons preserve the first-seen order for equal evidence scores.
+     std::size_t best_index=surface_scores.size(),second_index=surface_scores.size();
+     for(std::size_t i=0;i<surface_scores.size();++i){
+      if(best_index==surface_scores.size()||
+         surface_scores[i].score>surface_scores[best_index].score){
+       second_index=best_index;best_index=i;
+      }else if(second_index==surface_scores.size()||
+               surface_scores[i].score>surface_scores[second_index].score){
+       second_index=i;
+      }
+     }
+     if(second_index<surface_scores.size()){
+      cluster_gap=surface_scores[best_index].score-surface_scores[second_index].score;
       cluster_resolved=cluster_gap>=opt.surge_cluster_model->gap_threshold();
-      if(cluster_resolved)cluster_winner=surface_scores[0].surface;
+      if(cluster_resolved)cluster_winner=surface_scores[best_index].surface;
      }
      if(cluster_resolved&&opt.surge_cluster_weight>0.0){
       double best_morph=-std::numeric_limits<double>::infinity();
@@ -191,12 +215,10 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
       if(std::isfinite(best_morph)&&std::isfinite(winner_morph))
        cluster_override_bonus=(std::max(0.0,best_morph-winner_morph)+cluster_gap)*opt.surge_cluster_weight;
      }
-     if(!supported.empty()){
-      std::stable_sort(supported.begin(),supported.end(),
-       [](const auto& a,const auto& b){return a.second>b.second;});
+     if(!supported_top.empty()){
       std::vector<const LatticeCandidate*> expanded;
-      for(std::size_t i=0;i<std::min<std::size_t>(4,candidates.size());++i)expanded.push_back(candidates[i]);
-      for(const auto& item:supported){
+      for(std::size_t i=0;i<seed_count;++i)expanded.push_back(candidates[i]);
+      for(const auto& item:supported_top){
        if(expanded.size()>=candidate_limit)break;
        if(std::find(expanded.begin(),expanded.end(),item.first)==expanded.end())
         expanded.push_back(item.first);
