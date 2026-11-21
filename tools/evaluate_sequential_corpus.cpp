@@ -232,6 +232,7 @@ struct CandidateSurvivalMetrics {
     std::size_t nbest_recoverable = 0;
     std::size_t scored_not_in_nbest = 0;
     std::size_t lattice_missing = 0;
+    std::size_t span_selection_drop = 0;
     std::size_t shortlist_drop = 0;
     std::size_t expansion_drop = 0;
     std::size_t trace_censored = 0;
@@ -253,6 +254,7 @@ void add_candidate_survival_metrics(CandidateSurvivalMetrics& target,
     KANA_ADD_METRIC(nbest_recoverable);
     KANA_ADD_METRIC(scored_not_in_nbest);
     KANA_ADD_METRIC(lattice_missing);
+    KANA_ADD_METRIC(span_selection_drop);
     KANA_ADD_METRIC(shortlist_drop);
     KANA_ADD_METRIC(expansion_drop);
     KANA_ADD_METRIC(trace_censored);
@@ -293,15 +295,16 @@ void evaluate_candidate_survival(
         const bool score_trace_capped = score_trace.size() >= options.max_trace_records;
         for (const auto& gold : sentence.tokens) {
             ++sentence_metrics.gold_tokens;
-            bool in_lattice = false;
+            const bool in_lattice = lexicon.contains_surface(gold.reading, gold.surface);
+            bool edge_present = false;
             bool in_shortlist = false;
             for (const auto& position : lattice_trace) {
                 if (position.start > gold.start) break;
                 for (const auto& edge : position.dictionary_matches) {
                     if (edge.start != gold.start || edge.end != gold.end) continue;
+                    edge_present = true;
                     std::vector<const kana_decoder::LatticeCandidate*> ranked;
                     for (const auto& candidate : edge.candidates) {
-                        if (candidate.surface == gold.surface) in_lattice = true;
                         ranked.push_back(&candidate);
                     }
                     std::stable_sort(ranked.begin(), ranked.end(),
@@ -346,6 +349,7 @@ void evaluate_candidate_survival(
             if (present_in_nbest && !aligned) ++sentence_metrics.nbest_recoverable;
             if (was_scored && !present_in_nbest) ++sentence_metrics.scored_not_in_nbest;
             if (!in_lattice) ++sentence_metrics.lattice_missing;
+            else if (!edge_present) ++sentence_metrics.span_selection_drop;
             else if (!in_shortlist) ++sentence_metrics.shortlist_drop;
             else if (!was_scored && score_trace_capped) ++sentence_metrics.trace_censored;
             else if (!was_scored) ++sentence_metrics.expansion_drop;
@@ -365,9 +369,10 @@ void print_candidate_survival_summary(const CandidateSurvivalMetrics& m) {
     };
     const auto classified = m.lattice_missing + m.shortlist_drop
         + m.expansion_drop + m.trace_censored + m.beam_pruning_drop
-        + m.final_selection_drop + m.final_selected;
+        + m.span_selection_drop + m.final_selection_drop + m.final_selected;
     const std::pair<const char*, std::size_t> losses[] = {
         {"lattice_missing", m.lattice_missing},
+        {"span_selection_drop", m.span_selection_drop},
         {"shortlist_drop", m.shortlist_drop},
         {"expansion_drop", m.expansion_drop},
         {"trace_censored", m.trace_censored},
@@ -412,6 +417,7 @@ void print_candidate_survival_summary(const CandidateSurvivalMetrics& m) {
         << ",\"nbest_recoverable\":" << m.nbest_recoverable
         << ",\"scored_not_in_nbest\":" << m.scored_not_in_nbest
         << ",\"lattice_missing\":" << m.lattice_missing
+        << ",\"span_selection_drop\":" << m.span_selection_drop
         << ",\"shortlist_drop\":" << m.shortlist_drop
         << ",\"expansion_drop\":" << m.expansion_drop
         << ",\"trace_censored\":" << m.trace_censored
@@ -561,7 +567,8 @@ void print_bottleneck_comparison_groups(
         const double br = b.gold_tokens ? static_cast<double>(b.aligned_tokens) / b.gold_tokens : 0.0;
         const double sr = s.gold_tokens ? static_cast<double>(s.aligned_tokens) / s.gold_tokens : 0.0;
         const std::pair<const char*, std::size_t> losses[] = {
-            {"lattice_missing", d.lattice_missing}, {"shortlist_drop", d.shortlist_drop},
+            {"lattice_missing", d.lattice_missing}, {"span_selection_drop", d.span_selection_drop},
+            {"shortlist_drop", d.shortlist_drop},
             {"expansion_drop", d.expansion_drop}, {"trace_censored", d.trace_censored},
             {"beam_pruning_drop", d.beam_pruning_drop},
             {"final_selection_drop", d.final_selection_drop},
@@ -581,7 +588,7 @@ void print_bottleneck_comparison_groups(
             << (d.gold_tokens ? 100.0 * static_cast<double>(count) / d.gold_tokens : 0.0)
             << ",\"gold_tokens\":" << d.gold_tokens
             << ",\"loss_stage_rates_pct\":{";
-        for (std::size_t i = 0; i < 6; ++i) {
+        for (std::size_t i = 0; i < 7; ++i) {
             if (i) std::cout << ",";
             std::cout << std::quoted(losses[i].first) << ":"
                 << (d.gold_tokens ? 100.0 * static_cast<double>(losses[i].second) / d.gold_tokens : 0.0);
