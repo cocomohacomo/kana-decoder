@@ -193,10 +193,10 @@ int main(){
  const auto shortlist_tsv=std::filesystem::temp_directory_path()/"kana_decoder_shortlist.tsv";
  {
   std::ofstream out(shortlist_tsv);
-  out<<"かな\\t重複\\t\\t名詞\\tfeature\\tdup-first\\t100\\t0\\t0\\t0\\t\\t\\n";
+  out<<"かな\t重複\t\t名詞\tfeature\tdup-first\t100\t0\t0\t0\t\t\n";
   for(int i=0;i<8;++i)
-   out<<"かな\\t候補"<<i<<"\\t\\t名詞\\tfeature\\tid"<<i<<"\\t"<<i<<"\\t0\\t0\\t0\\t\\t\\n";
-  out<<"かな\\t重複\\t\\t名詞\\tfeature\\tdup-late\\t-1\\t0\\t0\\t0\\t\\t\\n";
+   out<<"かな\t候補"<<i<<"\t\t名詞\tfeature\tid"<<i<<"\t"<<i<<"\t0\t0\t0\t\t\n";
+  out<<"かな\t重複\t\t名詞\tfeature\tdup-late\t-1\t0\t0\t0\t\t\n";
  }
  LexiconTrie shortlist_trie;
  assert(shortlist_trie.load_tsv(shortlist_tsv.string()));
