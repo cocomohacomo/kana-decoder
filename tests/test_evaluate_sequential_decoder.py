@@ -142,6 +142,37 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
                     self.assertEqual(
                         delta["reference_codepoints"],
                         surge["reference_codepoints"])
+            for combined_key, paired_key, survival_key in (
+                ("surge_bottleneck_by_domain", "surge_vs_morphology_by_domain",
+                 "candidate_survival_by_domain"),
+                ("surge_bottleneck_by_reading_length",
+                 "surge_vs_morphology_by_reading_length",
+                 "candidate_survival_by_reading_length")):
+                combined = result[combined_key]
+                paired = result[paired_key]
+                survival_groups_for_key = result[survival_key]
+                self.assertEqual(set(combined), set(paired) & set(survival_groups_for_key))
+                for name, diagnostic in combined.items():
+                    self.assertEqual(diagnostic["cases"], paired[name]["cases"])
+                    self.assertAlmostEqual(diagnostic["cer_delta"], paired[name]["cer_delta"])
+                    self.assertAlmostEqual(
+                        diagnostic["exact_accuracy_delta"],
+                        paired[name]["exact_accuracy_delta"])
+                    self.assertAlmostEqual(
+                        diagnostic["token_alignment_recall_delta"],
+                        paired[name]["token_alignment_recall_delta"])
+                    self.assertEqual(
+                        diagnostic["dominant_loss_stage"],
+                        survival_groups_for_key[name]["dominant_loss_stage"])
+                    self.assertEqual(
+                        diagnostic["dominant_loss_tokens"],
+                        survival_groups_for_key[name]["dominant_loss_tokens"])
+                    self.assertEqual(
+                        diagnostic["gold_tokens"],
+                        survival_groups_for_key[name]["gold_tokens"])
+                    self.assertAlmostEqual(
+                        sum(diagnostic["loss_stage_rates_pct"].values()), 100.0,
+                        delta=0.01)
             survival = result["candidate_survival_diagnostic"]
             survival_groups = [survival]
             for grouped_key in ("candidate_survival_by_domain",
