@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cmath>
 #include <limits>
+#include <string_view>
 #include <unordered_map>
 namespace {
 std::int64_t candidate_cost(const kana_decoder::LatticeCandidate& c){return static_cast<std::int64_t>(c.word_cost)+c.connection_cost;}
@@ -174,9 +175,12 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     double cluster_override_bonus=0.0;
     std::vector<std::pair<const LatticeCandidate*,double>> selected_supported_scores;
     if(opt.surge_cluster_model&&!state.history.empty()){
-     struct SurfaceScore { std::string surface; double score; };
+     // Candidate surfaces are owned by the immutable edge for this decode.
+     // Keep non-owning views in both containers to avoid duplicating every
+     // distinct surface while aggregating evidence for the current beam state.
+     struct SurfaceScore { std::string_view surface; double score; };
      std::vector<SurfaceScore> surface_scores;
-     std::unordered_map<std::string,std::size_t> surface_score_indices;
+     std::unordered_map<std::string_view,std::size_t> surface_score_indices;
      // Only a bounded prefix of supported candidates is needed: the expansion
      // starts with at most four morphology candidates and can add at most
      // candidate_limit more. Keep enough top evidence candidates to fill it
