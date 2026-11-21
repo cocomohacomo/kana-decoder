@@ -53,7 +53,7 @@ int main(){
  // when their rendered prefix is identical.
  std::vector<LatticeEdge> same_prefix_lattice{
   {0,1,{{"HIST_A","同じ",10,0,0,11},{"HIST_B","同じ",10,0,0,22}}},
-  {1,2,{{"TAIL_A","甲",10,0,0,31},{"TAIL_B","乙",10,0,0,32}}}
+  {1,2,{{"TAIL_A","甲",10,0,31,0},{"TAIL_B","乙",10,0,32,0}}}
  };
  ConnectionModel history_connections;
  history_connections.set_cost(11,31,0);
