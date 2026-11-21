@@ -208,6 +208,53 @@ jobs:
             test "$RUNNER_TEMP/surge-calibration.tsv" "$RUNNER_TEMP/surge-cluster-model.tsv" \
             > "$RUNNER_TEMP/sequential-decoder-evaluation.json"
           cat "$RUNNER_TEMP/sequential-decoder-evaluation.json"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          report = json.loads((Path(os.environ["RUNNER_TEMP"]) / "sequential-decoder-evaluation.json").read_text(encoding="utf-8"))
+          required = {
+              "candidate_survival_diagnostic",
+              "candidate_survival_by_domain",
+              "candidate_survival_by_reading_length",
+          }
+          missing = sorted(required - report.keys())
+          if missing:
+              raise SystemExit(f"sequential evaluator omitted stratified diagnostics: {missing}")
+
+          overall = report["candidate_survival_diagnostic"]
+          outcome_keys = (
+              "lattice_missing",
+              "shortlist_drop",
+              "expansion_drop",
+              "trace_censored",
+              "beam_pruning_drop",
+              "final_selection_drop",
+              "final_selected",
+          )
+
+          def validate_group(label, group):
+              if group.get("classified_gold_tokens") != group.get("gold_tokens"):
+                  raise SystemExit(f"{label}: classified_gold_tokens != gold_tokens: {group}")
+              if group.get("unclassified_gold_tokens") != 0:
+                  raise SystemExit(f"{label}: unclassified_gold_tokens != 0: {group}")
+              classified = sum(group.get(key, 0) for key in outcome_keys)
+              if classified != group.get("gold_tokens"):
+                  raise SystemExit(f"{label}: mutually exclusive outcomes do not partition gold tokens: {group}")
+
+          validate_group("overall", overall)
+          for field in ("candidate_survival_by_domain", "candidate_survival_by_reading_length"):
+              groups = report[field]
+              if not isinstance(groups, dict) or not groups:
+                  raise SystemExit(f"{field}: expected non-empty grouped diagnostics")
+              for label, group in groups.items():
+                  validate_group(f"{field}[{label}]", group)
+              grouped_total = sum(group["gold_tokens"] for group in groups.values())
+              if grouped_total != overall["gold_tokens"]:
+                  raise SystemExit(f"{field}: group total {grouped_total} != overall {overall['gold_tokens']}")
+          print("stratified_candidate_survival_diagnostics=validated")
+          PY
           cat "$RUNNER_TEMP/sequential-runtime-time.log"
           python tools/check_memory_budget.py --log "$RUNNER_TEMP/sequential-runtime-time.log" --max-rss-mib 1792
           python - <<'PY'
