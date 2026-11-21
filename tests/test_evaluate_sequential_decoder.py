@@ -47,7 +47,13 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
                 [str(executable), str(pack), str(train), str(corpus),
                  "test", str(calibration)],
                 check=True, capture_output=True, text=True)
-            result = json.loads(completed.stdout)
+            try:
+                result = json.loads(completed.stdout)
+            except json.JSONDecodeError as error:
+                start = max(0, error.pos - 120)
+                end = min(len(completed.stdout), error.pos + 120)
+                self.fail(f"invalid evaluator JSON at {error.pos}: "
+                          f"{completed.stdout[start:end]!r}")
             self.assertFalse(result["gold_token_boundaries_used_for_decoding"])
             self.assertFalse(result["future_context_used"])
             self.assertEqual(result["split"], "test")
