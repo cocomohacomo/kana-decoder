@@ -53,7 +53,7 @@ int main() {
  second.start=1; second.end=2;
  second.candidates.push_back(kana_decoder::LatticeCandidate{"candidate-bad","悪",0,0,0,0,"","",""});
  second.candidates.push_back(kana_decoder::LatticeCandidate{"candidate-good","良",10000,0,0,0,"","",""});
- for(int i=0;i<6;++i) {
+ for(int i=0;i<2048;++i) {
   second.candidates.push_back(kana_decoder::LatticeCandidate{
    "other-"+std::to_string(i),"他"+std::to_string(i),100+i,0,0,0,"","",""});
  }
