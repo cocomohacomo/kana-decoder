@@ -172,6 +172,86 @@ bool SurgeNormalizationRuntime::ensure_context_cluster(std::string& error) {
   return true;
 }
 
+SurgeProjectionResult SurgeNormalizationRuntime::project_candidates(
+    const std::string& reading, const std::vector<DecodedPath>& paths) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  SurgeProjectionResult result;
+  if (!opened_ || !graph_ || !journal_) {
+    result.error = "SURGE_RUNTIME_NOT_OPEN";
+    return result;
+  }
+  if (reading.empty() || !::surge::is_valid_utf8(reading) ||
+      utf8_codepoint_count(reading) > 256 || paths.empty() || paths.size() > 8) {
+    result.error = "SURGE_PROJECTION_INPUT_INVALID";
+    return result;
+  }
+  const auto source_digest = ::surge::sha256_hex(reading);
+  const auto seq = sequence_++;
+  const auto prefix = "projection/" + id_component(config_.context_id) + "/" +
+                     std::to_string(seq);
+  ::surge::SemanticDelta delta;
+  delta.delta_id = prefix;
+  delta.idempotency_key = prefix + "/key";
+  delta.expected_state_version = journal_->state_version();
+  std::size_t ordinal = 0;
+  for (std::size_t p = 0; p < paths.size(); ++p) {
+    if (paths[p].tokens.empty()) continue;
+    if (paths[p].tokens.size() > 256) {
+      result.error = "SURGE_PROJECTION_TOKEN_BUDGET_EXCEEDED";
+      return result;
+    }
+    for (const auto& token : paths[p].tokens) {
+      if (token.start >= token.end || token.end > 256 ||
+          token.candidate.id.empty() || token.candidate.surface.empty() ||
+          !::surge::is_valid_utf8(token.candidate.surface)) {
+        result.error = "SURGE_PROJECTION_CANDIDATE_INVALID";
+        return result;
+      }
+      const auto token_reading = codepoint_slice(reading, token.start, token.end);
+      if (token_reading.empty()) {
+        result.error = "SURGE_PROJECTION_SPAN_INVALID";
+        return result;
+      }
+      const auto key = candidate_key(token);
+      const auto id = prefix + "/p" + std::to_string(p) + "/t" +
+                      std::to_string(ordinal++) + "/" + id_component(key);
+      const auto claim = id + "/claim";
+      const auto evidence = id + "/evidence";
+      delta.nodes.push_back({{claim, ::surge::NodeKind::Claim,
+          "candidate interpretation: " + token.candidate.surface +
+          " [reading=" + token_reading + ";candidate=" + token.candidate.id +
+          ";span=" + std::to_string(token.start) + ":" +
+          std::to_string(token.end) + ";path=" + std::to_string(p) + "]", {}}});
+      delta.nodes.push_back({{evidence, ::surge::NodeKind::Evidence,
+          "projection;source_sha256=" + source_digest +
+          ";producer=kana_decoder_candidate_generator;path=" + std::to_string(p), {}}});
+      delta.relations.push_back({{id + "/supports", ::surge::RelationKind::Supports,
+                                  evidence, claim}});
+      std::string cluster, cluster_error;
+      if (!graph_->append_cluster_membership(delta, context_cluster_id_,
+            "NORMALIZATION_PROJECTION", source_digest + ":" + key,
+            claim, id + "/membership", cluster, cluster_error)) {
+        result.error = "SURGE_PROJECTION_CLUSTER_FAILED:" + cluster_error;
+        return result;
+      }
+      ++result.claims_added;
+      ++result.relations_added;
+    }
+  }
+  if (delta.nodes.empty()) {
+    result.error = "SURGE_PROJECTION_EMPTY";
+    return result;
+  }
+  const auto applied = graph_->apply(delta);
+  if (!applied.committed) {
+    result.error = "SURGE_PROJECTION_APPLY_FAILED:" + applied.error;
+    return result;
+  }
+  result.projected = true;
+  result.state_version = journal_->state_version();
+  return result;
+}
+
 SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     const std::string& reading, const std::vector<DecodedPath>& paths, bool finalize) {
   std::lock_guard<std::mutex> lock(mutex_);
