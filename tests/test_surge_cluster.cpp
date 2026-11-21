@@ -80,6 +80,20 @@ int main() {
   std::cerr << "cluster evidence failed to rescue candidate outside morphology top four\n";
   return 1;
  }
+ bool seed_score_retained=false;
+ for(const auto& decoded_path:paths) {
+  for(const auto& token:decoded_path.tokens) {
+   if(token.candidate.id=="candidate-bad") {
+    seed_score_retained=token.has_cluster_evidence&&
+      token.cluster_raw_evidence==bad;
+   }
+  }
+ }
+ if(!seed_score_retained) {
+  std::remove(path.c_str());
+  std::cerr << "morphology seed evidence score was not retained\n";
+  return 1;
+ }
  if(model.load_tsv(path)) {
   std::remove(path.c_str());
   std::cerr << "unsupported schema accepted\n";
