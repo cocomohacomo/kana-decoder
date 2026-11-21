@@ -7,7 +7,6 @@
 #include <stdexcept>
 #include <sstream>
 #include <string_view>
-#include <unordered_map>
 #include <zlib.h>
 namespace {
 bool valid_utf8_impl(const std::string& s){return kana_decoder::is_valid_utf8(s);}
