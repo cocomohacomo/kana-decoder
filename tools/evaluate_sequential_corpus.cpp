@@ -190,6 +190,8 @@ struct CandidateSurvivalMetrics {
     std::size_t lattice_present = 0;
     std::size_t morphology_shortlist = 0;
     std::size_t scored = 0;
+    std::size_t beam_survived = 0;
+    std::size_t beam_pruning_drop = 0;
     std::size_t final_aligned = 0;
     std::size_t nbest_aligned = 0;
     std::size_t nbest_recoverable = 0;
@@ -242,11 +244,12 @@ void evaluate_candidate_survival(
                 }
             }
             bool was_scored = false;
+            bool survived_beam = false;
             for (const auto& item : score_trace) {
                 if (item.start == gold.start && item.end == gold.end
                     && item.surface == gold.surface) {
                     was_scored = true;
-                    break;
+                    survived_beam = survived_beam || item.beam_survived;
                 }
             }
             const auto matches_gold = [&](const kana_decoder::DecodedPath& path) {
@@ -265,6 +268,8 @@ void evaluate_candidate_survival(
             if (in_lattice) ++metrics.lattice_present;
             if (in_shortlist) ++metrics.morphology_shortlist;
             if (was_scored) ++metrics.scored;
+            if (survived_beam) ++metrics.beam_survived;
+            if (was_scored && !survived_beam) ++metrics.beam_pruning_drop;
             if (aligned) ++metrics.final_aligned;
             if (present_in_nbest) ++metrics.nbest_aligned;
             if (present_in_nbest && !aligned) ++metrics.nbest_recoverable;
@@ -273,6 +278,7 @@ void evaluate_candidate_survival(
             else if (!in_shortlist) ++metrics.shortlist_drop;
             else if (!was_scored && score_trace_capped) ++metrics.trace_censored;
             else if (!was_scored) ++metrics.expansion_drop;
+            else if (!survived_beam) ++metrics.beam_pruning_drop;
             else if (!aligned) ++metrics.final_selection_drop;
         }
     }
@@ -290,6 +296,8 @@ void print_candidate_survival(const CandidateSurvivalMetrics& m) {
         << ",\"morphology_top8_coverage_pct\":" << pct(m.morphology_shortlist)
         << ",\"scored_or_expanded\":" << m.scored
         << ",\"scored_coverage_pct\":" << pct(m.scored)
+        << ",\"beam_survived\":" << m.beam_survived
+        << ",\"beam_pruning_drop\":" << m.beam_pruning_drop
         << ",\"final_aligned\":" << m.final_aligned
         << ",\"final_alignment_pct\":" << pct(m.final_aligned)
         << ",\"nbest_aligned\":" << m.nbest_aligned
