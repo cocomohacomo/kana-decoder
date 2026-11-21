@@ -50,6 +50,10 @@
 - tools/evaluate_surge.py は候補cluster・矛盾Question・Focus・gold候補coverageを測定する非変更型の簡易SURGE probeです。
 - tools/evaluate_ablation.py は全読みを覆う単一span候補に限定し、形態素スコア・combined local score・SURGEの根拠付き解決を比較します。複数形態素文の正解token alignmentを推測しません。
 
+## N-gram関係投射
+- NRP v1: [N-gram Relation Projector](docs/NGRAM_RELATION_SPECIFICATION_v1.md)。train-onlyの方向・距離・順序付き共起統計をSURGE関係イベントへ変換。クラスター割当はSURGE Coreが担当し、精度向上はheld-out評価で確認するまで未実証。
+- 生成: `python tools/project_ngram_relations.py --train-sequences train_sequences.tsv --output relations.jsonl`
+
 ## 仕様
 - v1.12: [Extended dev-only recognition-margin calibration](docs/SPECIFICATION_v1.12.md)
 - v1.11: [Exact candidate-loss attribution](docs/SPECIFICATION_v1.11.md)
