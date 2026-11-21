@@ -183,6 +183,10 @@ def _stream_count_to_sqlite(train_path, connection, max_distance):
         for token in sequence:
             unigram_batch[token] += 1
             pending += 1
+            if pending >= SQL_BATCH_SIZE:
+                _flush_batches(connection, unigram_batch, relation_batch, opportunity_batch)
+                connection.commit()
+                pending = 0
         for index, source in enumerate(sequence):
             for distance in range(1, max_distance + 1):
                 for direction, target_index in (("right", index + distance), ("left", index - distance)):
@@ -278,6 +282,8 @@ def compile_model(train_path, output_path, max_distance=3, min_count=2,
             connection.execute("PRAGMA journal_mode=OFF")
             connection.execute("PRAGMA synchronous=OFF")
             connection.execute("PRAGMA temp_store=FILE")
+            connection.execute("PRAGMA cache_size=-2048")
+            connection.execute("PRAGMA mmap_size=0")
             connection.executescript(
                 "CREATE TABLE unigram(token TEXT PRIMARY KEY,count INTEGER NOT NULL);"
                 "CREATE TABLE relation_count(source TEXT,target TEXT,direction TEXT,distance INTEGER,count INTEGER NOT NULL,"
