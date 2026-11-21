@@ -542,6 +542,57 @@ double exact_of(const Metrics& m) {
     const auto scored = m.cases - m.over_limit;
     return scored ? static_cast<double>(m.exact) / scored : 0.0;
 }
+void print_bottleneck_comparison_groups(
+    const char* name,
+    const std::map<std::string, Metrics>& baseline,
+    const std::map<std::string, Metrics>& surge,
+    const std::map<std::string, CandidateSurvivalMetrics>& survival) {
+    std::cout << ",\"" << name << "\":{";
+    bool first = true;
+    for (const auto& entry : baseline) {
+        const auto si = surge.find(entry.first);
+        const auto di = survival.find(entry.first);
+        if (si == surge.end() || di == survival.end()) continue;
+        if (!first) std::cout << ",";
+        first = false;
+        const auto& b = entry.second;
+        const auto& s = si->second;
+        const auto& d = di->second;
+        const double br = b.gold_tokens ? static_cast<double>(b.aligned_tokens) / b.gold_tokens : 0.0;
+        const double sr = s.gold_tokens ? static_cast<double>(s.aligned_tokens) / s.gold_tokens : 0.0;
+        const std::pair<const char*, std::size_t> losses[] = {
+            {"lattice_missing", d.lattice_missing}, {"shortlist_drop", d.shortlist_drop},
+            {"expansion_drop", d.expansion_drop}, {"trace_censored", d.trace_censored},
+            {"beam_pruning_drop", d.beam_pruning_drop},
+            {"final_selection_drop", d.final_selection_drop},
+        };
+        const std::pair<const char*, std::size_t>* dominant = nullptr;
+        for (const auto& loss : losses) if (!dominant || loss.second > dominant->second) dominant = &loss;
+        const char* stage = dominant && dominant->second ? dominant->first : "none";
+        const auto count = dominant ? dominant->second : 0;
+        std::cout << std::quoted(entry.first) << ":{"
+            << "\"cases\":" << std::min(b.cases, s.cases)
+            << ",\"cer_delta\":" << cer_of(s) - cer_of(b)
+            << ",\"exact_accuracy_delta\":" << exact_of(s) - exact_of(b)
+            << ",\"token_alignment_recall_delta\":" << sr - br
+            << ",\"dominant_loss_stage\":" << std::quoted(stage)
+            << ",\"dominant_loss_tokens\":" << count
+            << ",\"dominant_loss_pct\":"
+            << (d.gold_tokens ? 100.0 * static_cast<double>(count) / d.gold_tokens : 0.0)
+            << ",\"gold_tokens\":" << d.gold_tokens
+            << ",\"loss_stage_rates_pct\":{";
+        for (std::size_t i = 0; i < 6; ++i) {
+            if (i) std::cout << ",";
+            std::cout << std::quoted(losses[i].first) << ":"
+                << (d.gold_tokens ? 100.0 * static_cast<double>(losses[i].second) / d.gold_tokens : 0.0);
+        }
+        std::cout << ",\"final_selected\":"
+            << (d.gold_tokens ? 100.0 * static_cast<double>(d.final_selected) / d.gold_tokens : 0.0)
+            << "}}";
+    }
+    std::cout << "}";
+}
+
 bool better_metrics(const Metrics& candidate, const Metrics& current) {
     const double a = cer_of(candidate), b = cer_of(current);
     if (std::abs(a - b) > 1e-12) return a < b;
@@ -785,6 +836,10 @@ int main(int argc, char** argv) {
     print_candidate_survival_summary(survival);
     print_candidate_survival_groups("candidate_survival_by_domain", survival_by_domain);
     print_candidate_survival_groups("candidate_survival_by_reading_length", survival_by_reading_length);
+    print_bottleneck_comparison_groups("surge_bottleneck_by_domain",
+        morphology_by_domain, surge_by_domain, survival_by_domain);
+    print_bottleneck_comparison_groups("surge_bottleneck_by_reading_length",
+        morphology_by_reading_length, surge_by_reading_length, survival_by_reading_length);
     std::cout << "}\n";
     return 0;
 }
