@@ -392,6 +392,7 @@ void print_candidate_survival_summary(const CandidateSurvivalMetrics& m) {
         << ",\"dominant_loss_pct\":" << pct(dominant_count)
         << ",\"loss_stage_rates_pct\":{"
         << "\"lattice_missing\":" << pct(m.lattice_missing)
+        << ",\"span_selection_drop\":" << pct(m.span_selection_drop)
         << ",\"shortlist_drop\":" << pct(m.shortlist_drop)
         << ",\"expansion_drop\":" << pct(m.expansion_drop)
         << ",\"trace_censored\":" << pct(m.trace_censored)
