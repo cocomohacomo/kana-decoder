@@ -147,43 +147,75 @@ bool load_training_sequences(const std::string& path,const kana_decoder::Lexicon
     return input.eof();
 }
 
+void add_metrics(Metrics& target, const Metrics& source) {
+    target.cases += source.cases;
+    target.exact += source.exact;
+    target.edit_distance += source.edit_distance;
+    target.reference_codepoints += source.reference_codepoints;
+    target.decode_failures += source.decode_failures;
+    target.predicted_tokens += source.predicted_tokens;
+    target.aligned_tokens += source.aligned_tokens;
+    target.gold_tokens += source.gold_tokens;
+    target.over_limit += source.over_limit;
+}
+
+std::string metric_reading_length_bucket(std::size_t length) {
+    if (length <= 4) return "1-4";
+    if (length <= 8) return "5-8";
+    if (length <= 16) return "9-16";
+    if (length <= 32) return "17-32";
+    if (length <= 64) return "33-64";
+    if (length <= 128) return "65-128";
+    return "129-256";
+}
+
 void evaluate(const std::vector<Sentence>& sentences,
               const kana_decoder::LexiconTrie& lexicon,
               const kana_decoder::MaskedNgramScorer& scorer,
               const kana_decoder::ConnectionModel& connections,
               Metrics& metrics,
-              const kana_decoder::DecoderOptions& options = {}) {
+              const kana_decoder::DecoderOptions& options = {},
+              std::map<std::string, Metrics>* by_domain = nullptr,
+              std::map<std::string, Metrics>* by_reading_length = nullptr) {
     for (const auto& sentence : sentences) {
-        ++metrics.cases;
+        Metrics current;
+        ++current.cases;
         const auto reading_points = codepoints(sentence.reading);
         const auto expected_points = codepoints(sentence.expected);
         if (reading_points.size() > 256) {
-            ++metrics.over_limit;
-            continue;
-        }
-        metrics.gold_tokens += sentence.tokens.size();
-        const auto paths = kana_decoder::decode_reading(
-            sentence.reading, lexicon, scorer, options, &connections);
-        std::string predicted;
-        if (paths.empty()) {
-            ++metrics.decode_failures;
+            ++current.over_limit;
         } else {
-            for (const auto& token : paths.front().tokens) {
-                predicted += token.candidate.surface;
+            current.gold_tokens += sentence.tokens.size();
+            const auto paths = kana_decoder::decode_reading(
+                sentence.reading, lexicon, scorer, options, &connections);
+            std::string predicted;
+            if (paths.empty()) {
+                ++current.decode_failures;
+            } else {
+                for (const auto& token : paths.front().tokens) {
+                    predicted += token.candidate.surface;
+                }
+                current.predicted_tokens += paths.front().tokens.size();
+                for (const auto& gold : sentence.tokens) {
+                    const auto found = std::find_if(paths.front().tokens.begin(),
+                        paths.front().tokens.end(), [&](const kana_decoder::DecodedToken& token) {
+                            return token.start == gold.start && token.end == gold.end
+                                && token.candidate.surface == gold.surface;
+                        });
+                    if (found != paths.front().tokens.end()) ++current.aligned_tokens;
+                }
             }
-            metrics.predicted_tokens += paths.front().tokens.size();
-            for (const auto& gold : sentence.tokens) {
-                const auto found = std::find_if(paths.front().tokens.begin(),
-                    paths.front().tokens.end(), [&](const kana_decoder::DecodedToken& token) {
-                        return token.start == gold.start && token.end == gold.end
-                            && token.candidate.surface == gold.surface;
-                    });
-                if (found != paths.front().tokens.end()) ++metrics.aligned_tokens;
-            }
+            if (predicted == sentence.expected) ++current.exact;
+            current.edit_distance += distance(codepoints(predicted), expected_points);
+            current.reference_codepoints += expected_points.size();
         }
-        if (predicted == sentence.expected) ++metrics.exact;
-        metrics.edit_distance += distance(codepoints(predicted), expected_points);
-        metrics.reference_codepoints += expected_points.size();
+        add_metrics(metrics, current);
+        if (by_domain) add_metrics((*by_domain)[sentence.domain], current);
+        if (by_reading_length && !reading_points.empty()
+            && reading_points.size() <= 256) {
+            add_metrics((*by_reading_length)[metric_reading_length_bucket(reading_points.size())],
+                        current);
+        }
     }
 }
 
@@ -370,6 +402,41 @@ void print_candidate_survival_groups(
         first = false;
         std::cout << std::quoted(entry.first) << ":";
         print_candidate_survival_summary(entry.second);
+    }
+    std::cout << "}";
+}
+
+void print_metric_groups(
+    const char* name, const std::map<std::string, Metrics>& groups) {
+    std::cout << ",\"" << name << "\":{";
+    bool first = true;
+    for (const auto& entry : groups) {
+        if (!first) std::cout << ",";
+        first = false;
+        const auto& m = entry.second;
+        const auto scored = m.cases - m.over_limit;
+        const double exact = scored ? static_cast<double>(m.exact) / scored : 0.0;
+        const double cer = m.reference_codepoints
+            ? static_cast<double>(m.edit_distance) / m.reference_codepoints : 0.0;
+        const double precision = m.predicted_tokens
+            ? static_cast<double>(m.aligned_tokens) / m.predicted_tokens : 0.0;
+        const double recall = m.gold_tokens
+            ? static_cast<double>(m.aligned_tokens) / m.gold_tokens : 0.0;
+        std::cout << std::quoted(entry.first) << ":{"
+            << "\"cases\":" << m.cases
+            << ",\"scored_cases\":" << scored
+            << ",\"exact_matches\":" << m.exact
+            << ",\"exact_accuracy\":" << exact
+            << ",\"edit_distance\":" << m.edit_distance
+            << ",\"reference_codepoints\":" << m.reference_codepoints
+            << ",\"cer\":" << cer
+            << ",\"decode_failures\":" << m.decode_failures
+            << ",\"over_limit_sentences\":" << m.over_limit
+            << ",\"gold_tokens\":" << m.gold_tokens
+            << ",\"predicted_tokens\":" << m.predicted_tokens
+            << ",\"exact_token_alignment\":" << m.aligned_tokens
+            << ",\"token_alignment_precision\":" << precision
+            << ",\"token_alignment_recall\":" << recall << "}";
     }
     std::cout << "}";
 }
@@ -578,7 +645,10 @@ int main(int argc, char** argv) {
     surge_options.context_weight = selected_weight;
     surge_options.surge_context_margin = selected_margin;
     Metrics surge;
-    evaluate(sentences, lexicon, trained_scorer, connections, surge, surge_options);
+    std::map<std::string, Metrics> surge_by_domain;
+    std::map<std::string, Metrics> surge_by_reading_length;
+    evaluate(sentences, lexicon, trained_scorer, connections, surge, surge_options,
+             &surge_by_domain, &surge_by_reading_length);
     Metrics cluster, combined;
     if (cluster_enabled) {
         kana_decoder::DecoderOptions cluster_options;
@@ -611,6 +681,8 @@ int main(int argc, char** argv) {
     print_metrics("morphology_only", morphology);
     print_metrics("trained_unigram_left_context", causal);
     print_metrics("surge_evidence_gated_left_context", surge);
+    print_metric_groups("surge_metrics_by_domain", surge_by_domain);
+    print_metric_groups("surge_metrics_by_reading_length", surge_by_reading_length);
     if (cluster_enabled) {
         std::cout << ",\"surge_cluster_model\":{\"memberships\":" << cluster_model.membership_count()
                   << ",\"evidence_records\":" << cluster_model.evidence_count()
