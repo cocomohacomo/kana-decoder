@@ -3,6 +3,8 @@
 #include "kana_decoder/japanese_language.hpp"
 
 #include <cassert>
+#include <cstdio>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -58,6 +60,109 @@ int main() {
   assert(unknown.size() == 1);
   assert(unknown.front().candidates.front().id == "kana:ぬ");
   assert(unknown.front().candidates.front().surface == "ぬ");
+
+  // Repeated POS and inflection labels are interned once in the compact
+  // string pool, while candidate IDs and surfaces remain independently owned.
+  LexiconTrie interned;
+  auto metadata_a = candidate("intern-a", "甲", 0);
+  metadata_a.pos = "名詞/普通名詞";
+  metadata_a.inflection_type = "五段-ラ行";
+  metadata_a.inflection_form = "連用形-一般";
+  auto metadata_b = candidate("intern-b", "乙", 1);
+  metadata_b.pos = "名詞/普通名詞";
+  metadata_b.inflection_type = "五段-ラ行";
+  metadata_b.inflection_form = "連用形-一般";
+  assert(interned.add("こう", metadata_a));
+  assert(interned.add("おつ", metadata_b));
+  assert(interned.interned_metadata_string_count() == 3);
+  const std::size_t expected_pool_bytes =
+      metadata_a.id.size() + metadata_a.surface.size() +
+      metadata_b.id.size() + metadata_b.surface.size() +
+      metadata_a.pos.size() + metadata_a.inflection_type.size() +
+      metadata_a.inflection_form.size();
+  assert(interned.candidate_string_pool_bytes() == expected_pool_bytes);
+  const auto interned_lattice = interned.build_lattice("こうおつ", 16, false);
+  assert(interned_lattice.size() == 2);
+  assert(interned_lattice[0].candidates.front().pos == "名詞/普通名詞");
+  assert(interned_lattice[1].candidates.front().inflection_form == "連用形-一般");
+
+  // The POS index stores offsets into the existing pool, not owned ID keys.
+  LexiconTrie pos_indexed;
+  auto pos_one = candidate("shared-id", "共有", 0);
+  pos_one.pos = "名詞";
+  auto pos_two = candidate("another-id", "別", 1);
+  pos_two.pos = "動詞";
+  auto pos_conflict = candidate("conflict-id", "競合A", 2);
+  pos_conflict.pos = "名詞";
+  auto pos_conflict_other = candidate("conflict-id", "競合B", 3);
+  pos_conflict_other.pos = "動詞";
+  assert(pos_indexed.add("きょうゆう", pos_one));
+  assert(pos_indexed.add("べつ", pos_two));
+  assert(pos_indexed.add("きょうごう", pos_conflict));
+  assert(pos_indexed.add("きょうごう", pos_conflict_other));
+  pos_indexed.build_candidate_pos_index();
+  assert(pos_indexed.candidate_pos_index_size() == 3);
+  assert(pos_indexed.candidate_pos("shared-id") == "名詞");
+  assert(pos_indexed.candidate_pos("another-id") == "動詞");
+  assert(pos_indexed.candidate_pos("conflict-id").empty());
+  assert(pos_indexed.candidate_pos("missing-id").empty());
+
+  // Loading freezes both arenas. Mutation must thaw them, preserve existing
+  // entries, invalidate the derived POS index, and remain traversable.
+  const std::string frozen_path = "kana_decoder_frozen_trie_test.tsv";
+  {
+    std::ofstream frozen_file(frozen_path, std::ios::binary);
+    assert(frozen_file);
+    frozen_file << "ふる\t古\t名詞\t名詞\tfrozen-id\n";
+  }
+  LexiconTrie thawed;
+  std::size_t frozen_loaded = 0;
+  assert(thawed.load_tsv(frozen_path, &frozen_loaded));
+  assert(frozen_loaded == 1);
+  assert(thawed.candidate_pos_index_size() == 0);
+  const auto frozen_storage = thawed.storage_stats();
+  assert(frozen_storage.frozen_node_capacity_bytes > 0);
+  assert(frozen_storage.edge_arena_capacity_bytes > 0);
+  assert(frozen_storage.candidate_arena_capacity_bytes > 0);
+  assert(frozen_storage.builder_node_capacity_bytes == 0);
+  assert(frozen_storage.builder_edge_capacity_bytes == 0);
+  assert(frozen_storage.builder_candidate_capacity_bytes == 0);
+  assert(frozen_storage.estimated_bytes >= frozen_storage.string_pool_capacity_bytes);
+  thawed.build_candidate_pos_index();
+  assert(thawed.candidate_pos("frozen-id") == "名詞");
+  auto appended = candidate("appended-id", "新", 0);
+  appended.pos = "動詞";
+  assert(thawed.add("あたら", appended));
+  const auto thawed_storage = thawed.storage_stats();
+  assert(thawed_storage.builder_node_capacity_bytes > 0);
+  assert(thawed_storage.builder_edge_capacity_bytes > 0);
+  assert(thawed_storage.builder_candidate_capacity_bytes > 0);
+  const auto thawed_lattice = thawed.build_lattice("ふるあたら", 16, false);
+  assert(thawed_lattice.size() == 2);
+  assert(thawed_lattice[0].candidates.front().surface == "古");
+  assert(thawed_lattice[1].candidates.front().surface == "新");
+  // Rebuilding after thaw must include the appended candidate and preserve
+  // the original POS mapping.
+  thawed.build_candidate_pos_index();
+  assert(thawed.candidate_pos("frozen-id") == "名詞");
+  assert(thawed.candidate_pos("appended-id") == "動詞");
+  // Repeated freeze/thaw cycles must not accumulate stale arena state or lose
+  // the original entry. Reload (freeze), append (thaw), and traverse each cycle.
+  for (int cycle = 0; cycle < 3; ++cycle) {
+    assert(thawed.load_tsv(frozen_path, &frozen_loaded));
+    assert(frozen_loaded == 1);
+    const auto base_lattice = thawed.build_lattice("ふる", 16, false);
+    assert(base_lattice.size() == 1);
+    assert(base_lattice.front().candidates.front().surface == "古");
+    auto cycle_candidate = candidate("cycle-" + std::to_string(cycle),
+                                    "循環" + std::to_string(cycle), 0);
+    assert(thawed.add("じゅんかん", cycle_candidate));
+    const auto cycle_lattice = thawed.build_lattice("ふるじゅんかん", 16, false);
+    assert(cycle_lattice.size() == 2);
+    assert(cycle_lattice[1].candidates.front().surface ==
+           "循環" + std::to_string(cycle));
+  }
+  std::remove(frozen_path.c_str());
 
   // Candidate and edge ceilings are signalled, never silently treated as
   // complete lattice results.

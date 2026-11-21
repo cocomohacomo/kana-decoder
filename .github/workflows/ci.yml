@@ -19,8 +19,16 @@ jobs:
         run: ctest --test-dir build --output-on-failure
       - name: Run bounded decode microbenchmark
         run: ./build/kana_decoder_bench
+      - name: Enforce 100 MiB decode microbenchmark RSS budget
+        run: |
+          /usr/bin/time -v -o build/decode-memory.log ./build/kana_decoder_bench
+          python3 tools/check_memory_budget.py --log build/decode-memory.log --max-rss-mib 100
       - name: Run bounded SURGE runtime microbenchmark
-        run: ./build/kana_decoder_surge_bench 50
+        run: ./build/kana_decoder_surge_bench 50 5
+      - name: Measure real Japanese Pack peak RSS
+        run: |
+          /usr/bin/time -v -o build/pack-memory.log ./build/kana_decoder_eval packs/ja-lite tests/data/ja-smoke-gold.tsv
+          python3 tools/check_memory_budget.py --log build/pack-memory.log --max-rss-mib 2048
       - name: Verify Japanese reference Pack
         run: python3 tools/verify_pack.py packs/ja-lite
       - name: Syntax-check SURGE policy calibrator

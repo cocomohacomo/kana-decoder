@@ -132,6 +132,14 @@ void accumulate(Stats& stats, const CaseResult& result) {
     if (result.decode_failure) ++stats.decode_failures;
 }
 
+std::string reading_length_bucket(const std::string& reading) {
+    const auto length = to_codepoints(reading).size();
+    if (length <= 4) return "1-4";
+    if (length <= 8) return "5-8";
+    if (length <= 16) return "9-16";
+    return "17+";
+}
+
 void print_stats(const Stats& stats) {
     const double exact_accuracy = stats.cases
         ? static_cast<double>(stats.exact_matches) / stats.cases : 0.0;
@@ -216,10 +224,11 @@ bool evaluate_case(const EvaluationCase& input,
                    const kana_decoder::LexiconTrie& lexicon,
                    const kana_decoder::MaskedNgramScorer& scorer,
                    const kana_decoder::ConnectionModel& connections,
-                   CaseResult& result, bool include_trace, bool include_lattice_trace) {
+                   CaseResult& result, bool include_trace, bool include_lattice_trace,
+                   const kana_decoder::DecoderOptions& decoder_options) {
     result.input = input;
     const auto paths = kana_decoder::decode_reading(
-        input.reading, lexicon, scorer, {}, &connections,
+        input.reading, lexicon, scorer, decoder_options, &connections,
         include_trace ? &result.trace : nullptr,
         include_lattice_trace ? &result.lattice_trace : nullptr);
 
@@ -235,22 +244,24 @@ bool evaluate_case(const EvaluationCase& input,
 }
 
 int usage() {
-    std::cerr << "usage: kana_decoder_eval PACK_DIR CORPUS_TSV [--details] [--trace] [--lattice-trace]\n";
+    std::cerr << "usage: kana_decoder_eval PACK_DIR CORPUS_TSV [--details] [--trace] [--lattice-trace] [--legacy-beam-pruning]\n";
     return 2;
 }
 
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc < 3 || argc > 5) return usage();
+    if (argc < 3 || argc > 6) return usage();
     bool details = false;
     bool trace = false;
     bool lattice_trace = false;
+    kana_decoder::DecoderOptions decoder_options;
     for (int i = 3; i < argc; ++i) {
         const std::string option(argv[i]);
         if (option == "--details") details = true;
         else if (option == "--trace") { trace = true; details = true; }
         else if (option == "--lattice-trace") { lattice_trace = true; details = true; }
+        else if (option == "--legacy-beam-pruning") decoder_options.preserve_rendered_surface_diversity = false;
         else return usage();
     }
 
@@ -275,6 +286,7 @@ int main(int argc, char** argv) {
 
     Stats overall;
     std::map<std::string, Stats> by_domain;
+    std::map<std::string, Stats> by_reading_length;
     std::vector<CaseResult> case_results;
     std::string line;
     std::size_t line_number = 0;
@@ -291,9 +303,10 @@ int main(int argc, char** argv) {
         }
 
         CaseResult result;
-        evaluate_case(input, lexicon, scorer, connections, result, trace, lattice_trace);
+        evaluate_case(input, lexicon, scorer, connections, result, trace, lattice_trace, decoder_options);
         accumulate(overall, result);
         accumulate(by_domain[input.domain], result);
+        accumulate(by_reading_length[reading_length_bucket(input.reading)], result);
         if (details) case_results.push_back(std::move(result));
     }
 
@@ -314,6 +327,14 @@ int main(int argc, char** argv) {
     for (const auto& entry : by_domain) {
         if (!first_domain) std::cout << ',';
         first_domain = false;
+        std::cout << "\"" << json_escape(entry.first) << "\":";
+        print_stats(entry.second);
+    }
+    std::cout << "},\"reading_length_buckets\":{";
+    bool first_length_bucket = true;
+    for (const auto& entry : by_reading_length) {
+        if (!first_length_bucket) std::cout << ',';
+        first_length_bucket = false;
         std::cout << "\"" << json_escape(entry.first) << "\":";
         print_stats(entry.second);
     }

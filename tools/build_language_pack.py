@@ -6,7 +6,7 @@ kana, surface, lemma, pos, reading_group[, candidate_id, word_cost,
 connection_cost, left_id, right_id, inflection_type, inflection_form]
 Training sequence TSV: one utterance per line, candidate IDs separated by tabs.
 """
-import argparse,hashlib,json,re,shutil,subprocess,sys
+import argparse,gzip,hashlib,json,re,shutil,subprocess,sys
 from collections import Counter
 from pathlib import Path
 MAX_I32=2**31-1
@@ -80,7 +80,13 @@ def write_pack(args):
  with (out/"ngram.tsv").open("w",encoding="utf-8",newline="\n") as f:
   f.write("# direction\tcontext_token\tcandidate_id\tcount\n")
   for (direction,context,candidate),count in sorted(counts.items()):f.write(f"{direction}\t{context}\t{candidate}\t{count}\n")
- payload=["lexicon.tsv","ngram.tsv"]
+ lexicon_path=out/"lexicon.tsv";compressed_path=out/"lexicon.tsv.gz"
+ uncompressed_lexicon_bytes=lexicon_path.stat().st_size
+ with lexicon_path.open("rb") as source, compressed_path.open("wb") as raw_output:
+  with gzip.GzipFile(filename="",mode="wb",compresslevel=9,fileobj=raw_output,mtime=0) as compressed:
+   shutil.copyfileobj(source,compressed,length=1024*1024)
+ lexicon_path.unlink()
+ payload=["lexicon.tsv.gz","ngram.tsv"]
  for arg,name in ((args.connections,"connections.tsv"),(args.correction_rules,"correction_rules.tsv")):
   if arg:
    source=arg.resolve()
@@ -100,9 +106,9 @@ def write_pack(args):
  files=[]
  for name in payload:
   data=(out/name).read_bytes();files.append({"path":name,"size":len(data),"sha256":hashlib.sha256(data).hexdigest()})
- manifest={"pack_id":args.pack_id,"language_id":args.language_id,"pack_version":args.pack_version,"core_abi_version":"0.1","dictionary_version":args.dictionary_version,"model_version":"candidate-ngram-counts-1","format_version":1,"reading_encoding_id":args.reading_encoding,"normalization_profile":args.normalization_profile,"orthography_profile":args.orthography_profile,"license":{"spdx":args.license_spdx,"file":"LICENSE","upstream":args.upstream,"components":components,"profile_file":"license-profile.json" if components else None},"resource_limits":{"max_expanded_bytes":args.max_expanded_bytes,"max_candidates":8,"max_edit_distance":1},"files":files,"status":"imported-pack-requires-accuracy-validation"}
+ manifest={"pack_id":args.pack_id,"language_id":args.language_id,"pack_version":args.pack_version,"core_abi_version":"0.1","dictionary_version":args.dictionary_version,"model_version":"candidate-ngram-counts-1","format_version":1,"reading_encoding_id":args.reading_encoding,"normalization_profile":args.normalization_profile,"orthography_profile":args.orthography_profile,"license":{"spdx":args.license_spdx,"file":"LICENSE","upstream":args.upstream,"components":components,"profile_file":"license-profile.json" if components else None},"resource_limits":{"max_expanded_bytes":args.max_expanded_bytes,"max_candidates":8,"max_edit_distance":1},"dictionary_compression":{"path":"lexicon.tsv.gz","algorithm":"gzip","uncompressed_size":uncompressed_lexicon_bytes},"files":files,"status":"imported-pack-requires-accuracy-validation"}
  (out/"manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
- return {"pack_id":args.pack_id,"entries":len(rows),"trained_ngram_records":len(counts),"files":payload,"max_expanded_bytes":args.max_expanded_bytes}
+ return {"pack_id":args.pack_id,"entries":len(rows),"trained_ngram_records":len(counts),"files":payload,"lexicon_uncompressed_bytes":uncompressed_lexicon_bytes,"lexicon_compressed_bytes":(out/"lexicon.tsv.gz").stat().st_size,"lexicon_compression_ratio":(out/"lexicon.tsv.gz").stat().st_size/uncompressed_lexicon_bytes,"max_expanded_bytes":args.max_expanded_bytes}
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument("--lexicon",type=Path,required=True);p.add_argument("--output",type=Path,required=True);p.add_argument("--license-file",type=Path,required=True);p.add_argument("--license-profile",type=Path);p.add_argument("--license-spdx",required=True);p.add_argument("--upstream",required=True);p.add_argument("--pack-id",required=True);p.add_argument("--language-id",required=True);p.add_argument("--pack-version",default="0.1.0");p.add_argument("--dictionary-version",default="imported");p.add_argument("--sequences",type=Path);p.add_argument("--connections",type=Path);p.add_argument("--correction-rules",type=Path);p.add_argument("--provenance-file",type=Path);p.add_argument("--upstream-legal-notice",type=Path);p.add_argument("--reading-encoding",default="utf8");p.add_argument("--normalization-profile",default="none-declared");p.add_argument("--orthography-profile",default="language-default");p.add_argument("--max-expanded-bytes",type=int,default=8*1024*1024*1024,help="Pack-declared expanded byte budget; default 8 GiB, independent of the provisional 30 MiB optimization target")
  a=p.parse_args()

@@ -53,7 +53,7 @@ int main() {
  second.start=1; second.end=2;
  second.candidates.push_back(kana_decoder::LatticeCandidate{"candidate-bad","悪",0,0,0,0,"","",""});
  second.candidates.push_back(kana_decoder::LatticeCandidate{"candidate-good","良",10000,0,0,0,"","",""});
- for(int i=0;i<6;++i) {
+ for(int i=0;i<2048;++i) {
   second.candidates.push_back(kana_decoder::LatticeCandidate{
    "other-"+std::to_string(i),"他"+std::to_string(i),100+i,0,0,0,"","",""});
  }
@@ -65,9 +65,33 @@ int main() {
  const auto paths=decoder.decode(2,{first,second},kana_decoder::MaskedNgramScorer{},
                                  {},options,nullptr,nullptr,&limited);
  if(limited||paths.empty()||paths.front().tokens.size()!=2||
-    paths.front().tokens.back().candidate.surface!="良") {
+    paths.front().tokens.back().candidate.surface!="良"||
+    !paths.front().tokens.back().has_cluster_evidence||
+    paths.front().tokens.back().cluster_raw_evidence!=good) {
+  std::cerr << "limited=" << limited << " paths=" << paths.size();
+  if(!paths.empty()&&!paths.front().tokens.empty()) {
+   const auto& token=paths.front().tokens.back();
+   std::cerr << " surface=" << token.candidate.surface
+             << " has_evidence=" << token.has_cluster_evidence
+             << " raw_evidence=" << token.cluster_raw_evidence;
+  }
+  std::cerr << "\n";
   std::remove(path.c_str());
   std::cerr << "cluster evidence failed to rescue candidate outside morphology top four\n";
+  return 1;
+ }
+ bool seed_score_retained=false;
+ for(const auto& decoded_path:paths) {
+  for(const auto& token:decoded_path.tokens) {
+   if(token.candidate.id=="candidate-bad") {
+    seed_score_retained=token.has_cluster_evidence&&
+      token.cluster_raw_evidence==bad;
+   }
+  }
+ }
+ if(!seed_score_retained) {
+  std::remove(path.c_str());
+  std::cerr << "morphology seed evidence score was not retained\n";
   return 1;
  }
  if(model.load_tsv(path)) {

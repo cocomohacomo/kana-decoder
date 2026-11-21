@@ -227,6 +227,8 @@ int main(int argc, char** argv) {
   std::size_t wrong_output_matching_nbest = 0, wrong_output_outside_nbest = 0;
   std::size_t reference_points = 0, overrides = 0, deferred = 0, decode_failures = 0;
   std::size_t fallback_to_decoder_top1 = 0, selected_outputs = 0;
+  std::size_t lattice_matches_available=0,lattice_matches_retained=0,lattice_matches_pruned=0;
+  std::size_t lattice_candidates_available=0,lattice_candidates_retained=0,lattice_candidates_pruned=0;
   kana_decoder::surge::JapaneseLanguageAdapter typed_entity_adapter;
   std::size_t input_points = 0;
   std::size_t typed_entities_found = 0, typed_entity_evidence_added = 0;
@@ -236,8 +238,10 @@ int main(int argc, char** argv) {
     const auto& item = cases[case_index];
     input_points += codepoints(item.reading).size();
     reference_points += codepoints(item.expected).size();
+    std::vector<kana_decoder::LatticePositionTrace> lattice_trace;
     const auto paths = kana_decoder::decode_reading(item.reading, lexicon, *active_scorer, decoder_options,
-        &connections);
+        &connections,nullptr,&lattice_trace);
+    for(const auto& position:lattice_trace){lattice_matches_available+=position.available_dictionary_match_count;lattice_matches_retained+=position.dictionary_match_count;lattice_matches_pruned+=position.pruned_dictionary_match_count;lattice_candidates_available+=position.available_candidate_count;lattice_candidates_retained+=position.retained_candidate_count;lattice_candidates_pruned+=position.pruned_candidate_count;}
     if (!item.gold_tokens.empty()) {
       std::size_t offset = 0;
       for (const auto& gold : item.gold_tokens) {
@@ -396,6 +400,12 @@ int main(int argc, char** argv) {
       << ",\"cases\":" << cases.size()
       << ",\"input_codepoints\":" << input_points
       << ",\"reference_codepoints\":" << reference_points
+      << ",\"lattice_pruning\":{\"matches_available\":" << lattice_matches_available
+      << ",\"matches_retained\":" << lattice_matches_retained
+      << ",\"matches_pruned\":" << lattice_matches_pruned
+      << ",\"candidates_available\":" << lattice_candidates_available
+      << ",\"candidates_retained\":" << lattice_candidates_retained
+      << ",\"candidates_pruned\":" << lattice_candidates_pruned << "}"
       << ",\"candidate_generation\":{\"mean_paths\":" << (cases.empty() ? 0.0 : static_cast<double>(candidate_paths_total) / cases.size())
       << ",\"surface_exact_recall_at_1\":" << (cases.empty() ? 0.0 : static_cast<double>(candidate_exact_at_1) / cases.size())
       << ",\"surface_exact_recall_at_5\":" << (cases.empty() ? 0.0 : static_cast<double>(candidate_exact_at_5) / cases.size())

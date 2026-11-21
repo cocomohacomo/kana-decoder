@@ -11,6 +11,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <zlib.h>
 
 namespace {
 constexpr std::array<std::uint32_t,64> K = {
@@ -101,11 +102,34 @@ bool verify_pack_manifest(const std::string& directory,std::string* error){
   if (actual > limit - total) return fail(error, "Pack expanded size exceeds declared limit");
   total += actual;
   if(sha256_file(file)!=hash)return fail(error,"Pack payload SHA-256 mismatch");
-  if (relative == "lexicon.tsv") has_lex = true;
+  if (relative == "lexicon.tsv" || relative == "lexicon.tsv.gz") has_lex = true;
   if (relative == "ngram.tsv") has_ngram = true;
   if (relative == license_file) has_license = true;
  }
  if(listed.empty()||!has_lex||!has_ngram||!has_license)return fail(error,"required Pack payload or hashed license missing");
+ if(listed.count("lexicon.tsv.gz")){
+  std::string compression_block,compression_path,algorithm,expanded_text;
+  if(!capture(json,std::regex(R"("dictionary_compression"\s*:\s*\{([\s\S]*?)\})"),compression_block)||
+     !capture(compression_block,std::regex(R"rx("path"\s*:\s*"([^"]+)")rx"),compression_path)||
+     !capture(compression_block,std::regex(R"rx("algorithm"\s*:\s*"([^"]+)")rx"),algorithm)||
+     !capture(compression_block,std::regex(R"("uncompressed_size"\s*:\s*([0-9]+))"),expanded_text)||
+     compression_path!="lexicon.tsv.gz"||algorithm!="gzip")return fail(error,"invalid dictionary compression metadata");
+  std::uint64_t expected_expanded=0;
+  try{expected_expanded=std::stoull(expanded_text);if(expected_expanded==0||expected_expanded>limit)return fail(error,"compressed lexicon exceeds expanded size limit");}
+  catch(...){return fail(error,"invalid compressed lexicon expanded size");}
+  gzFile compressed=gzopen((root/"lexicon.tsv.gz").string().c_str(),"rb");
+  if(!compressed)return fail(error,"compressed lexicon cannot be opened");
+  std::array<unsigned char,65536> buffer{};std::uint64_t expanded=0;bool valid=true;
+  for(;;){const int count=gzread(compressed,buffer.data(),static_cast<unsigned int>(buffer.size()));if(count<0){valid=false;break;}if(count==0)break;
+   if(static_cast<std::uint64_t>(count)>expected_expanded-expanded){valid=false;break;}expanded+=static_cast<std::uint64_t>(count);}
+  int gzip_status=Z_OK;gzerror(compressed,&gzip_status);if(gzip_status!=Z_OK&&gzip_status!=Z_STREAM_END)valid=false;
+  if(gzclose(compressed)!=Z_OK)valid=false;
+  if(!valid||expanded!=expected_expanded)return fail(error,"compressed lexicon integrity or expanded size mismatch");
+  const auto compressed_size=fs::file_size(root/"lexicon.tsv.gz");
+  if(expected_expanded>=compressed_size)total+=expected_expanded-compressed_size;
+  else total-=compressed_size-expected_expanded;
+  if(total>limit)return fail(error,"Pack expanded size exceeds declared limit");
+ }
  for(fs::recursive_directory_iterator it(root),end;it!=end;++it){if(it->is_symlink())return fail(error,"symlink found in Pack directory");if(it->is_regular_file()){auto rel=it->path().lexically_relative(root).generic_string();if(rel!="manifest.json"&&!listed.count(rel))return fail(error,"unlisted Pack payload");}}
  if (error) error->clear();
  return true;

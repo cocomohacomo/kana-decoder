@@ -1,3 +1,4 @@
+import gzip
 import json
 import pathlib
 import subprocess
@@ -28,6 +29,13 @@ class PackBuilderTests(unittest.TestCase):
                                      check=True, capture_output=True, text=True)
             report = json.loads(checked.stdout)
             self.assertTrue(report["within_limit"])
+            self.assertTrue((out / "lexicon.tsv.gz").is_file())
+            self.assertFalse((out / "lexicon.tsv").exists())
+            with gzip.open(out / "lexicon.tsv.gz", "rt", encoding="utf-8") as compressed_lexicon:
+                self.assertIn("あめ", compressed_lexicon.read())
+            manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["dictionary_compression"]["algorithm"], "gzip")
+            self.assertGreater(manifest["dictionary_compression"]["uncompressed_size"], 0)
             self.assertTrue((out / "connections.tsv").is_file())
             self.assertIn("connections.tsv", report["files_verified"])
             self.assertIn("correction_rules.tsv", report["files_verified"])

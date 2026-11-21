@@ -41,7 +41,9 @@ bool load_language_pack(const std::string& directory,LexiconTrie& lexicon,Masked
  if(!verify_pack_manifest(base,error))return false;
  if(base.back()!='/')base+='/';
  LexiconTrie parsed_lexicon;MaskedNgramScorer parsed_scorer;std::size_t count=0;
- if(!parsed_lexicon.load_tsv(base+"lexicon.tsv",&count))return fail("LANGUAGE_PACK_LEXICON_PARSE_FAILED");
+ std::ifstream compressed_lexicon(base+"lexicon.tsv.gz",std::ios::binary);
+ const std::string lexicon_path=compressed_lexicon?base+"lexicon.tsv.gz":base+"lexicon.tsv";
+ if(!parsed_lexicon.load_tsv(lexicon_path,&count))return fail("LANGUAGE_PACK_LEXICON_PARSE_FAILED");
  if(!parsed_scorer.load_tsv(base+"ngram.tsv"))return fail("LANGUAGE_PACK_NGRAM_PARSE_FAILED");
  ConnectionModel parsed_connections;std::ifstream conn_file(base+"connections.tsv");if(conn_file&&!parsed_connections.load_tsv(base+"connections.tsv"))return fail("LANGUAGE_PACK_CONNECTIONS_PARSE_FAILED");
  CorrectionOptions parsed_corrections;std::ifstream correction_file(base+"correction_rules.tsv");
