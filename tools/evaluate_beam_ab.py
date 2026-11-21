@@ -92,6 +92,8 @@ def paired_bootstrap(new_cases, old_cases, samples=2000, seed=20261121,
     else:
         clusters = {}
         for index, row in enumerate(source_rows):
+            if not row or not isinstance(row[0], str) or not row[0].strip():
+                raise ValueError("bootstrap source rows require non-empty document IDs")
             document_id = row[0]
             clusters.setdefault(document_id, []).append(index)
         method = "paired percentile cluster bootstrap over documents"
