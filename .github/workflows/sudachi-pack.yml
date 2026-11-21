@@ -218,6 +218,10 @@ jobs:
               "candidate_survival_diagnostic",
               "candidate_survival_by_domain",
               "candidate_survival_by_reading_length",
+              "surge_vs_morphology_by_domain",
+              "surge_vs_morphology_by_reading_length",
+              "surge_bottleneck_by_domain",
+              "surge_bottleneck_by_reading_length",
           }
           missing = sorted(required - report.keys())
           if missing:
@@ -254,6 +258,20 @@ jobs:
               if grouped_total != overall["gold_tokens"]:
                   raise SystemExit(f"{field}: group total {grouped_total} != overall {overall['gold_tokens']}")
           print("stratified_candidate_survival_diagnostics=validated")
+          for field in ("surge_bottleneck_by_domain", "surge_bottleneck_by_reading_length"):
+              groups = report[field]
+              if not isinstance(groups, dict) or not groups:
+                  raise SystemExit(f"{field}: expected non-empty quality-linked bottleneck report")
+              for label, group in groups.items():
+                  if group.get("dominant_loss_stage") not in (
+                      "lattice_missing", "shortlist_drop", "expansion_drop",
+                      "trace_censored", "beam_pruning_drop", "final_selection_drop", "none"
+                  ):
+                      raise SystemExit(f"{field}[{label}]: invalid dominant loss stage")
+                  rates = group.get("loss_stage_rates_pct", {})
+                  if len(rates) != 7 or abs(sum(rates.values()) - 100.0) > 0.01:
+                      raise SystemExit(f"{field}[{label}]: loss stage rates do not sum to 100 percent")
+          print("quality_linked_candidate_bottleneck_diagnostics=validated")
           PY
           cat "$RUNNER_TEMP/sequential-runtime-time.log"
           python tools/check_memory_budget.py --log "$RUNNER_TEMP/sequential-runtime-time.log" --max-rss-mib 1792
