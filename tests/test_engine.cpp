@@ -188,6 +188,25 @@ int main(){
  assert(generated.size()==2&&generated[0].start==0&&generated[0].end==2);
  assert(generated[1].start==1&&generated[1].end==2&&generated[1].candidates[0].surface=="め");
  assert(generated[0].candidates.size()==2);
+ // High-cardinality trie terminals retain the same stable, surface-diverse
+ // top-eight shortlist while materializing only those eight candidates.
+ const auto shortlist_tsv=std::filesystem::temp_directory_path()/"kana_decoder_shortlist.tsv";
+ {
+  std::ofstream out(shortlist_tsv);
+  out<<"かな\\t重複\\t\\t名詞\\tfeature\\tdup-first\\t100\\t0\\t0\\t0\\t\\t\\n";
+  for(int i=0;i<8;++i)
+   out<<"かな\\t候補"<<i<<"\\t\\t名詞\\tfeature\\tid"<<i<<"\\t"<<i<<"\\t0\\t0\\t0\\t\\t\\n";
+  out<<"かな\\t重複\\t\\t名詞\\tfeature\\tdup-late\\t-1\\t0\\t0\\t0\\t\\t\\n";
+ }
+ LexiconTrie shortlist_trie;
+ assert(shortlist_trie.load_tsv(shortlist_tsv.string()));
+ std::filesystem::remove(shortlist_tsv);
+ const auto shortlist=shortlist_trie.build_lattice("かな",16,false);
+ assert(shortlist.size()==1&&shortlist.front().candidates.size()==8);
+ assert(shortlist.front().candidates.front().surface=="重複");
+ assert(shortlist.front().candidates.front().id=="dup-late");
+ for(std::size_t i=1;i<shortlist.front().candidates.size();++i)
+  assert(shortlist.front().candidates[i-1].word_cost<=shortlist.front().candidates[i].word_cost);
  auto generated_paths=decode_reading("あめ",trie,lattice_scorer,dop);
  assert(!generated_paths.empty()&&generated_paths[0].tokens.size()==1);
  CorrectionOptions integrated_correction;integrated_correction.minimum_improvement=1.0;integrated_correction.minimum_score=-1000000000.0;
