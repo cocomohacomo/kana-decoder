@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <map>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -86,14 +87,19 @@ struct CandidateScoreTrace {
  std::int32_t word_cost=0,candidate_connection_cost=0,transition_cost=0;
  double raw_context_score=0.0,context_evidence_score=0.0,context_weight=1.0,morphology_score=0.0,weighted_context_score=0.0,local_score=0.0;
  bool unknown_fallback=false;
+ // True when the expanded state survives pruning at its destination beam.
+ bool beam_survived=false;
 };
 struct LatticeMatchTrace {
  std::size_t start=0,end=0;
+ std::size_t available_candidate_count=0,retained_candidate_count=0,unique_surface_count=0;
  std::vector<LatticeCandidate> candidates;
 };
 struct LatticePositionTrace {
  std::size_t start=0;
  std::size_t dictionary_match_count=0;
+ std::size_t available_dictionary_match_count=0,pruned_dictionary_match_count=0;
+ std::size_t available_candidate_count=0,retained_candidate_count=0,pruned_candidate_count=0;
  bool fallback_enabled=false;
  bool fallback_generated=false;
  bool fallback_suppressed_by_dictionary=false;
@@ -130,6 +136,8 @@ struct DecoderOptions {
  const SurgeClusterModel* surge_cluster_model=nullptr;
  double surge_cluster_weight=1.0;
  double surge_context_margin=0.5;
+ // Disable only for controlled A/B evaluation against score-only beam pruning.
+ bool preserve_rendered_surface_diversity=true;
  // Deterministic per-decode resource ceilings. Exceeding a ceiling rejects
  // the decode rather than returning a silently truncated/low-quality result.
  std::size_t max_input_codepoints=256;
@@ -137,6 +145,17 @@ struct DecoderOptions {
  std::size_t max_lattice_candidates=32768;
  std::size_t max_expanded_states=262144;
  std::size_t max_trace_records=4096;
+};
+
+struct TrieStorageStats {
+ std::size_t frozen_node_capacity_bytes=0;
+ std::size_t edge_arena_capacity_bytes=0;
+ std::size_t candidate_arena_capacity_bytes=0;
+ std::size_t builder_node_capacity_bytes=0;
+ std::size_t builder_edge_capacity_bytes=0;
+ std::size_t builder_candidate_capacity_bytes=0;
+ std::size_t string_pool_capacity_bytes=0;
+ std::size_t estimated_bytes=0;
 };
 
 class LexiconTrie {
@@ -151,10 +170,56 @@ public:
  std::size_t size() const { return entry_count_; }
  void build_candidate_pos_index();
  std::string candidate_pos(const std::string& candidate_id) const;
+ // Exact dictionary membership before bounded lattice shortlist retention.
+ bool contains_surface(const std::string& reading,const std::string& surface) const;
+ // Read-only diagnostics for validating compact dictionary storage.
+ std::size_t candidate_string_pool_bytes() const { return candidate_string_pool_.size(); }
+ std::size_t interned_metadata_string_count() const { return interned_metadata_strings_.size(); }
+ std::size_t candidate_pos_index_size() const { return candidate_pos_index_.size(); }
+ TrieStorageStats storage_stats() const {
+  TrieStorageStats stats;
+  stats.frozen_node_capacity_bytes=nodes_.capacity()*sizeof(Node);
+  stats.edge_arena_capacity_bytes=edge_arena_.capacity()*sizeof(edge_arena_[0]);
+  stats.candidate_arena_capacity_bytes=candidate_arena_.capacity()*sizeof(CompactCandidate);
+  stats.builder_node_capacity_bytes=build_nodes_.capacity()*sizeof(BuildNode);
+  for(const auto& node:build_nodes_){
+   stats.builder_edge_capacity_bytes+=node.next.capacity()*sizeof(node.next[0]);
+   stats.builder_candidate_capacity_bytes+=node.values.capacity()*sizeof(CompactCandidate);
+  }
+  stats.string_pool_capacity_bytes=candidate_string_pool_.capacity();
+  stats.estimated_bytes=stats.frozen_node_capacity_bytes+stats.edge_arena_capacity_bytes+
+   stats.candidate_arena_capacity_bytes+stats.builder_node_capacity_bytes+
+   stats.builder_edge_capacity_bytes+stats.builder_candidate_capacity_bytes+
+   stats.string_pool_capacity_bytes;
+  return stats;
+ }
 private:
- struct Node { std::unordered_map<std::string,std::size_t> next; std::vector<LatticeCandidate> values; };
- std::unordered_map<std::string,std::string> candidate_pos_;
+ struct CompactString { std::uint32_t offset=0, size=0; };
+ struct CompactCandidate {
+  CompactString id, surface, pos, inflection_type, inflection_form;
+  std::int32_t word_cost=0, connection_cost=0, left_id=0, right_id=0;
+ };
+ struct PosIndexEntry { CompactString id, pos; };
+ struct Node { std::uint32_t edge_offset=0, edge_count=0, candidate_offset=0, candidate_count=0; };
+ struct BuildNode { std::vector<std::pair<std::uint32_t,std::uint32_t>> next; std::vector<CompactCandidate> values; };
+ std::vector<PosIndexEntry> candidate_pos_index_;
+ // POS and inflection labels have a small repeated vocabulary. Keep one pool
+ // copy per distinct metadata value instead of one copy per candidate.
+ std::unordered_map<std::string,CompactString> interned_metadata_strings_;
+ std::string candidate_string_pool_;
  std::vector<Node> nodes_{1};
+ std::vector<BuildNode> build_nodes_{1};
+ CompactString store_candidate_string(const std::string& value);
+ CompactString store_metadata_string(const std::string& value);
+ std::string_view candidate_string(CompactString value) const;
+ LatticeCandidate materialize_candidate(const CompactCandidate& value) const;
+ std::vector<std::pair<std::uint32_t,std::uint32_t>> edge_arena_;
+ std::vector<CompactCandidate> candidate_arena_;
+ bool edges_compacted_=false, candidates_compacted_=false;
+ void compact_edges();
+ void expand_edges();
+ void compact_candidates();
+ void expand_candidates();
  std::size_t entry_count_=0;
 };
 

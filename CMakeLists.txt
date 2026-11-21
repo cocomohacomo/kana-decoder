@@ -7,6 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # SURGE is the sole context cognition and decision runtime. The vendored
 # upstream Core keeps the complete application offline and reproducible.
 add_subdirectory(third_party/surge)
+find_package(ZLIB REQUIRED)
 add_library(kana_decoder_ja_language_set OBJECT
   language_sets/ja-JP/decoder.cpp
   language_sets/ja-JP/morphology_decoder.cpp
@@ -20,15 +21,16 @@ add_library(kana_decoder_ja_language_set OBJECT
 target_include_directories(kana_decoder_ja_language_set PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(kana_decoder_ja_language_set PRIVATE ZLIB::ZLIB)
 set_target_properties(kana_decoder_ja_language_set PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_compile_options(kana_decoder_ja_language_set PRIVATE -Wall -Wextra -Wpedantic -Werror)
 add_library(kana_decoder_core src/engine.cpp $<TARGET_OBJECTS:kana_decoder_ja_language_set> src/streaming_session.cpp src/c_api.cpp src/pack_manifest.cpp src/language_pack.cpp src/surge_runtime.cpp)
 target_include_directories(kana_decoder_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(kana_decoder_core PUBLIC surge_core)
+target_link_libraries(kana_decoder_core PUBLIC surge_core ZLIB::ZLIB)
 target_compile_options(kana_decoder_core PRIVATE -Wall -Wextra -Wpedantic -Werror)
 add_library(kana_decoder_shared SHARED src/engine.cpp $<TARGET_OBJECTS:kana_decoder_ja_language_set>    src/streaming_session.cpp  src/c_api.cpp src/pack_manifest.cpp src/language_pack.cpp src/surge_runtime.cpp)
 target_include_directories(kana_decoder_shared PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(kana_decoder_shared PRIVATE surge_core)
+target_link_libraries(kana_decoder_shared PRIVATE surge_core ZLIB::ZLIB)
 target_compile_options(kana_decoder_shared PRIVATE -Wall -Wextra -Wpedantic -Werror)
 set_target_properties(kana_decoder_shared PROPERTIES OUTPUT_NAME kana_decoder)
 # Release builds define NDEBUG. Keep C/C++ conformance assertions active so
@@ -87,6 +89,8 @@ if(Python3_Interpreter_FOUND)
  add_test(NAME context_corpus_preparation_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_prepare_context_corpus.py)
  add_test(NAME ablation_evaluation_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_evaluate_ablation.py)
  add_test(NAME ud_gsd_corpus_adapter_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_prepare_ud_gsd_corpus.py)
+ add_test(NAME beam_ab_evaluation_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_evaluate_beam_ab.py)
+ add_test(NAME beam_ab_cli_smoke COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/evaluate_beam_ab.py --evaluator $<TARGET_FILE:kana_decoder_eval> --pack ${CMAKE_CURRENT_SOURCE_DIR}/packs/ja-lite --prepared-corpus ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/beam-ab-smoke-prepared.tsv --split test --bootstrap-samples 50 --bootstrap-seed 7 --output ${CMAKE_CURRENT_BINARY_DIR}/beam-ab-smoke.json)
  add_test(NAME context_corpus_ablation_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_evaluate_context_ablation.py)
  add_test(NAME sequential_decoder_evaluator_tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_evaluate_sequential_decoder.py $<TARGET_FILE:kana_decoder_sequential_eval> ${CMAKE_CURRENT_SOURCE_DIR}/packs/ja-lite)
 endif()

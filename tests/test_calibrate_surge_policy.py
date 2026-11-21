@@ -39,6 +39,7 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
                 "'surge_core':{'cer':cer,'sentence_exact':exact,'overrides':2,"
                 "'deferred':1,'runtime_failures':0,'decode_failures':0,'fallback_to_decoder_top1':1,'selected_outputs':9,'typed_entities_found':3,'typed_entity_evidence_added':2,'selected_typed_entity_evidence':1,'typed_entities_persisted':3},"
                 "'elapsed_seconds':0.2,'peak_rss_kib':1000,\n"
+                "'lattice_pruning':{'matches_available':20,'matches_retained':16,'matches_pruned':4,'candidates_available':100,'candidates_retained':80,'candidates_pruned':20},\n"
                 "'candidate_generation':{'mean_paths':4.0,'surface_exact_recall_at_1':0.2,\n"
                 "'surface_exact_recall_at_5':0.4,'surface_exact_recall_at_10':0.5,\n"
                 "'oracle_cer_at_5':0.3,'oracle_cer_at_10':0.25,'surge_exact_given_candidate_at_10':0.6},"
@@ -79,12 +80,14 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
             )
             result = json.loads(report.read_text(encoding="utf-8"))
             self.assertEqual(result["split"], "dev")
-            self.assertEqual(len(result["candidates"]), 11)
+            self.assertEqual(len(result["candidates"]), 14)
             self.assertEqual(
                 result["source_lock_sha256"],
                 hashlib.sha256(lock.read_bytes()).hexdigest(),
             )
             self.assertEqual(result["best_policy"]["name"], "typed_entity_strong")
+            margins = {row["minimum_recognition_margin"] for row in result["candidates"]}
+            self.assertTrue({0.25, 0.5, 1.0, 1.5, 2.0, 3.0}.issubset(margins))
             self.assertTrue(policy.is_file())
             self.assertIn("typed_entity\t1.5", policy.read_text(encoding="utf-8"))
             self.assertEqual(result["best_policy"]["typed_entities_found"], 3)
@@ -103,6 +106,10 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
     def test_diagnostic_partitions_fail_closed(self):
         metrics = {
             "cases": 10,
+            "lattice_pruning": {
+                "matches_available": 20, "matches_retained": 16, "matches_pruned": 4,
+                "candidates_available": 100, "candidates_retained": 80, "candidates_pruned": 20,
+            },
             "candidate_generation": {
                 "surface_exact_recall_at_1": 0.2,
                 "surface_exact_recall_at_5": 0.4,
@@ -131,6 +138,10 @@ class SurgePolicyCalibrationTests(unittest.TestCase):
             },
         }
         _calibrator.validate_diagnostic_metrics(metrics)
+        metrics["lattice_pruning"]["candidates_pruned"] = 19
+        with self.assertRaisesRegex(RuntimeError, "lattice candidate pruning"):
+            _calibrator.validate_diagnostic_metrics(metrics)
+        metrics["lattice_pruning"]["candidates_pruned"] = 20
         metrics["candidate_error_classification"]["missing_candidate"] = 4
         with self.assertRaisesRegex(RuntimeError, "do not partition"):
             _calibrator.validate_diagnostic_metrics(metrics)

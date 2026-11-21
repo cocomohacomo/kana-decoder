@@ -6,7 +6,7 @@ concurrency:
 
 on:
   push:
-    branches: [main, refactor/surge-core-as-runtime]
+    branches: [main, refactor/surge-core-as-runtime, work/candidate-recall-diversity-v066]
     paths:
       - ".github/workflows/sudachi-pack.yml"
       - "licenses/sudachidict-small-20260723-source-lock.json"
@@ -60,6 +60,16 @@ on:
       - "tests/test_evaluate_ablation.py"
       - "tests/test_prepare_ud_gsd_corpus.py"
       - "tests/test_evaluate_context_ablation.py"
+  pull_request:
+    paths:
+      - ".github/workflows/sudachi-pack.yml"
+      - "tools/evaluate_sequential_corpus.cpp"
+      - "tests/test_evaluate_sequential_decoder.py"
+      - "tools/prepare_ud_gsd_corpus.py"
+      - "tools/build_sudachi_pack.py"
+      - "tools/fetch_sudachi_source.py"
+      - "licenses/ud-japanese-gsd-source-lock.json"
+      - "licenses/sudachidict-small-20260723-source-lock.json"
   workflow_dispatch:
     inputs:
       max_expanded_gib:
@@ -187,9 +197,62 @@ jobs:
             dev-calibrate "$RUNNER_TEMP/surge-calibration.tsv" "$RUNNER_TEMP/surge-cluster-model.tsv" \
             > "$RUNNER_TEMP/surge-dev-calibration.json"
           cat "$RUNNER_TEMP/surge-dev-calibration.json"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          report = json.loads((Path(os.environ["RUNNER_TEMP"]) / "surge-dev-calibration.json").read_text(encoding="utf-8"))
+          if report.get("split") != "dev":
+              raise SystemExit("SURGE component ablations must use the dev split")
+          if report.get("dev_ablation_scope") != "development_only_diagnostic_not_selection":
+              raise SystemExit("missing development-only ablation scope marker")
+          for field in ("dev_ablation_left_context_only",
+                        "dev_ablation_pos_context_only",
+                        "dev_ablation_selected_policy"):
+              metrics = report.get(field)
+              if not isinstance(metrics, dict) or metrics.get("cases", 0) <= 0:
+                  raise SystemExit(f"{field}: missing development ablation metrics")
+          if report["dev_ablation_left_context_only"]["cases"] != report["morphology_only"]["cases"]:
+              raise SystemExit("left-context ablation case count mismatch")
+          if report["dev_ablation_pos_context_only"]["cases"] != report["morphology_only"]["cases"]:
+              raise SystemExit("POS-context ablation case count mismatch")
+          cluster_ablation = report.get("dev_ablation_cluster_only")
+          if not isinstance(cluster_ablation, dict) or cluster_ablation.get("cases") != report["morphology_only"]["cases"]:
+              raise SystemExit("cluster-only development ablation missing or has inconsistent cases")
+          print("development_only_component_ablations=validated")
+          PY
           cat "$RUNNER_TEMP/surge-calibration.tsv"
           cat "$RUNNER_TEMP/surge-calibration-time.log"
           python tools/check_memory_budget.py --log "$RUNNER_TEMP/surge-calibration-time.log" --max-rss-mib 1792
+          /usr/bin/time -v -o "$RUNNER_TEMP/sequential-dev-diagnostic-time.log" \
+            "$RUNNER_TEMP/kana-runtime-build/kana_decoder_sequential_eval" \
+            "$RUNNER_TEMP/ja-jp-sudachi-small" \
+            "$RUNNER_TEMP/context-corpus/compiled/train_sequences.tsv" \
+            "$RUNNER_TEMP/context-corpus/tokenized.tsv" \
+            dev-diagnostic "$RUNNER_TEMP/surge-calibration.tsv" "$RUNNER_TEMP/surge-cluster-model.tsv" \
+            > "$RUNNER_TEMP/sequential-dev-diagnostic.json"
+          cat "$RUNNER_TEMP/sequential-dev-diagnostic.json"
+          cat "$RUNNER_TEMP/sequential-dev-diagnostic-time.log"
+          python tools/check_memory_budget.py --log "$RUNNER_TEMP/sequential-dev-diagnostic-time.log" --max-rss-mib 1792
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          report = json.loads((Path(os.environ["RUNNER_TEMP"]) / "sequential-dev-diagnostic.json").read_text(encoding="utf-8"))
+          if report.get("split") != "dev" or report.get("gold_token_boundaries_used_for_decoding") is not False:
+              raise SystemExit("candidate survival diagnostic must be causal and development-only")
+          survival = report.get("candidate_survival_diagnostic", {})
+          outcomes = ("lattice_missing", "span_selection_drop", "shortlist_drop",
+                      "expansion_drop", "trace_censored", "beam_pruning_drop",
+                      "final_selection_drop", "final_selected")
+          if survival.get("gold_tokens", 0) <= 0 or survival.get("unclassified_gold_tokens") != 0:
+              raise SystemExit("development candidate survival report is incomplete")
+          if sum(survival.get(key, 0) for key in outcomes) != survival.get("gold_tokens"):
+              raise SystemExit("development candidate loss stages do not partition gold tokens")
+          if len(survival.get("loss_stage_rates_pct", {})) != 8:
+              raise SystemExit("development candidate loss rates are incomplete")
+          print("development_candidate_survival_diagnostics=validated")
+          PY
           /usr/bin/time -v -o "$RUNNER_TEMP/sequential-runtime-time.log" \
             "$RUNNER_TEMP/kana-runtime-build/kana_decoder_sequential_eval" \
             "$RUNNER_TEMP/ja-jp-sudachi-small" \
@@ -198,6 +261,109 @@ jobs:
             test "$RUNNER_TEMP/surge-calibration.tsv" "$RUNNER_TEMP/surge-cluster-model.tsv" \
             > "$RUNNER_TEMP/sequential-decoder-evaluation.json"
           cat "$RUNNER_TEMP/sequential-decoder-evaluation.json"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          report = json.loads((Path(os.environ["RUNNER_TEMP"]) / "sequential-decoder-evaluation.json").read_text(encoding="utf-8"))
+          required = {
+              "candidate_survival_diagnostic",
+              "candidate_survival_by_domain",
+              "candidate_survival_by_reading_length",
+              "surge_vs_morphology_by_domain",
+              "surge_vs_morphology_by_reading_length",
+              "surge_bottleneck_by_domain",
+              "surge_bottleneck_by_reading_length",
+          }
+          missing = sorted(required - report.keys())
+          if missing:
+              raise SystemExit(f"sequential evaluator omitted stratified diagnostics: {missing}")
+
+          overall = report["candidate_survival_diagnostic"]
+          outcome_keys = (
+              "lattice_missing",
+              "span_selection_drop",
+              "shortlist_drop",
+              "expansion_drop",
+              "trace_censored",
+              "beam_pruning_drop",
+              "final_selection_drop",
+              "final_selected",
+          )
+
+          def validate_group(label, group):
+              if group.get("classified_gold_tokens") != group.get("gold_tokens"):
+                  raise SystemExit(f"{label}: classified_gold_tokens != gold_tokens: {group}")
+              if group.get("unclassified_gold_tokens") != 0:
+                  raise SystemExit(f"{label}: unclassified_gold_tokens != 0: {group}")
+              classified = sum(group.get(key, 0) for key in outcome_keys)
+              if classified != group.get("gold_tokens"):
+                  raise SystemExit(f"{label}: mutually exclusive outcomes do not partition gold tokens: {group}")
+
+          validate_group("overall", overall)
+          for field in ("candidate_survival_by_domain", "candidate_survival_by_reading_length"):
+              groups = report[field]
+              if not isinstance(groups, dict) or not groups:
+                  raise SystemExit(f"{field}: expected non-empty grouped diagnostics")
+              for label, group in groups.items():
+                  validate_group(f"{field}[{label}]", group)
+              grouped_total = sum(group["gold_tokens"] for group in groups.values())
+              if grouped_total != overall["gold_tokens"]:
+                  raise SystemExit(f"{field}: group total {grouped_total} != overall {overall['gold_tokens']}")
+          print("stratified_candidate_survival_diagnostics=validated")
+          for field in ("surge_bottleneck_by_domain", "surge_bottleneck_by_reading_length"):
+              groups = report[field]
+              if not isinstance(groups, dict) or not groups:
+                  raise SystemExit(f"{field}: expected non-empty quality-linked bottleneck report")
+              for label, group in groups.items():
+                  if group.get("dominant_loss_stage") not in (
+                      "lattice_missing", "span_selection_drop", "shortlist_drop", "expansion_drop",
+                      "trace_censored", "beam_pruning_drop", "final_selection_drop", "none"
+                  ):
+                      raise SystemExit(f"{field}[{label}]: invalid dominant loss stage")
+                  rates = group.get("loss_stage_rates_pct", {})
+                  if len(rates) != 8 or abs(sum(rates.values()) - 100.0) > 0.01:
+                      raise SystemExit(f"{field}[{label}]: loss stage rates do not sum to 100 percent")
+          print("quality_linked_candidate_bottleneck_diagnostics=validated")
+
+          outcome_keys = (
+              "cer_improved_exact_improved", "cer_improved_exact_tied",
+              "cer_improved_exact_regressed", "cer_tied_exact_improved",
+              "cer_tied_exact_tied", "cer_tied_exact_regressed",
+              "cer_regressed_exact_improved", "cer_regressed_exact_tied",
+              "cer_regressed_exact_regressed",
+          )
+          overall_outcomes = report.get("surge_paired_sentence_outcomes", {}).get("all")
+          if not isinstance(overall_outcomes, dict):
+              raise SystemExit("missing overall paired sentence outcome diagnostics")
+          def validate_outcome_group(label, group):
+              outcomes = group.get("outcomes", {})
+              if set(outcomes) != set(outcome_keys):
+                  raise SystemExit(f"{label}: paired outcome labels are incomplete")
+              if sum(outcomes.values()) != group.get("cases"):
+                  raise SystemExit(f"{label}: paired outcomes do not partition cases")
+          validate_outcome_group("overall", overall_outcomes)
+          surge_metrics = report["surge_evidence_gated_left_context"]
+          eligible_cases = surge_metrics["cases"] - surge_metrics["over_limit_sentences"]
+          if overall_outcomes["cases"] != eligible_cases:
+              raise SystemExit("overall paired outcomes do not match eligible SURGE cases")
+          for field in (
+              "surge_paired_sentence_outcomes_by_domain",
+              "surge_paired_sentence_outcomes_by_reading_length",
+          ):
+              groups = report.get(field)
+              if not isinstance(groups, dict) or not groups:
+                  raise SystemExit(f"{field}: expected non-empty paired outcome groups")
+              for label, group in groups.items():
+                  validate_outcome_group(f"{field}[{label}]", group)
+              grouped_cases = sum(group["cases"] for group in groups.values())
+              if field.endswith("_by_domain") and grouped_cases != overall_outcomes["cases"]:
+                  raise SystemExit(f"{field}: groups do not cover all eligible cases")
+              if field.endswith("_by_reading_length") and grouped_cases > overall_outcomes["cases"]:
+                  raise SystemExit(f"{field}: groups exceed eligible cases")
+          print("paired_sentence_outcomes=validated")
+          PY
           cat "$RUNNER_TEMP/sequential-runtime-time.log"
           python tools/check_memory_budget.py --log "$RUNNER_TEMP/sequential-runtime-time.log" --max-rss-mib 1792
           python - <<'PY'
@@ -295,5 +461,7 @@ jobs:
             ${{ runner.temp }}/surge-runtime-dev-calibration.json
             ${{ runner.temp }}/surge-runtime-test-evaluation.json
             ${{ runner.temp }}/surge-runtime-test-time.log
+            ${{ runner.temp }}/sequential-dev-diagnostic.json
+            ${{ runner.temp }}/sequential-dev-diagnostic-time.log
           if-no-files-found: error
           retention-days: 30

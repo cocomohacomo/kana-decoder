@@ -3,6 +3,73 @@
 #include <cstdint>
 #include <cmath>
 #include <limits>
+#include <string_view>
+#include <unordered_map>
+namespace {
+std::int64_t candidate_cost(const kana_decoder::LatticeCandidate& c){return static_cast<std::int64_t>(c.word_cost)+c.connection_cost;}
+std::vector<const kana_decoder::LatticeCandidate*> retain_surface_diverse(const std::vector<kana_decoder::LatticeCandidate>& source,std::size_t limit){
+ std::vector<const kana_decoder::LatticeCandidate*> selected;selected.reserve(std::min(limit,source.size()));
+ auto insert_ordered=[&](const kana_decoder::LatticeCandidate* candidate){
+  const auto cost=candidate_cost(*candidate);
+  const auto where=std::upper_bound(selected.begin(),selected.end(),cost,
+   [](std::int64_t value,const auto* item){return value<candidate_cost(*item);});
+  selected.insert(where,candidate);
+ };
+ for(const auto& candidate:source){
+  const auto* ptr=&candidate;
+  auto same=std::find_if(selected.begin(),selected.end(),[&](const auto* item){return item->surface==candidate.surface;});
+  if(same!=selected.end()){
+   if(candidate_cost(candidate)<candidate_cost(**same)){
+    selected.erase(same);
+    insert_ordered(ptr);
+   }
+   continue;
+  }
+  if(selected.size()<limit)insert_ordered(ptr);
+  else if(limit&&candidate_cost(candidate)<candidate_cost(*selected.back())){
+   selected.pop_back();
+   insert_ordered(ptr);
+  }
+ }
+ if(selected.size()<limit)for(const auto& candidate:source){
+  if(selected.size()>=limit)break;
+  const auto* ptr=&candidate;
+  if(std::find(selected.begin(),selected.end(),ptr)!=selected.end())continue;
+  insert_ordered(ptr);
+ }
+ return selected;
+}
+template<class LeftPath,class RightPath>
+bool same_rendered_surface(const LeftPath& left,const RightPath& right){
+ std::size_t left_token=0,right_token=0,left_offset=0,right_offset=0;
+ auto next_character=[](const auto& path,std::size_t& token,std::size_t& offset,char& value){
+  while(token<path.tokens.size()){
+   const auto& surface=path.tokens[token].candidate.surface;
+   if(offset<surface.size()){value=surface[offset++];return true;}
+   ++token;offset=0;
+  }
+  return false;
+ };
+ for(;;){
+  char left_char=0,right_char=0;
+  const bool has_left=next_character(left,left_token,left_offset,left_char);
+  const bool has_right=next_character(right,right_token,right_offset,right_char);
+  if(has_left!=has_right)return false;
+  if(!has_left)return true;
+  if(left_char!=right_char)return false;
+ }
+}
+template<class State>
+bool same_beam_context(const State& left,const State& right){
+ return same_rendered_surface(left.path,right.path)&&
+  (left.has_last?left.last_right_id:0)==(right.has_last?right.last_right_id:0)&&
+  left.history==right.history&&left.pos_history==right.pos_history;
+}
+std::vector<const kana_decoder::LatticeEdge*> retain_span_diverse(std::vector<const kana_decoder::LatticeEdge*> edges,std::size_t limit){
+ std::stable_sort(edges.begin(),edges.end(),[](const auto* a,const auto* b){return a->end<b->end;});if(edges.size()<=limit)return edges;
+ std::vector<const kana_decoder::LatticeEdge*> out;out.reserve(limit);if(limit==1){out.push_back(edges.back());return out;}for(std::size_t i=0;i<limit;++i)out.push_back(edges[i*(edges.size()-1)/(limit-1)]);return out;
+}
+}
 namespace kana_decoder {
 std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  const std::vector<LatticeEdge>& lattice,const MaskedNgramScorer& scorer,
@@ -49,38 +116,56 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
   if(edge.start>=edge.end||edge.end>length||edge.candidates.empty())continue;
   at[edge.start].push_back(&edge);
  }
- struct State { DecodedPath path; std::vector<std::string> history; std::vector<std::string> pos_history; std::int32_t last_right_id=0; bool has_last=false; };
+ struct State { DecodedPath path; std::vector<std::string> history; std::vector<std::string> pos_history; std::int32_t last_right_id=0; bool has_last=false; std::size_t trace_index=std::numeric_limits<std::size_t>::max(); };
  std::vector<std::vector<State>> beams(length+1);
+ std::vector<std::vector<std::size_t>> trace_indices_by_end(length+1);
  beams[0].push_back(State{});
- auto prune=[&](std::vector<State>& states){
+ auto prune=[&](std::vector<State>& states,bool continuation_needed,std::size_t position){
+  if(trace){for(const auto index:trace_indices_by_end[position])if(index<trace->size())(*trace)[index].beam_survived=false;}
   std::stable_sort(states.begin(),states.end(),[](const State&a,const State&b){return a.path.score>b.path.score;});
-  if(states.size()>beam_limit)states.resize(beam_limit);
+  auto mark_survivors=[&](){if(trace){for(const auto& state:states)if(state.trace_index<trace->size())(*trace)[state.trace_index].beam_survived=true;}};
+  if(states.size()<=beam_limit){mark_survivors();return;}
+  if(!opt.preserve_rendered_surface_diversity){
+   states.resize(beam_limit);
+   mark_survivors();
+   return;
+  }
+  // Preserve distinct rendered outputs at the final position. At intermediate
+  // positions, distinguish continuation contexts so future transitions retain
+  // their state. This avoids sacrificing final surface diversity to redundant
+  // internal histories.
+  std::vector<std::size_t> retained_indices;
+  retained_indices.reserve(beam_limit);
+  // Beam width is hard-capped at eight. Linear exact comparison is cheaper
+  // than allocating and hashing a serialized identity for every state.
+  std::vector<bool> retained(states.size(),false);
+  for(std::size_t i=0;i<states.size()&&retained_indices.size()<beam_limit;++i){
+   bool duplicate=false;
+   for(const auto kept:retained_indices){
+    const bool same=continuation_needed
+      ? same_beam_context(states[i],states[kept])
+      : same_rendered_surface(states[i].path,states[kept].path);
+    if(same){duplicate=true;break;}
+   }
+   if(!duplicate){
+    retained_indices.push_back(i);
+    retained[i]=true;
+   }
+  }
+  for(std::size_t i=0;i<states.size()&&retained_indices.size()<beam_limit;++i){
+   if(!retained[i])retained_indices.push_back(i);
+  }
+  std::vector<State> diverse;
+  diverse.reserve(beam_limit);
+  for(const auto index:retained_indices)diverse.push_back(std::move(states[index]));
+  states.swap(diverse);
+  mark_survivors();
  };
  for(std::size_t pos=0;pos<length;++pos){
   if(beams[pos].empty())continue;
-  auto edges=at[pos];
-  std::stable_sort(edges.begin(),edges.end(),[](const LatticeEdge*a,const LatticeEdge*b){
-   if(a->end!=b->end)return a->end<b->end;
-   return a->candidates.size()<b->candidates.size();
-  });
-  if(edges.size()>edge_limit)edges.resize(edge_limit);
+  auto edges=retain_span_diverse(at[pos],edge_limit);
   for(const auto* edge:edges){
-   std::vector<const LatticeCandidate*> candidates;
-   candidates.reserve(std::min(candidate_limit,edge->candidates.size()));
-   auto less_cost=[](const LatticeCandidate* a,const LatticeCandidate* b){
-    return static_cast<std::int64_t>(a->word_cost)+a->connection_cost<
-           static_cast<std::int64_t>(b->word_cost)+b->connection_cost;
-   };
-   for(const auto& candidate:edge->candidates){
-    const auto* candidate_ptr=&candidate;
-    auto where=std::find_if(candidates.begin(),candidates.end(),
-     [&](const LatticeCandidate* current){return less_cost(candidate_ptr,current);});
-    if(candidates.size()<candidate_limit)candidates.insert(where,candidate_ptr);
-    else if(where!=candidates.end()){
-     candidates.insert(where,candidate_ptr);
-     candidates.pop_back();
-    }
-   }
+   std::vector<const LatticeCandidate*> candidates=retain_surface_diverse(edge->candidates,candidate_limit);
    const auto morphology_candidates=candidates;
    for(const auto& state:beams[pos]){
     candidates=morphology_candidates;
@@ -88,26 +173,66 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     std::string cluster_winner;
     double cluster_gap=0.0;
     double cluster_override_bonus=0.0;
-    std::vector<std::pair<const LatticeCandidate*,double>> supported;
+    std::vector<std::pair<const LatticeCandidate*,double>> selected_supported_scores;
     if(opt.surge_cluster_model&&!state.history.empty()){
-     struct SurfaceScore { std::string surface; double score; };
+     // Candidate surfaces are owned by the immutable edge for this decode.
+     // Keep non-owning views in both containers to avoid duplicating every
+     // distinct surface while aggregating evidence for the current beam state.
+     struct SurfaceScore { std::string_view surface; double score; };
      std::vector<SurfaceScore> surface_scores;
+     std::unordered_map<std::string_view,std::size_t> surface_score_indices;
+     // Only a bounded prefix of supported candidates is needed: the expansion
+     // starts with at most four morphology candidates and can add at most
+     // candidate_limit more. Keep enough top evidence candidates to fill it
+     // even when every seeded candidate is already present in the evidence list.
+     std::vector<std::pair<const LatticeCandidate*,double>> supported_top;
+     const std::size_t seed_count=std::min<std::size_t>(4,candidates.size());
+     const std::size_t supported_limit=candidate_limit+seed_count;
+     // Preserve scores for morphology seeds even when they fall below the
+     // bounded evidence shortlist. Both stores are strictly size-limited.
+     std::vector<std::pair<const LatticeCandidate*,double>> seed_supported_scores;
+     seed_supported_scores.reserve(seed_count);
+     supported_top.reserve(supported_limit);
+     surface_score_indices.reserve(std::min<std::size_t>(edge->candidates.size(),256));
      for(const auto& candidate:edge->candidates){
       bool has=false;
       const double score=opt.surge_cluster_model->evidence_score(candidate.id,state.history,&has);
       if(!has)continue;
-      supported.emplace_back(&candidate,score);
-      auto found=std::find_if(surface_scores.begin(),surface_scores.end(),
-       [&](const SurfaceScore& item){return item.surface==candidate.surface;});
-      if(found==surface_scores.end())surface_scores.push_back({candidate.surface,score});
-      else if(score>found->score)found->score=score;
+      if(std::find(morphology_candidates.begin(),
+                   morphology_candidates.begin()+static_cast<std::ptrdiff_t>(seed_count),
+                   &candidate)!=morphology_candidates.begin()+static_cast<std::ptrdiff_t>(seed_count))
+       seed_supported_scores.emplace_back(&candidate,score);
+      const auto inserted=surface_score_indices.emplace(candidate.surface,surface_scores.size());
+      if(inserted.second)surface_scores.push_back({candidate.surface,score});
+      else {
+       auto& current=surface_scores[inserted.first->second].score;
+       if(score>current)current=score;
+      }
+      if(supported_limit){
+       const auto where=std::find_if(supported_top.begin(),supported_top.end(),
+        [&](const auto& item){return score>item.second;});
+       if(where!=supported_top.end()||supported_top.size()<supported_limit){
+        supported_top.insert(where,{&candidate,score});
+        if(supported_top.size()>supported_limit)supported_top.pop_back();
+       }
+      }
      }
-     std::stable_sort(surface_scores.begin(),surface_scores.end(),
-      [](const SurfaceScore& a,const SurfaceScore& b){return a.score>b.score;});
-     if(surface_scores.size()>=2){
-      cluster_gap=surface_scores[0].score-surface_scores[1].score;
+     // A linear best-two scan avoids sorting every distinct surface. Strict
+     // comparisons preserve the first-seen order for equal evidence scores.
+     std::size_t best_index=surface_scores.size(),second_index=surface_scores.size();
+     for(std::size_t i=0;i<surface_scores.size();++i){
+      if(best_index==surface_scores.size()||
+         surface_scores[i].score>surface_scores[best_index].score){
+       second_index=best_index;best_index=i;
+      }else if(second_index==surface_scores.size()||
+               surface_scores[i].score>surface_scores[second_index].score){
+       second_index=i;
+      }
+     }
+     if(second_index<surface_scores.size()){
+      cluster_gap=surface_scores[best_index].score-surface_scores[second_index].score;
       cluster_resolved=cluster_gap>=opt.surge_cluster_model->gap_threshold();
-      if(cluster_resolved)cluster_winner=surface_scores[0].surface;
+      if(cluster_resolved)cluster_winner=surface_scores[best_index].surface;
      }
      if(cluster_resolved&&opt.surge_cluster_weight>0.0){
       double best_morph=-std::numeric_limits<double>::infinity();
@@ -124,17 +249,31 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
       if(std::isfinite(best_morph)&&std::isfinite(winner_morph))
        cluster_override_bonus=(std::max(0.0,best_morph-winner_morph)+cluster_gap)*opt.surge_cluster_weight;
      }
-     if(!supported.empty()){
-      std::stable_sort(supported.begin(),supported.end(),
-       [](const auto& a,const auto& b){return a.second>b.second;});
+     if(!supported_top.empty()){
       std::vector<const LatticeCandidate*> expanded;
-      for(std::size_t i=0;i<std::min<std::size_t>(4,candidates.size());++i)expanded.push_back(candidates[i]);
-      for(const auto& item:supported){
+      for(std::size_t i=0;i<seed_count;++i)expanded.push_back(candidates[i]);
+      for(const auto& item:supported_top){
        if(expanded.size()>=candidate_limit)break;
        if(std::find(expanded.begin(),expanded.end(),item.first)==expanded.end())
         expanded.push_back(item.first);
       }
       candidates.swap(expanded);
+     }
+     // Reuse scores from the bounded seed/evidence stores. The supported
+     // shortlist has enough capacity for every non-seed candidate needed to
+     // fill the expansion, while the seed store covers any lower-ranked seeds.
+     selected_supported_scores.reserve(candidates.size());
+     for(const auto* candidate:candidates){
+      const auto seed=std::find_if(seed_supported_scores.begin(),seed_supported_scores.end(),
+       [&](const auto& item){return item.first==candidate;});
+      if(seed!=seed_supported_scores.end()){
+       selected_supported_scores.emplace_back(candidate,seed->second);
+       continue;
+      }
+      const auto supported=std::find_if(supported_top.begin(),supported_top.end(),
+       [&](const auto& item){return item.first==candidate;});
+      if(supported!=supported_top.end())
+       selected_supported_scores.emplace_back(candidate,supported->second);
      }
     }
     bool surge_resolved=false;
@@ -183,9 +322,9 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     const double ngram_context=raw_context*opt.context_weight;
     const double cluster_context=(cluster_resolved&&candidate.surface==cluster_winner)
       ? cluster_override_bonus : 0.0;
-    const auto cluster_evidence = std::find_if(supported.begin(), supported.end(),
-      [&](const auto& item) { return item.first == &candidate; });
-    const bool has_cluster_evidence = cluster_evidence != supported.end();
+    const auto cluster_evidence = std::find_if(selected_supported_scores.begin(),selected_supported_scores.end(),
+     [&](const auto& item){return item.first==candidate_ptr;});
+    const bool has_cluster_evidence = cluster_evidence != selected_supported_scores.end();
     const double cluster_raw_evidence = has_cluster_evidence ? cluster_evidence->second : 0.0;
     const bool has_ngram_evidence=scorer.has_left_context_evidence(candidate.id,state.history) ||
       scorer.has_right_context_evidence(candidate.id,right_context);
@@ -196,11 +335,15 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     const double pos_context=pos_raw*opt.pos_context_weight;
     const double ctx=ngram_context+cluster_context+pos_context;
     const double local=morph+ctx;
-    if(trace && trace->size()<trace_limit) trace->push_back(CandidateScoreTrace{
+    if(trace && trace->size()<trace_limit){
+     trace->push_back(CandidateScoreTrace{
       edge->start,edge->end,candidate.id,candidate.surface,
       candidate.word_cost,candidate.connection_cost,transition,
       raw_context,context_evidence,opt.context_weight,morph,ctx,local,
-      candidate.id.rfind("kana:",0)==0});
+      candidate.id.rfind("kana:",0)==0,false});
+     next.trace_index=trace->size()-1;
+     trace_indices_by_end[edge->end].push_back(next.trace_index);
+    }
     next.path.score+=local;
     DecodedToken decoded_token;
     decoded_token.start=edge->start;
@@ -231,7 +374,7 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     beams[edge->end].push_back(std::move(next));
     }
    }
-   prune(beams[edge->end]);
+   prune(beams[edge->end],edge->end<length,edge->end);
   }
  }
  std::vector<DecodedPath> out;

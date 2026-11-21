@@ -49,6 +49,78 @@ int main(){
  assert(paths.front().tokens.size()==2);
  assert(paths.front().tokens[0].candidate.id=="A");
  assert(paths.front().score>paths.back().score);
+ // Intermediate pruning must retain distinct continuation histories even
+ // when their rendered prefix is identical.
+ std::vector<LatticeEdge> same_prefix_lattice{
+  {0,1,{{"HIST_A","同じ",10,0,0,11},{"HIST_B","同じ",10,0,0,22}}},
+  {1,2,{{"TAIL_A","甲",10,0,31,0},{"TAIL_B","乙",10,0,32,0}}}
+ };
+ ConnectionModel history_connections;
+ history_connections.set_cost(11,31,0);
+ history_connections.set_cost(11,32,100);
+ history_connections.set_cost(22,31,100);
+ history_connections.set_cost(22,32,0);
+ DecoderOptions history_options=dop;
+ history_options.beam_width=2;
+ history_options.max_paths=4;
+ history_options.preserve_rendered_surface_diversity=true;
+ auto history_paths=decoder.decode(2,same_prefix_lattice,lattice_scorer,{},
+                                  history_options,&history_connections);
+ assert(history_paths.size()>=2);
+ bool kept_history_a=false,kept_history_b=false;
+ for(const auto& path:history_paths){
+  if(path.tokens.size()!=2)continue;
+  if(path.tokens[0].candidate.id=="HIST_A")kept_history_a=true;
+  if(path.tokens[0].candidate.id=="HIST_B")kept_history_b=true;
+ }
+ assert(kept_history_a&&kept_history_b);
+ // Surface-diverse morphology retention replaces a duplicate surface only
+ // when a strictly cheaper candidate appears, while preserving equal-cost
+ // first-seen order and the configured shortlist bound.
+ std::vector<LatticeEdge> candidate_retention_lattice{
+  {0,1,{{"DUP_EXPENSIVE","同",20,0},
+        {"DISTINCT","別",10,0},
+        {"DUP_CHEAP","同",5,0}}}
+ };
+ DecoderOptions retention_options=dop;
+ retention_options.beam_width=4;
+ retention_options.max_paths=4;
+ retention_options.max_candidates_per_edge=2;
+ auto retained_candidate_paths=decoder.decode(
+     1,candidate_retention_lattice,lattice_scorer,{},retention_options);
+ assert(retained_candidate_paths.size()==2);
+ assert(retained_candidate_paths[0].tokens[0].candidate.id=="DUP_CHEAP");
+ assert(retained_candidate_paths[1].tokens[0].candidate.id=="DISTINCT");
+ std::vector<LatticeEdge> equal_cost_retention_lattice{
+  {0,1,{{"TIE_FIRST","同",10,0},
+        {"TIE_OTHER","別",10,0},
+        {"TIE_SECOND","同",10,0}}}
+ };
+ auto equal_cost_paths=decoder.decode(
+     1,equal_cost_retention_lattice,lattice_scorer,{},retention_options);
+ assert(equal_cost_paths.size()==2);
+ assert(equal_cost_paths[0].tokens[0].candidate.id=="TIE_FIRST");
+ assert(equal_cost_paths[1].tokens[0].candidate.id=="TIE_OTHER");
+ // Final pruning compares concatenated surfaces, not token segmentation.
+ std::vector<LatticeEdge> same_output_lattice{
+  {0,2,{{"WHOLE","東京都",10,0},{"OTHER","大阪",10,0}}},
+  {0,1,{{"PART_A","東京",10,0}}},
+  {1,2,{{"PART_B","都",10,0}}}
+ };
+ DecoderOptions output_options=dop;
+ output_options.beam_width=2;
+ output_options.max_paths=8;
+ output_options.preserve_rendered_surface_diversity=true;
+ auto same_output_paths=decoder.decode(2,same_output_lattice,lattice_scorer,{},
+                                      output_options);
+ std::size_t tokyo_output_count=0,osaka_output_count=0;
+ for(const auto& path:same_output_paths){
+  std::string surface;
+  for(const auto& token:path.tokens)surface+=token.candidate.surface;
+  if(surface=="東京都")++tokyo_output_count;
+  if(surface=="大阪")++osaka_output_count;
+ }
+ assert(tokyo_output_count==1&&osaka_output_count==1);
  // Invalid spans and unreachable input must not fabricate a complete path.
  auto invalid_paths=decoder.decode(3,lattice,lattice_scorer,{},dop);
  assert(invalid_paths.empty());
@@ -137,6 +209,31 @@ int main(){
  assert(is_valid_utf8("こんにちは🙂")&&!is_valid_utf8(malformed));
  std::string overlong;overlong.push_back(static_cast<char>(0xc0));overlong.push_back(static_cast<char>(0xaf));assert(!pack_lexicon.add(overlong,{"bad","bad",0,0}));
  assert(pack_scorer.score("rain",{"あした"},{})>pack_scorer.score("candy",{"あした"},{}));
+ // Trie shortlist replacement uses ordered insertion, keeps the cheapest
+ // surface representative, and preserves first-seen order for equal costs.
+ LexiconTrie trie_retention;
+ assert(trie_retention.add("あ",{"TRIE_A","甲",10,0}));
+ assert(trie_retention.add("あ",{"TRIE_B","乙",20,0}));
+ assert(trie_retention.add("あ",{"TRIE_DUP_HIGH","重",50,0}));
+ assert(trie_retention.add("あ",{"TRIE_C","丙",30,0}));
+ assert(trie_retention.add("あ",{"TRIE_DUP_LOW","重",5,0}));
+ assert(trie_retention.add("あ",{"TRIE_TIE_FIRST","丁",40,0}));
+ assert(trie_retention.add("あ",{"TRIE_TIE_SECOND","戊",40,0}));
+ assert(trie_retention.add("あ",{"TRIE_E","己",60,0}));
+ assert(trie_retention.add("あ",{"TRIE_F","庚",70,0}));
+ assert(trie_retention.add("あ",{"TRIE_G","辛",80,0}));
+ assert(trie_retention.add("あ",{"TRIE_H","壬",90,0}));
+ const auto trie_retention_edges=trie_retention.build_lattice("あ",16,false);
+ assert(trie_retention_edges.size()==1);
+ const auto& trie_retained=trie_retention_edges.front().candidates;
+ assert(trie_retained.size()==8);
+ const std::vector<std::string> expected_trie_ids{
+  "TRIE_DUP_LOW","TRIE_A","TRIE_B","TRIE_C",
+  "TRIE_TIE_FIRST","TRIE_TIE_SECOND","TRIE_E","TRIE_F"};
+ for(std::size_t i=0;i<expected_trie_ids.size();++i)
+  assert(trie_retained[i].id==expected_trie_ids[i]);
+ assert(trie_retention.contains_surface("あ","壬"));
+ assert(!trie_retention.contains_surface("あ","不存在"));
  LexiconTrie contextual_trie;
  assert(contextual_trie.add("あした",{"あした","明日",100,0}));
  assert(contextual_trie.add("あめ",{"rain","雨",100,0}));
@@ -188,6 +285,70 @@ int main(){
  assert(generated.size()==2&&generated[0].start==0&&generated[0].end==2);
  assert(generated[1].start==1&&generated[1].end==2&&generated[1].candidates[0].surface=="め");
  assert(generated[0].candidates.size()==2);
+ // High-cardinality trie terminals retain the same stable, surface-diverse
+ // top-eight shortlist while materializing only those eight candidates.
+ const auto shortlist_tsv=std::filesystem::temp_directory_path()/"kana_decoder_shortlist.tsv";
+ {
+  std::ofstream out(shortlist_tsv);
+  out<<"かな\t重複\t\t名詞\tfeature\tdup-first\t100\t0\t0\t0\t\t\n";
+  for(int i=0;i<18;++i)
+   out<<"かな\t候補"<<i<<"\t\t名詞\tfeature\tid"<<i<<"\t"<<i<<"\t0\t0\t0\t\t\n";
+  out<<"かな\t重複\t\t名詞\tfeature\tdup-late\t-1\t0\t0\t0\t\t\n";
+  for(int i=0;i<20;++i)
+   out<<"かた\t同一表層\t\t名詞\tfeature\tsame"<<i<<"\t"<<i<<"\t0\t0\t0\t\t\n";
+  out<<"おと\t置換表層\t\t名詞\tfeature\tdup-high\t50\t0\t0\t0\t\t\n";
+  out<<"おと\t同額先行\t\t名詞\tfeature\ttie-first\t40\t0\t0\t0\t\t\n";
+  out<<"おと\t候補A\t\t名詞\tfeature\tA\t10\t0\t0\t0\t\t\n";
+  out<<"おと\t候補B\t\t名詞\tfeature\tB\t20\t0\t0\t0\t\t\n";
+  out<<"おと\t候補C\t\t名詞\tfeature\tC\t30\t0\t0\t0\t\t\n";
+  out<<"おと\t候補D\t\t名詞\tfeature\tD\t60\t0\t0\t0\t\t\n";
+  out<<"おと\t候補E\t\t名詞\tfeature\tE\t70\t0\t0\t0\t\t\n";
+  out<<"おと\t候補F\t\t名詞\tfeature\tF\t80\t0\t0\t0\t\t\n";
+  out<<"おと\t置換表層\t\t名詞\tfeature\tdup-late\t40\t0\t0\t0\t\t\n";
+  for(int i=0;i<8;++i)
+   out<<"おと\t高コスト"<<i<<"\t\t名詞\tfeature\tfill"<<i<<"\t"<<90+i<<"\t0\t0\t0\t\t\n";
+  out<<"ちえ\t置換表層\t\t名詞\tfeature\tsmall-dup-high\t50\t0\t0\t0\t\t\n";
+  out<<"ちえ\t同額先行\t\t名詞\tfeature\tsmall-tie-first\t40\t0\t0\t0\t\t\n";
+  out<<"ちえ\t候補A\t\t名詞\tfeature\tsmall-A\t10\t0\t0\t0\t\t\n";
+  out<<"ちえ\t候補B\t\t名詞\tfeature\tsmall-B\t20\t0\t0\t0\t\t\n";
+  out<<"ちえ\t候補C\t\t名詞\tfeature\tsmall-C\t30\t0\t0\t0\t\t\n";
+  out<<"ちえ\t候補D\t\t名詞\tfeature\tsmall-D\t60\t0\t0\t0\t\t\n";
+  out<<"ちえ\t候補E\t\t名詞\tfeature\tsmall-E\t70\t0\t0\t0\t\t\n";
+  out<<"ちえ\t候補F\t\t名詞\tfeature\tsmall-F\t80\t0\t0\t0\t\t\n";
+  out<<"ちえ\t置換表層\t\t名詞\tfeature\tsmall-dup-late\t40\t0\t0\t0\t\t\n";
+ }
+ LexiconTrie shortlist_trie;
+ assert(shortlist_trie.load_tsv(shortlist_tsv.string()));
+ std::filesystem::remove(shortlist_tsv);
+ assert(shortlist_trie.contains_surface("かな","重複"));
+ assert(shortlist_trie.contains_surface("かな","候補17"));
+ assert(!shortlist_trie.contains_surface("かな","辞書未登録"));
+ assert(!shortlist_trie.contains_surface("かた","重複"));
+ const auto shortlist=shortlist_trie.build_lattice("かな",16,false);
+ assert(shortlist.size()==1&&shortlist.front().candidates.size()==8);
+ assert(shortlist.front().candidates.front().surface=="重複");
+ assert(shortlist.front().candidates.front().id=="dup-late");
+ for(std::size_t i=1;i<shortlist.front().candidates.size();++i)
+  assert(shortlist.front().candidates[i-1].word_cost<=shortlist.front().candidates[i].word_cost);
+ const auto repeated_surface=shortlist_trie.build_lattice("かた",16,false);
+ assert(repeated_surface.size()==1&&repeated_surface.front().candidates.size()==8);
+ assert(repeated_surface.front().candidates.front().id=="same0");
+ // A cheaper duplicate that ties an existing surface must be reinserted
+ // after the earlier equal-cost candidate, matching the <=16 path.
+ const auto tied_replacement=shortlist_trie.build_lattice("おと",16,false);
+ assert(tied_replacement.size()==1&&tied_replacement.front().candidates.size()==8);
+ const std::vector<std::string> expected_tied_ids{
+  "A","B","C","tie-first","dup-late","D","E","F"};
+ for(std::size_t i=0;i<expected_tied_ids.size();++i)
+  assert(tied_replacement.front().candidates[i].id==expected_tied_ids[i]);
+ // The same tie-order contract applies below the 16-candidate threshold.
+ const auto small_tied_replacement=shortlist_trie.build_lattice("ちえ",16,false);
+ assert(small_tied_replacement.size()==1&&small_tied_replacement.front().candidates.size()==8);
+ const std::vector<std::string> expected_small_tied_ids{
+  "small-A","small-B","small-C","small-tie-first",
+  "small-dup-late","small-D","small-E","small-F"};
+ for(std::size_t i=0;i<expected_small_tied_ids.size();++i)
+  assert(small_tied_replacement.front().candidates[i].id==expected_small_tied_ids[i]);
  auto generated_paths=decode_reading("あめ",trie,lattice_scorer,dop);
  assert(!generated_paths.empty()&&generated_paths[0].tokens.size()==1);
  CorrectionOptions integrated_correction;integrated_correction.minimum_improvement=1.0;integrated_correction.minimum_score=-1000000000.0;

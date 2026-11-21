@@ -172,6 +172,86 @@ bool SurgeNormalizationRuntime::ensure_context_cluster(std::string& error) {
   return true;
 }
 
+SurgeProjectionResult SurgeNormalizationRuntime::project_candidates(
+    const std::string& reading, const std::vector<DecodedPath>& paths) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  SurgeProjectionResult result;
+  if (!opened_ || !graph_ || !journal_) {
+    result.error = "SURGE_RUNTIME_NOT_OPEN";
+    return result;
+  }
+  if (reading.empty() || !::surge::is_valid_utf8(reading) ||
+      utf8_codepoint_count(reading) > 256 || paths.empty() || paths.size() > 8) {
+    result.error = "SURGE_PROJECTION_INPUT_INVALID";
+    return result;
+  }
+  const auto source_digest = ::surge::sha256_hex(reading);
+  const auto seq = sequence_++;
+  const auto prefix = "projection/" + id_component(config_.context_id) + "/" +
+                     std::to_string(seq);
+  ::surge::SemanticDelta delta;
+  delta.delta_id = prefix;
+  delta.idempotency_key = prefix + "/key";
+  delta.expected_state_version = journal_->state_version();
+  std::size_t ordinal = 0;
+  for (std::size_t p = 0; p < paths.size(); ++p) {
+    if (paths[p].tokens.empty()) continue;
+    if (paths[p].tokens.size() > 256) {
+      result.error = "SURGE_PROJECTION_TOKEN_BUDGET_EXCEEDED";
+      return result;
+    }
+    for (const auto& token : paths[p].tokens) {
+      if (token.start >= token.end || token.end > 256 ||
+          token.candidate.id.empty() || token.candidate.surface.empty() ||
+          !::surge::is_valid_utf8(token.candidate.surface)) {
+        result.error = "SURGE_PROJECTION_CANDIDATE_INVALID";
+        return result;
+      }
+      const auto token_reading = codepoint_slice(reading, token.start, token.end);
+      if (token_reading.empty()) {
+        result.error = "SURGE_PROJECTION_SPAN_INVALID";
+        return result;
+      }
+      const auto key = candidate_key(token);
+      const auto id = prefix + "/p" + std::to_string(p) + "/t" +
+                      std::to_string(ordinal++) + "/" + id_component(key);
+      const auto claim = id + "/claim";
+      const auto evidence = id + "/evidence";
+      delta.nodes.push_back({{claim, ::surge::NodeKind::Claim,
+          "candidate interpretation: " + token.candidate.surface +
+          " [reading=" + token_reading + ";candidate=" + token.candidate.id +
+          ";span=" + std::to_string(token.start) + ":" +
+          std::to_string(token.end) + ";path=" + std::to_string(p) + "]", {}}});
+      delta.nodes.push_back({{evidence, ::surge::NodeKind::Evidence,
+          "projection;source_sha256=" + source_digest +
+          ";producer=kana_decoder_candidate_generator;path=" + std::to_string(p), {}}});
+      delta.relations.push_back({{id + "/supports", ::surge::RelationKind::Supports,
+                                  evidence, claim}});
+      std::string cluster, cluster_error;
+      if (!graph_->append_cluster_membership(delta, context_cluster_id_,
+            "NORMALIZATION_PROJECTION", source_digest + ":" + key,
+            claim, id + "/membership", cluster, cluster_error)) {
+        result.error = "SURGE_PROJECTION_CLUSTER_FAILED:" + cluster_error;
+        return result;
+      }
+      ++result.claims_added;
+      ++result.relations_added;
+    }
+  }
+  if (delta.nodes.empty()) {
+    result.error = "SURGE_PROJECTION_EMPTY";
+    return result;
+  }
+  const auto applied = graph_->apply(delta);
+  if (!applied.committed) {
+    result.error = "SURGE_PROJECTION_APPLY_FAILED:" + applied.error;
+    return result;
+  }
+  result.projected = true;
+  result.state_version = journal_->state_version();
+  return result;
+}
+
 SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     const std::string& reading, const std::vector<DecodedPath>& paths, bool finalize) {
   std::lock_guard<std::mutex> lock(mutex_);
@@ -363,6 +443,34 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   result.metrics.retrieval_truncated = all_relations.size() > relation_window.size();
 
   if (active_focus && !active_focus->cluster_id.empty()) {
+    // Build a bounded adjacency view once. The previous traversal rescanned
+    // the complete relation window for every visited cluster, multiplying the
+    // worst-case work by the 16-cluster frontier cap.
+    std::map<std::string, std::vector<std::string>> cluster_neighbors;
+    std::vector<std::pair<std::string, std::string>> cluster_claim_members;
+    for (const auto* relation : relation_window) {
+      if (relation->kind == ::surge::RelationKind::Contains) {
+        const auto parent = graph_->nodes().find(relation->from);
+        const auto child = graph_->nodes().find(relation->to);
+        if (parent == graph_->nodes().end() || child == graph_->nodes().end())
+          continue;
+        if (child->second.kind == ::surge::NodeKind::Cluster) {
+          cluster_neighbors[relation->from].push_back(relation->to);
+        } else if (child->second.kind == ::surge::NodeKind::Claim) {
+          cluster_claim_members.push_back({relation->from, relation->to});
+        }
+      } else if (relation->kind == ::surge::RelationKind::AgreesWith ||
+                 relation->kind == ::surge::RelationKind::ConflictsWith) {
+        const auto from = graph_->nodes().find(relation->from);
+        const auto to = graph_->nodes().find(relation->to);
+        if (from == graph_->nodes().end() || to == graph_->nodes().end() ||
+            from->second.kind != ::surge::NodeKind::Cluster ||
+            to->second.kind != ::surge::NodeKind::Cluster) continue;
+        cluster_neighbors[relation->from].push_back(relation->to);
+        cluster_neighbors[relation->to].push_back(relation->from);
+      }
+    }
+
     std::vector<std::pair<std::string, std::size_t>> cluster_queue;
     retrieval_clusters.insert(active_focus->cluster_id);
     cluster_queue.push_back({active_focus->cluster_id, 0});
@@ -370,23 +478,10 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     for (std::size_t cursor = 0; cursor < cluster_queue.size(); ++cursor) {
       const auto current = cluster_queue[cursor];
       if (current.second >= 2) continue;
-      for (const auto* relation : relation_window) {
-        if (relation->kind != ::surge::RelationKind::Contains &&
-            relation->kind != ::surge::RelationKind::AgreesWith &&
-            relation->kind != ::surge::RelationKind::ConflictsWith) continue;
-        std::string neighbor;
-        if (relation->kind == ::surge::RelationKind::Contains) {
-          // Traverse only into child Clusters. Do not walk up to the session
-          // root and accidentally retrieve unrelated sibling topics.
-          if (relation->from == current.first) neighbor = relation->to;
-        } else {
-          if (relation->from == current.first) neighbor = relation->to;
-          else if (relation->to == current.first) neighbor = relation->from;
-        }
-        if (neighbor.empty() || retrieval_clusters.count(neighbor)) continue;
-        const auto node = graph_->nodes().find(neighbor);
-        if (node == graph_->nodes().end() ||
-            node->second.kind != ::surge::NodeKind::Cluster) continue;
+      const auto adjacent = cluster_neighbors.find(current.first);
+      if (adjacent == cluster_neighbors.end()) continue;
+      for (const auto& neighbor : adjacent->second) {
+        if (retrieval_clusters.count(neighbor)) continue;
         if (retrieval_clusters.size() >= 16) {
           cluster_frontier_truncated = true;
           continue;
@@ -397,12 +492,12 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     }
     if (cluster_frontier_truncated)
       result.metrics.retrieval_truncated = true;
-    for (const auto* relation : relation_window) {
-      if (relation->kind != ::surge::RelationKind::Contains ||
-          retrieval_clusters.count(relation->from) == 0) continue;
-      const auto member = graph_->nodes().find(relation->to);
-      if (member == graph_->nodes().end() ||
-          member->second.kind != ::surge::NodeKind::Claim) continue;
+    // Keep the original relation-window ordering for claim retrieval so
+    // candidate caps and deterministic tie behavior remain unchanged.
+    for (const auto& membership : cluster_claim_members) {
+      if (retrieval_clusters.count(membership.first) == 0) continue;
+      const auto member = graph_->nodes().find(membership.second);
+      if (member == graph_->nodes().end()) continue;
       const auto surface = claim_surface(member->second);
       if (surface.empty()) continue;
       ++focused_surface_hits[surface];
@@ -985,6 +1080,33 @@ bool SurgeNormalizationRuntime::reassess_claim(const std::string& claim_id,
   }
   return graph_->reassess_claim(claim_id, reference_at, journal_->state_version(),
                                 record, error);
+}
+
+SurgeObservationSnapshot SurgeNormalizationRuntime::observe(
+    std::size_t max_nodes, std::size_t max_relations) const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  SurgeObservationSnapshot snapshot;
+  snapshot.context_id = config_.context_id;
+  if (!opened_ || !graph_ || !journal_ || max_nodes == 0 || max_relations == 0)
+    return snapshot;
+  snapshot.available = true;
+  snapshot.state_version = journal_->state_version();
+  snapshot.total_nodes = graph_->nodes().size();
+  snapshot.total_relations = graph_->relations().size();
+  snapshot.focus = graph_->focus();
+  snapshot.truncated = snapshot.total_nodes > max_nodes ||
+                       snapshot.total_relations > max_relations;
+  snapshot.nodes.reserve(std::min(snapshot.total_nodes, max_nodes));
+  snapshot.relations.reserve(std::min(snapshot.total_relations, max_relations));
+  for (const auto& item : graph_->nodes()) {
+    if (snapshot.nodes.size() >= max_nodes) break;
+    snapshot.nodes.push_back(item.second);
+  }
+  for (const auto& item : graph_->relations()) {
+    if (snapshot.relations.size() >= max_relations) break;
+    snapshot.relations.push_back(item.second);
+  }
+  return snapshot;
 }
 
 std::uint64_t SurgeNormalizationRuntime::state_version() const {

@@ -22,6 +22,7 @@ struct GoldToken {
 struct Sentence {
     std::string document_id;
     std::string sentence_id;
+    std::string domain;
     std::vector<GoldToken> tokens;
     std::string reading;
     std::string expected;
@@ -100,10 +101,11 @@ bool load_sentences(const std::string& path, const std::string& split,
         if (found == index.end()) {
             const auto next = sentences.size();
             index.emplace(key, next);
-            sentences.push_back(Sentence{fields[0], fields[1], {}, {}, {}});
+            sentences.push_back(Sentence{fields[0], fields[1], fields[4], {}, {}, {}});
             found = index.find(key);
         }
         auto& sentence = sentences[found->second];
+        if (sentence.domain != fields[4]) return false;
         const auto start = codepoints(sentence.reading).size();
         const auto width = codepoints(fields[2]).size();
         sentence.tokens.push_back(GoldToken{fields[2], fields[3], start, start + width});
@@ -145,43 +147,75 @@ bool load_training_sequences(const std::string& path,const kana_decoder::Lexicon
     return input.eof();
 }
 
+void add_metrics(Metrics& target, const Metrics& source) {
+    target.cases += source.cases;
+    target.exact += source.exact;
+    target.edit_distance += source.edit_distance;
+    target.reference_codepoints += source.reference_codepoints;
+    target.decode_failures += source.decode_failures;
+    target.predicted_tokens += source.predicted_tokens;
+    target.aligned_tokens += source.aligned_tokens;
+    target.gold_tokens += source.gold_tokens;
+    target.over_limit += source.over_limit;
+}
+
+std::string metric_reading_length_bucket(std::size_t length) {
+    if (length <= 4) return "1-4";
+    if (length <= 8) return "5-8";
+    if (length <= 16) return "9-16";
+    if (length <= 32) return "17-32";
+    if (length <= 64) return "33-64";
+    if (length <= 128) return "65-128";
+    return "129-256";
+}
+
 void evaluate(const std::vector<Sentence>& sentences,
               const kana_decoder::LexiconTrie& lexicon,
               const kana_decoder::MaskedNgramScorer& scorer,
               const kana_decoder::ConnectionModel& connections,
               Metrics& metrics,
-              const kana_decoder::DecoderOptions& options = {}) {
+              const kana_decoder::DecoderOptions& options = {},
+              std::map<std::string, Metrics>* by_domain = nullptr,
+              std::map<std::string, Metrics>* by_reading_length = nullptr) {
     for (const auto& sentence : sentences) {
-        ++metrics.cases;
+        Metrics current;
+        ++current.cases;
         const auto reading_points = codepoints(sentence.reading);
         const auto expected_points = codepoints(sentence.expected);
         if (reading_points.size() > 256) {
-            ++metrics.over_limit;
-            continue;
-        }
-        metrics.gold_tokens += sentence.tokens.size();
-        const auto paths = kana_decoder::decode_reading(
-            sentence.reading, lexicon, scorer, options, &connections);
-        std::string predicted;
-        if (paths.empty()) {
-            ++metrics.decode_failures;
+            ++current.over_limit;
         } else {
-            for (const auto& token : paths.front().tokens) {
-                predicted += token.candidate.surface;
+            current.gold_tokens += sentence.tokens.size();
+            const auto paths = kana_decoder::decode_reading(
+                sentence.reading, lexicon, scorer, options, &connections);
+            std::string predicted;
+            if (paths.empty()) {
+                ++current.decode_failures;
+            } else {
+                for (const auto& token : paths.front().tokens) {
+                    predicted += token.candidate.surface;
+                }
+                current.predicted_tokens += paths.front().tokens.size();
+                for (const auto& gold : sentence.tokens) {
+                    const auto found = std::find_if(paths.front().tokens.begin(),
+                        paths.front().tokens.end(), [&](const kana_decoder::DecodedToken& token) {
+                            return token.start == gold.start && token.end == gold.end
+                                && token.candidate.surface == gold.surface;
+                        });
+                    if (found != paths.front().tokens.end()) ++current.aligned_tokens;
+                }
             }
-            metrics.predicted_tokens += paths.front().tokens.size();
-            for (const auto& gold : sentence.tokens) {
-                const auto found = std::find_if(paths.front().tokens.begin(),
-                    paths.front().tokens.end(), [&](const kana_decoder::DecodedToken& token) {
-                        return token.start == gold.start && token.end == gold.end
-                            && token.candidate.surface == gold.surface;
-                    });
-                if (found != paths.front().tokens.end()) ++metrics.aligned_tokens;
-            }
+            if (predicted == sentence.expected) ++current.exact;
+            current.edit_distance += distance(codepoints(predicted), expected_points);
+            current.reference_codepoints += expected_points.size();
         }
-        if (predicted == sentence.expected) ++metrics.exact;
-        metrics.edit_distance += distance(codepoints(predicted), expected_points);
-        metrics.reference_codepoints += expected_points.size();
+        add_metrics(metrics, current);
+        if (by_domain) add_metrics((*by_domain)[sentence.domain], current);
+        if (by_reading_length && !reading_points.empty()
+            && reading_points.size() <= 256) {
+            add_metrics((*by_reading_length)[metric_reading_length_bucket(reading_points.size())],
+                        current);
+        }
     }
 }
 
@@ -190,16 +224,53 @@ struct CandidateSurvivalMetrics {
     std::size_t lattice_present = 0;
     std::size_t morphology_shortlist = 0;
     std::size_t scored = 0;
+    std::size_t beam_survived = 0;
+    std::size_t beam_pruning_drop = 0;
+    std::size_t final_selected = 0;
     std::size_t final_aligned = 0;
     std::size_t nbest_aligned = 0;
     std::size_t nbest_recoverable = 0;
     std::size_t scored_not_in_nbest = 0;
     std::size_t lattice_missing = 0;
+    std::size_t span_selection_drop = 0;
     std::size_t shortlist_drop = 0;
     std::size_t expansion_drop = 0;
     std::size_t trace_censored = 0;
     std::size_t final_selection_drop = 0;
 };
+
+void add_candidate_survival_metrics(CandidateSurvivalMetrics& target,
+                                    const CandidateSurvivalMetrics& source) {
+#define KANA_ADD_METRIC(name) target.name += source.name
+    KANA_ADD_METRIC(gold_tokens);
+    KANA_ADD_METRIC(lattice_present);
+    KANA_ADD_METRIC(morphology_shortlist);
+    KANA_ADD_METRIC(scored);
+    KANA_ADD_METRIC(beam_survived);
+    KANA_ADD_METRIC(beam_pruning_drop);
+    KANA_ADD_METRIC(final_selected);
+    KANA_ADD_METRIC(final_aligned);
+    KANA_ADD_METRIC(nbest_aligned);
+    KANA_ADD_METRIC(nbest_recoverable);
+    KANA_ADD_METRIC(scored_not_in_nbest);
+    KANA_ADD_METRIC(lattice_missing);
+    KANA_ADD_METRIC(span_selection_drop);
+    KANA_ADD_METRIC(shortlist_drop);
+    KANA_ADD_METRIC(expansion_drop);
+    KANA_ADD_METRIC(trace_censored);
+    KANA_ADD_METRIC(final_selection_drop);
+#undef KANA_ADD_METRIC
+}
+
+std::string reading_length_bucket(std::size_t length) {
+    if (length <= 4) return "1-4";
+    if (length <= 8) return "5-8";
+    if (length <= 16) return "9-16";
+    if (length <= 32) return "17-32";
+    if (length <= 64) return "33-64";
+    if (length <= 128) return "65-128";
+    return "129-256";
+}
 
 void evaluate_candidate_survival(
     const std::vector<Sentence>& sentences,
@@ -207,9 +278,13 @@ void evaluate_candidate_survival(
     const kana_decoder::MaskedNgramScorer& scorer,
     const kana_decoder::ConnectionModel& connections,
     const kana_decoder::DecoderOptions& options,
-    CandidateSurvivalMetrics& metrics) {
+    CandidateSurvivalMetrics& metrics,
+    std::map<std::string, CandidateSurvivalMetrics>& by_domain,
+    std::map<std::string, CandidateSurvivalMetrics>& by_reading_length) {
     for (const auto& sentence : sentences) {
-        if (codepoints(sentence.reading).size() > 256) continue;
+        const auto reading_length = codepoints(sentence.reading).size();
+        if (reading_length > 256 || reading_length == 0) continue;
+        CandidateSurvivalMetrics sentence_metrics;
         std::vector<kana_decoder::CandidateScoreTrace> score_trace;
         std::vector<kana_decoder::LatticePositionTrace> lattice_trace;
         const auto paths = kana_decoder::decode_reading(
@@ -219,16 +294,17 @@ void evaluate_candidate_survival(
                                          : paths.front().tokens;
         const bool score_trace_capped = score_trace.size() >= options.max_trace_records;
         for (const auto& gold : sentence.tokens) {
-            ++metrics.gold_tokens;
-            bool in_lattice = false;
+            ++sentence_metrics.gold_tokens;
+            const bool in_lattice = lexicon.contains_surface(gold.reading, gold.surface);
+            bool edge_present = false;
             bool in_shortlist = false;
             for (const auto& position : lattice_trace) {
                 if (position.start > gold.start) break;
                 for (const auto& edge : position.dictionary_matches) {
                     if (edge.start != gold.start || edge.end != gold.end) continue;
+                    edge_present = true;
                     std::vector<const kana_decoder::LatticeCandidate*> ranked;
                     for (const auto& candidate : edge.candidates) {
-                        if (candidate.surface == gold.surface) in_lattice = true;
                         ranked.push_back(&candidate);
                     }
                     std::stable_sort(ranked.begin(), ranked.end(),
@@ -242,11 +318,12 @@ void evaluate_candidate_survival(
                 }
             }
             bool was_scored = false;
+            bool survived_beam = false;
             for (const auto& item : score_trace) {
                 if (item.start == gold.start && item.end == gold.end
                     && item.surface == gold.surface) {
                     was_scored = true;
-                    break;
+                    survived_beam = survived_beam || item.beam_survived;
                 }
             }
             const auto matches_gold = [&](const kana_decoder::DecodedPath& path) {
@@ -262,34 +339,78 @@ void evaluate_candidate_survival(
                         && token.candidate.surface == gold.surface;
                 });
             const bool present_in_nbest = std::any_of(paths.begin(), paths.end(), matches_gold);
-            if (in_lattice) ++metrics.lattice_present;
-            if (in_shortlist) ++metrics.morphology_shortlist;
-            if (was_scored) ++metrics.scored;
-            if (aligned) ++metrics.final_aligned;
-            if (present_in_nbest) ++metrics.nbest_aligned;
-            if (present_in_nbest && !aligned) ++metrics.nbest_recoverable;
-            if (was_scored && !present_in_nbest) ++metrics.scored_not_in_nbest;
-            if (!in_lattice) ++metrics.lattice_missing;
-            else if (!in_shortlist) ++metrics.shortlist_drop;
-            else if (!was_scored && score_trace_capped) ++metrics.trace_censored;
-            else if (!was_scored) ++metrics.expansion_drop;
-            else if (!aligned) ++metrics.final_selection_drop;
+            if (in_lattice) ++sentence_metrics.lattice_present;
+            if (in_shortlist) ++sentence_metrics.morphology_shortlist;
+            if (was_scored) ++sentence_metrics.scored;
+            if (survived_beam) ++sentence_metrics.beam_survived;
+            if (was_scored && !survived_beam) ++sentence_metrics.beam_pruning_drop;
+            if (aligned) ++sentence_metrics.final_aligned;
+            if (present_in_nbest) ++sentence_metrics.nbest_aligned;
+            if (present_in_nbest && !aligned) ++sentence_metrics.nbest_recoverable;
+            if (was_scored && !present_in_nbest) ++sentence_metrics.scored_not_in_nbest;
+            if (!in_lattice) ++sentence_metrics.lattice_missing;
+            else if (!edge_present) ++sentence_metrics.span_selection_drop;
+            else if (!in_shortlist) ++sentence_metrics.shortlist_drop;
+            else if (!was_scored && score_trace_capped) ++sentence_metrics.trace_censored;
+            else if (!was_scored) ++sentence_metrics.expansion_drop;
+            else if (!survived_beam) { /* counted in beam_pruning_drop above */ }
+            else if (!aligned) ++sentence_metrics.final_selection_drop;
+            else ++sentence_metrics.final_selected;
         }
+        add_candidate_survival_metrics(metrics, sentence_metrics);
+        add_candidate_survival_metrics(by_domain[sentence.domain], sentence_metrics);
+        add_candidate_survival_metrics(by_reading_length[reading_length_bucket(reading_length)], sentence_metrics);
     }
 }
 
-void print_candidate_survival(const CandidateSurvivalMetrics& m) {
+void print_candidate_survival_summary(const CandidateSurvivalMetrics& m) {
     const auto pct = [&](std::size_t n) {
         return m.gold_tokens ? 100.0 * static_cast<double>(n) / m.gold_tokens : 0.0;
     };
-    std::cout << ",\"candidate_survival_diagnostic\":{"
-        << "\"gold_tokens\":" << m.gold_tokens
+    const auto classified = m.lattice_missing + m.shortlist_drop
+        + m.expansion_drop + m.trace_censored + m.beam_pruning_drop
+        + m.span_selection_drop + m.final_selection_drop + m.final_selected;
+    const std::pair<const char*, std::size_t> losses[] = {
+        {"lattice_missing", m.lattice_missing},
+        {"span_selection_drop", m.span_selection_drop},
+        {"shortlist_drop", m.shortlist_drop},
+        {"expansion_drop", m.expansion_drop},
+        {"trace_censored", m.trace_censored},
+        {"beam_pruning_drop", m.beam_pruning_drop},
+        {"final_selection_drop", m.final_selection_drop},
+    };
+    const std::pair<const char*, std::size_t>* dominant = nullptr;
+    for (const auto& loss : losses) {
+        if (!dominant || loss.second > dominant->second) dominant = &loss;
+    }
+    const char* dominant_stage = dominant && dominant->second
+        ? dominant->first : "none";
+    const std::size_t dominant_count = dominant ? dominant->second : 0;
+    std::cout << "{"
+        << "\"dominant_loss_stage\":" << std::quoted(dominant_stage)
+        << ",\"dominant_loss_tokens\":" << dominant_count
+        << ",\"dominant_loss_pct\":" << pct(dominant_count)
+        << ",\"loss_stage_rates_pct\":{"
+        << "\"lattice_missing\":" << pct(m.lattice_missing)
+        << ",\"span_selection_drop\":" << pct(m.span_selection_drop)
+        << ",\"shortlist_drop\":" << pct(m.shortlist_drop)
+        << ",\"expansion_drop\":" << pct(m.expansion_drop)
+        << ",\"trace_censored\":" << pct(m.trace_censored)
+        << ",\"beam_pruning_drop\":" << pct(m.beam_pruning_drop)
+        << ",\"final_selection_drop\":" << pct(m.final_selection_drop)
+        << ",\"final_selected\":" << pct(m.final_selected) << "}"
+        << ",\"classified_gold_tokens\":" << classified
+        << ",\"unclassified_gold_tokens\":" << (m.gold_tokens - std::min(m.gold_tokens, classified))
+        << ",\"gold_tokens\":" << m.gold_tokens
         << ",\"lattice_present\":" << m.lattice_present
         << ",\"lattice_coverage_pct\":" << pct(m.lattice_present)
         << ",\"morphology_top8\":" << m.morphology_shortlist
         << ",\"morphology_top8_coverage_pct\":" << pct(m.morphology_shortlist)
         << ",\"scored_or_expanded\":" << m.scored
         << ",\"scored_coverage_pct\":" << pct(m.scored)
+        << ",\"beam_survived\":" << m.beam_survived
+        << ",\"beam_pruning_drop\":" << m.beam_pruning_drop
+        << ",\"final_selected\":" << m.final_selected
         << ",\"final_aligned\":" << m.final_aligned
         << ",\"final_alignment_pct\":" << pct(m.final_aligned)
         << ",\"nbest_aligned\":" << m.nbest_aligned
@@ -297,10 +418,101 @@ void print_candidate_survival(const CandidateSurvivalMetrics& m) {
         << ",\"nbest_recoverable\":" << m.nbest_recoverable
         << ",\"scored_not_in_nbest\":" << m.scored_not_in_nbest
         << ",\"lattice_missing\":" << m.lattice_missing
+        << ",\"span_selection_drop\":" << m.span_selection_drop
         << ",\"shortlist_drop\":" << m.shortlist_drop
         << ",\"expansion_drop\":" << m.expansion_drop
         << ",\"trace_censored\":" << m.trace_censored
         << ",\"final_selection_drop\":" << m.final_selection_drop << "}";
+}
+
+void print_candidate_survival_groups(
+    const char* name,
+    const std::map<std::string, CandidateSurvivalMetrics>& groups) {
+    std::cout << ",\"" << name << "\":{";
+    bool first = true;
+    for (const auto& entry : groups) {
+        if (!first) std::cout << ",";
+        first = false;
+        std::cout << std::quoted(entry.first) << ":";
+        print_candidate_survival_summary(entry.second);
+    }
+    std::cout << "}";
+}
+
+void print_metric_groups(
+    const char* name, const std::map<std::string, Metrics>& groups) {
+    std::cout << ",\"" << name << "\":{";
+    bool first = true;
+    for (const auto& entry : groups) {
+        if (!first) std::cout << ",";
+        first = false;
+        const auto& m = entry.second;
+        const auto scored = m.cases - m.over_limit;
+        const double exact = scored ? static_cast<double>(m.exact) / scored : 0.0;
+        const double cer = m.reference_codepoints
+            ? static_cast<double>(m.edit_distance) / m.reference_codepoints : 0.0;
+        const double precision = m.predicted_tokens
+            ? static_cast<double>(m.aligned_tokens) / m.predicted_tokens : 0.0;
+        const double recall = m.gold_tokens
+            ? static_cast<double>(m.aligned_tokens) / m.gold_tokens : 0.0;
+        std::cout << std::quoted(entry.first) << ":{"
+            << "\"cases\":" << m.cases
+            << ",\"scored_cases\":" << scored
+            << ",\"exact_matches\":" << m.exact
+            << ",\"exact_accuracy\":" << exact
+            << ",\"edit_distance\":" << m.edit_distance
+            << ",\"reference_codepoints\":" << m.reference_codepoints
+            << ",\"cer\":" << cer
+            << ",\"decode_failures\":" << m.decode_failures
+            << ",\"over_limit_sentences\":" << m.over_limit
+            << ",\"gold_tokens\":" << m.gold_tokens
+            << ",\"predicted_tokens\":" << m.predicted_tokens
+            << ",\"exact_token_alignment\":" << m.aligned_tokens
+            << ",\"token_alignment_precision\":" << precision
+            << ",\"token_alignment_recall\":" << recall << "}";
+    }
+    std::cout << "}";
+}
+
+double cer_of(const Metrics& m);
+double exact_of(const Metrics& m);
+
+void print_paired_comparison_groups(
+    const char* name,
+    const std::map<std::string, Metrics>& baseline,
+    const std::map<std::string, Metrics>& surge) {
+    std::cout << ",\""<< name << "\":{";
+    bool first = true;
+    for (const auto& entry : baseline) {
+        const auto found = surge.find(entry.first);
+        if (found == surge.end()) continue;
+        if (!first) std::cout << ",";
+        first = false;
+        const auto& b = entry.second;
+        const auto& s = found->second;
+        const double cer_delta = cer_of(s) - cer_of(b);
+        const double exact_delta = exact_of(s) - exact_of(b);
+        const double baseline_recall = b.gold_tokens
+            ? static_cast<double>(b.aligned_tokens) / b.gold_tokens : 0.0;
+        const double surge_recall = s.gold_tokens
+            ? static_cast<double>(s.aligned_tokens) / s.gold_tokens : 0.0;
+        std::cout << std::quoted(entry.first) << ":{"
+            << "\"cases\":" << std::min(b.cases, s.cases)
+            << ",\"baseline_cer\":" << cer_of(b)
+            << ",\"surge_cer\":" << cer_of(s)
+            << ",\"cer_delta\":" << cer_delta
+            << ",\"baseline_exact_accuracy\":" << exact_of(b)
+            << ",\"surge_exact_accuracy\":" << exact_of(s)
+            << ",\"exact_accuracy_delta\":" << exact_delta
+            << ",\"baseline_token_alignment_recall\":" << baseline_recall
+            << ",\"surge_token_alignment_recall\":" << surge_recall
+            << ",\"token_alignment_recall_delta\":" << surge_recall - baseline_recall
+            << ",\"baseline_edit_distance\":" << b.edit_distance
+            << ",\"surge_edit_distance\":" << s.edit_distance
+            << ",\"reference_codepoints\":" << std::min(b.reference_codepoints, s.reference_codepoints)
+            << "}";
+    }
+    std::cout << "}";
 }
 
 void print_metrics(const char* name, const Metrics& m) {
@@ -337,6 +549,145 @@ double exact_of(const Metrics& m) {
     const auto scored = m.cases - m.over_limit;
     return scored ? static_cast<double>(m.exact) / scored : 0.0;
 }
+void print_bottleneck_comparison_groups(
+    const char* name,
+    const std::map<std::string, Metrics>& baseline,
+    const std::map<std::string, Metrics>& surge,
+    const std::map<std::string, CandidateSurvivalMetrics>& survival) {
+    std::cout << ",\"" << name << "\":{";
+    bool first = true;
+    for (const auto& entry : baseline) {
+        const auto si = surge.find(entry.first);
+        const auto di = survival.find(entry.first);
+        if (si == surge.end() || di == survival.end()) continue;
+        if (!first) std::cout << ",";
+        first = false;
+        const auto& b = entry.second;
+        const auto& s = si->second;
+        const auto& d = di->second;
+        const double br = b.gold_tokens ? static_cast<double>(b.aligned_tokens) / b.gold_tokens : 0.0;
+        const double sr = s.gold_tokens ? static_cast<double>(s.aligned_tokens) / s.gold_tokens : 0.0;
+        const std::pair<const char*, std::size_t> losses[] = {
+            {"lattice_missing", d.lattice_missing}, {"span_selection_drop", d.span_selection_drop},
+            {"shortlist_drop", d.shortlist_drop},
+            {"expansion_drop", d.expansion_drop}, {"trace_censored", d.trace_censored},
+            {"beam_pruning_drop", d.beam_pruning_drop},
+            {"final_selection_drop", d.final_selection_drop},
+        };
+        const std::pair<const char*, std::size_t>* dominant = nullptr;
+        for (const auto& loss : losses) if (!dominant || loss.second > dominant->second) dominant = &loss;
+        const char* stage = dominant && dominant->second ? dominant->first : "none";
+        const auto count = dominant ? dominant->second : 0;
+        std::cout << std::quoted(entry.first) << ":{"
+            << "\"cases\":" << std::min(b.cases, s.cases)
+            << ",\"cer_delta\":" << cer_of(s) - cer_of(b)
+            << ",\"exact_accuracy_delta\":" << exact_of(s) - exact_of(b)
+            << ",\"token_alignment_recall_delta\":" << sr - br
+            << ",\"dominant_loss_stage\":" << std::quoted(stage)
+            << ",\"dominant_loss_tokens\":" << count
+            << ",\"dominant_loss_pct\":"
+            << (d.gold_tokens ? 100.0 * static_cast<double>(count) / d.gold_tokens : 0.0)
+            << ",\"gold_tokens\":" << d.gold_tokens
+            << ",\"loss_stage_rates_pct\":{";
+        for (std::size_t i = 0; i < 7; ++i) {
+            if (i) std::cout << ",";
+            std::cout << std::quoted(losses[i].first) << ":"
+                << (d.gold_tokens ? 100.0 * static_cast<double>(losses[i].second) / d.gold_tokens : 0.0);
+        }
+        std::cout << ",\"final_selected\":"
+            << (d.gold_tokens ? 100.0 * static_cast<double>(d.final_selected) / d.gold_tokens : 0.0)
+            << "}}";
+    }
+    std::cout << "}";
+}
+
+struct PairedOutcomeCounts {
+    std::size_t cases = 0;
+    std::map<std::string, std::size_t> outcomes;
+};
+
+void add_paired_outcome(PairedOutcomeCounts& counts,
+                        const std::string& cer_change,
+                        const std::string& exact_change) {
+    ++counts.cases;
+    ++counts.outcomes[cer_change + "_" + exact_change];
+}
+
+void print_paired_outcome_groups(
+    const char* name,
+    const std::map<std::string, PairedOutcomeCounts>& groups) {
+    std::cout << ",\"" << name << "\":{";
+    bool first = true;
+    for (const auto& entry : groups) {
+        if (!first) std::cout << ",";
+        first = false;
+        std::cout << std::quoted(entry.first) << ":{\"cases\":" << entry.second.cases
+                  << ",\"outcomes\":{";
+        bool first_outcome = true;
+        const char* labels[] = {
+            "cer_improved_exact_improved", "cer_improved_exact_tied",
+            "cer_improved_exact_regressed", "cer_tied_exact_improved",
+            "cer_tied_exact_tied", "cer_tied_exact_regressed",
+            "cer_regressed_exact_improved", "cer_regressed_exact_tied",
+            "cer_regressed_exact_regressed"
+        };
+        for (const char* label : labels) {
+            if (!first_outcome) std::cout << ",";
+            first_outcome = false;
+            const auto found = entry.second.outcomes.find(label);
+            std::cout << std::quoted(label) << ":"
+                      << (found == entry.second.outcomes.end() ? 0 : found->second);
+        }
+        std::cout << "}}";
+    }
+    std::cout << "}";
+}
+
+void evaluate_paired_sentence_outcomes(
+    const std::vector<Sentence>& sentences,
+    const kana_decoder::LexiconTrie& lexicon,
+    const kana_decoder::MaskedNgramScorer& morphology_scorer,
+    const kana_decoder::MaskedNgramScorer& surge_scorer,
+    const kana_decoder::ConnectionModel& connections,
+    const kana_decoder::DecoderOptions& surge_options,
+    PairedOutcomeCounts& overall,
+    std::map<std::string, PairedOutcomeCounts>& by_domain,
+    std::map<std::string, PairedOutcomeCounts>& by_reading_length) {
+    for (const auto& sentence : sentences) {
+        const auto reading_points = codepoints(sentence.reading);
+        const auto expected_points = codepoints(sentence.expected);
+        if (reading_points.empty() || reading_points.size() > 256) continue;
+
+        const auto decode_text = [&](const kana_decoder::MaskedNgramScorer& scorer,
+                                     const kana_decoder::DecoderOptions& options) {
+            const auto paths = kana_decoder::decode_reading(
+                sentence.reading, lexicon, scorer, options, &connections);
+            std::string text;
+            if (!paths.empty()) {
+                for (const auto& token : paths.front().tokens)
+                    text += token.candidate.surface;
+            }
+            return text;
+        };
+        const kana_decoder::DecoderOptions morphology_options;
+        const auto morphology_text = decode_text(morphology_scorer, morphology_options);
+        const auto surge_text = decode_text(surge_scorer, surge_options);
+        const auto morphology_distance = distance(codepoints(morphology_text), expected_points);
+        const auto surge_distance = distance(codepoints(surge_text), expected_points);
+        const bool morphology_exact = morphology_text == sentence.expected;
+        const bool surge_exact = surge_text == sentence.expected;
+        const std::string cer_change = surge_distance < morphology_distance ? "cer_improved"
+            : surge_distance > morphology_distance ? "cer_regressed" : "cer_tied";
+        const std::string exact_change = surge_exact == morphology_exact
+            ? "exact_tied" : surge_exact ? "exact_improved" : "exact_regressed";
+
+        add_paired_outcome(overall, cer_change, exact_change);
+        add_paired_outcome(by_domain[sentence.domain], cer_change, exact_change);
+        add_paired_outcome(by_reading_length[reading_length_bucket(reading_points.size())],
+                           cer_change, exact_change);
+    }
+}
+
 bool better_metrics(const Metrics& candidate, const Metrics& current) {
     const double a = cer_of(candidate), b = cer_of(current);
     if (std::abs(a - b) > 1e-12) return a < b;
@@ -379,11 +730,11 @@ void print_calibration_metrics(const char* name, const Metrics& m) {
 
 int main(int argc, char** argv) {
     if (argc != 4 && argc != 6 && argc != 7) {
-        std::cerr << "usage: kana_decoder_sequential_eval PACK_DIR TRAIN_SEQUENCES.tsv TOKENIZED.tsv [dev-calibrate CALIBRATION.tsv | test CALIBRATION.tsv]\n";
+        std::cerr << "usage: kana_decoder_sequential_eval PACK_DIR TRAIN_SEQUENCES.tsv TOKENIZED.tsv [dev-calibrate CALIBRATION.tsv | dev-diagnostic CALIBRATION.tsv | test CALIBRATION.tsv]\n";
         return 2;
     }
     const std::string mode = argc == 4 ? "test" : argv[4];
-    if (mode != "test" && mode != "dev-calibrate") return 2;
+    if (mode != "test" && mode != "dev-calibrate" && mode != "dev-diagnostic") return 2;
     kana_decoder::LexiconTrie lexicon;
     kana_decoder::MaskedNgramScorer pack_scorer;
     kana_decoder::ConnectionModel connections;
@@ -402,14 +753,17 @@ int main(int argc, char** argv) {
     }
     std::vector<Sentence> sentences;
     std::size_t source_tokens = 0;
-    const std::string split = mode == "dev-calibrate" ? "dev" : "test";
+    const std::string split = mode == "test" ? "test" : "dev";
     if (!load_sentences(argv[3], split, sentences, source_tokens)) {
         std::cerr << "failed to load " << split << " token corpus\n";
         return 2;
     }
     kana_decoder::MaskedNgramScorer morphology_scorer;
     Metrics morphology, causal;
-    evaluate(sentences, lexicon, morphology_scorer, connections, morphology);
+    std::map<std::string, Metrics> morphology_by_domain;
+    std::map<std::string, Metrics> morphology_by_reading_length;
+    evaluate(sentences, lexicon, morphology_scorer, connections, morphology, {},
+             &morphology_by_domain, &morphology_by_reading_length);
     kana_decoder::DecoderOptions ngram_options;
     ngram_options.pos_ngram_scorer = &trained_pos_scorer;
     evaluate(sentences, lexicon, trained_scorer, connections, causal, ngram_options);
@@ -490,6 +844,56 @@ int main(int argc, char** argv) {
         print_calibration_metrics("morphology_only", morphology);
         print_calibration_metrics("trained_unigram_left_context", causal);
         print_calibration_metrics("selected_surge_gate", best);
+
+        // Fixed, one-factor-at-a-time ablations are diagnostic only. They run
+        // exclusively on the development split and never participate in
+        // calibration selection.
+        if (!trained_scorer.set_smoothing_alpha(best_alpha)
+            || !trained_pos_scorer.set_smoothing_alpha(best_alpha)) return 2;
+        kana_decoder::DecoderOptions left_context_ablation;
+        left_context_ablation.surge_left_context_gate = true;
+        left_context_ablation.context_weight = 1.0;
+        Metrics left_context_only;
+        evaluate(sentences, lexicon, trained_scorer, connections,
+                 left_context_only, left_context_ablation);
+
+        kana_decoder::DecoderOptions pos_context_ablation;
+        pos_context_ablation.surge_left_context_gate = true;
+        pos_context_ablation.context_weight = 0.0;
+        pos_context_ablation.pos_ngram_scorer = &trained_pos_scorer;
+        pos_context_ablation.pos_context_weight = 0.15;
+        Metrics pos_context_only;
+        evaluate(sentences, lexicon, trained_scorer, connections,
+                 pos_context_only, pos_context_ablation);
+
+        kana_decoder::DecoderOptions selected_ablation;
+        selected_ablation.surge_left_context_gate = true;
+        selected_ablation.context_weight = best_weight;
+        selected_ablation.surge_context_margin = best_margin;
+        selected_ablation.pos_ngram_scorer = &trained_pos_scorer;
+        selected_ablation.pos_context_weight = best_pos_weight;
+        selected_ablation.surge_cluster_model =
+            cluster_enabled && best_cluster_weight > 0.0 ? &cluster_model : nullptr;
+        selected_ablation.surge_cluster_weight = best_cluster_weight;
+        Metrics selected_ablation_metrics;
+        evaluate(sentences, lexicon, trained_scorer, connections,
+                 selected_ablation_metrics, selected_ablation);
+
+        print_calibration_metrics("dev_ablation_left_context_only", left_context_only);
+        print_calibration_metrics("dev_ablation_pos_context_only", pos_context_only);
+        print_calibration_metrics("dev_ablation_selected_policy", selected_ablation_metrics);
+        if (cluster_enabled) {
+            kana_decoder::DecoderOptions cluster_ablation;
+            cluster_ablation.surge_cluster_model = &cluster_model;
+            cluster_ablation.context_weight = 0.0;
+            cluster_ablation.pos_context_weight = 0.0;
+            cluster_ablation.surge_cluster_weight = 1.0;
+            Metrics cluster_only;
+            evaluate(sentences, lexicon, trained_scorer, connections,
+                     cluster_only, cluster_ablation);
+            print_calibration_metrics("dev_ablation_cluster_only", cluster_only);
+        }
+        std::cout << ",\"dev_ablation_scope\":\"development_only_diagnostic_not_selection\"";
         std::cout << "}\n";
         return 0;
     }
@@ -507,7 +911,10 @@ int main(int argc, char** argv) {
     surge_options.context_weight = selected_weight;
     surge_options.surge_context_margin = selected_margin;
     Metrics surge;
-    evaluate(sentences, lexicon, trained_scorer, connections, surge, surge_options);
+    std::map<std::string, Metrics> surge_by_domain;
+    std::map<std::string, Metrics> surge_by_reading_length;
+    evaluate(sentences, lexicon, trained_scorer, connections, surge, surge_options,
+             &surge_by_domain, &surge_by_reading_length);
     Metrics cluster, combined;
     if (cluster_enabled) {
         kana_decoder::DecoderOptions cluster_options;
@@ -524,7 +931,7 @@ int main(int argc, char** argv) {
         evaluate(sentences, lexicon, trained_scorer, connections, combined, combined_options);
     }
     std::cout << "{\"mode\":\"end_to_end_sentence_reading_with_predicted_left_history\""
-              << ",\"split\":\"test\""
+              << ",\"split\":" << std::quoted(split)
               << ",\"gold_token_boundaries_used_for_decoding\":false"
               << ",\"gold_token_boundaries_used_for_alignment_only\":true"
               << ",\"future_context_used\":false"
@@ -535,11 +942,20 @@ int main(int argc, char** argv) {
               << ",\"dev_selected_cluster_weight\":" << selected_cluster_weight
               << ",\"dev_selected_policy\":\"" << (selected_cluster_weight > 0.0 ? (selected_weight > 0.0 ? "combined" : "cluster_only") : (selected_weight > 0.0 ? "ngram_only" : "morphology")) << "\""
 
-              << ",\"source_test_tokens\":" << source_tokens
+              << ",\"source_tokens\":" << source_tokens
+              << (mode == "test" ? ",\"source_test_tokens\":" : ",\"source_dev_tokens\":") << source_tokens
               << ",\"sentences\":" << sentences.size();
     print_metrics("morphology_only", morphology);
+    print_metric_groups("morphology_metrics_by_domain", morphology_by_domain);
+    print_metric_groups("morphology_metrics_by_reading_length", morphology_by_reading_length);
     print_metrics("trained_unigram_left_context", causal);
     print_metrics("surge_evidence_gated_left_context", surge);
+    print_metric_groups("surge_metrics_by_domain", surge_by_domain);
+    print_metric_groups("surge_metrics_by_reading_length", surge_by_reading_length);
+    print_paired_comparison_groups("surge_vs_morphology_by_domain",
+                                   morphology_by_domain, surge_by_domain);
+    print_paired_comparison_groups("surge_vs_morphology_by_reading_length",
+                                   morphology_by_reading_length, surge_by_reading_length);
     if (cluster_enabled) {
         std::cout << ",\"surge_cluster_model\":{\"memberships\":" << cluster_model.membership_count()
                   << ",\"evidence_records\":" << cluster_model.evidence_count()
@@ -548,6 +964,8 @@ int main(int argc, char** argv) {
         print_metrics("dev_selected_surge_policy", combined);
     }
     CandidateSurvivalMetrics survival;
+    std::map<std::string, CandidateSurvivalMetrics> survival_by_domain;
+    std::map<std::string, CandidateSurvivalMetrics> survival_by_reading_length;
     kana_decoder::DecoderOptions survival_options;
     survival_options.surge_left_context_gate = true;
     survival_options.pos_ngram_scorer = &trained_pos_scorer;
@@ -558,8 +976,28 @@ int main(int argc, char** argv) {
         cluster_enabled && selected_cluster_weight > 0.0 ? &cluster_model : nullptr;
     survival_options.surge_cluster_weight = selected_cluster_weight;
     evaluate_candidate_survival(sentences, lexicon, trained_scorer,
-                                connections, survival_options, survival);
-    print_candidate_survival(survival);
+                                connections, survival_options, survival,
+                                survival_by_domain, survival_by_reading_length);
+    std::cout << ",\"candidate_survival_diagnostic\":";
+    print_candidate_survival_summary(survival);
+    print_candidate_survival_groups("candidate_survival_by_domain", survival_by_domain);
+    print_candidate_survival_groups("candidate_survival_by_reading_length", survival_by_reading_length);
+    print_bottleneck_comparison_groups("surge_bottleneck_by_domain",
+        morphology_by_domain, surge_by_domain, survival_by_domain);
+    print_bottleneck_comparison_groups("surge_bottleneck_by_reading_length",
+        morphology_by_reading_length, surge_by_reading_length, survival_by_reading_length);
+    PairedOutcomeCounts paired_outcomes;
+    std::map<std::string, PairedOutcomeCounts> paired_outcomes_by_domain;
+    std::map<std::string, PairedOutcomeCounts> paired_outcomes_by_reading_length;
+    evaluate_paired_sentence_outcomes(sentences, lexicon, morphology_scorer,
+        trained_scorer, connections, surge_options, paired_outcomes,
+        paired_outcomes_by_domain, paired_outcomes_by_reading_length);
+    print_paired_outcome_groups("surge_paired_sentence_outcomes",
+                                {{"all", paired_outcomes}});
+    print_paired_outcome_groups("surge_paired_sentence_outcomes_by_domain",
+                                paired_outcomes_by_domain);
+    print_paired_outcome_groups("surge_paired_sentence_outcomes_by_reading_length",
+                                paired_outcomes_by_reading_length);
     std::cout << "}\n";
     return 0;
 }

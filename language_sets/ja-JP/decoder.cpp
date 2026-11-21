@@ -4,15 +4,14 @@
 #include <vector>
 namespace kana_decoder {
 namespace {
-std::vector<std::string> utf8_chars(const std::string& s) {
- std::vector<std::string> out;
- if (!is_valid_utf8(s)) return out;
- for (std::size_t i=0; i<s.size();) {
+std::size_t utf8_codepoint_count(const std::string& s) {
+ std::size_t count=0;
+ for(std::size_t i=0;i<s.size();) {
   const unsigned char c=static_cast<unsigned char>(s[i]);
-  const std::size_t n=c<0x80?1:(c&0xe0)==0xc0?2:(c&0xf0)==0xe0?3:4;
-  out.push_back(s.substr(i,n)); i+=n;
+  i+=c<0x80?1:(c&0xe0)==0xc0?2:(c&0xf0)==0xe0?3:4;
+  ++count;
  }
- return out;
+ return count;
 }
 }
 std::vector<DecodedPath> decode_reading(const std::string& reading,const LexiconTrie& lexicon,const MaskedNgramScorer& scorer,const DecoderOptions& options,const ConnectionModel* connections,std::vector<CandidateScoreTrace>* trace,std::vector<LatticePositionTrace>* lattice_trace,bool* resource_limit_exceeded){
@@ -27,9 +26,9 @@ std::vector<DecodedPath> decode_reading(const std::string& reading,const Lexicon
   if(resource_limit_exceeded)*resource_limit_exceeded=true;
   return {};
  }
- auto chars = utf8_chars(reading);
- if (chars.empty()) return {};
- if(chars.size()>input_limit){
+ const std::size_t codepoint_count=utf8_codepoint_count(reading);
+ if(codepoint_count==0)return {};
+ if(codepoint_count>input_limit){
   if(resource_limit_exceeded)*resource_limit_exceeded=true;
   return {};
  }
@@ -43,7 +42,7 @@ std::vector<DecodedPath> decode_reading(const std::string& reading,const Lexicon
  MorphologyDecoder decoder;
  DecoderOptions bounded_options=options;
  bounded_options.max_expanded_states=expansion_limit;
- return decoder.decode(chars.size(), lattice, scorer, {}, bounded_options, connections, trace,
+ return decoder.decode(codepoint_count, lattice, scorer, {}, bounded_options, connections, trace,
   resource_limit_exceeded);
 }
 

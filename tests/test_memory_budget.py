@@ -13,6 +13,16 @@ class MemoryBudgetTests(unittest.TestCase):
         log = "Maximum resident set size (kbytes): 1048576\n"
         self.assertEqual(MODULE.peak_rss_kib(log), 1048576)
 
+    def test_budget_boundary_and_overflow(self):
+        self.assertTrue(MODULE.within_budget_kib(102400, 100))
+        self.assertFalse(MODULE.within_budget_kib(102401, 100))
+
+    def test_rejects_negative_values(self):
+        with self.assertRaises(ValueError):
+            MODULE.within_budget_kib(-1, 100)
+        with self.assertRaises(ValueError):
+            MODULE.within_budget_kib(1, -1)
+
     def test_requires_measurement(self):
         with self.assertRaises(ValueError):
             MODULE.peak_rss_kib("no measurement")
