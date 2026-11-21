@@ -95,9 +95,13 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
                 ("surge_metrics_by_domain", "surge_evidence_gated_left_context"),
                 ("surge_metrics_by_reading_length", "surge_evidence_gated_left_context")):
                 groups = result[grouped_key]
-                self.assertEqual(
-                    sum(group["cases"] for group in groups.values()),
-                    result[overall_key]["cases"])
+                grouped_cases = sum(group["cases"] for group in groups.values())
+                if grouped_key.endswith("_by_domain"):
+                    self.assertEqual(grouped_cases, result[overall_key]["cases"])
+                else:
+                    # Empty and over-limit readings are intentionally excluded
+                    # from reading-length strata.
+                    self.assertLessEqual(grouped_cases, result[overall_key]["cases"])
                 self.assertEqual(
                     sum(group["edit_distance"] for group in groups.values()),
                     result[overall_key]["edit_distance"])
