@@ -76,7 +76,8 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
                 self.assertTrue(groups)
                 self.assertEqual(
                     sum(group["cases"] for group in groups.values()),
-                    result["surge_evidence_gated_left_context"]["cases"])
+                    result["surge_evidence_gated_left_context"]["cases"]
+                - result["surge_evidence_gated_left_context"]["over_limit_sentences"])
                 self.assertEqual(
                     sum(group["reference_codepoints"] for group in groups.values()),
                     result["surge_evidence_gated_left_context"]["reference_codepoints"])
