@@ -293,7 +293,7 @@ void print_candidate_survival(const CandidateSurvivalMetrics& m) {
     std::cout << ",\"candidate_survival_diagnostic\":{"
         << "\"classified_gold_tokens\":" << classified
         << ",\"unclassified_gold_tokens\":" << (m.gold_tokens - std::min(m.gold_tokens, classified))
-        << "\"gold_tokens\":" << m.gold_tokens
+        << ",\"gold_tokens\":" << m.gold_tokens
         << ",\"lattice_present\":" << m.lattice_present
         << ",\"lattice_coverage_pct\":" << pct(m.lattice_present)
         << ",\"morphology_top8\":" << m.morphology_shortlist
