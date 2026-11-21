@@ -98,8 +98,10 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  }
  struct State { DecodedPath path; std::vector<std::string> history; std::vector<std::string> pos_history; std::int32_t last_right_id=0; bool has_last=false; std::size_t trace_index=std::numeric_limits<std::size_t>::max(); };
  std::vector<std::vector<State>> beams(length+1);
+ std::vector<std::vector<std::size_t>> trace_indices_by_end(length+1);
  beams[0].push_back(State{});
- auto prune=[&](std::vector<State>& states,bool continuation_needed){
+ auto prune=[&](std::vector<State>& states,bool continuation_needed,std::size_t position){
+  if(trace){for(const auto index:trace_indices_by_end[position])if(index<trace->size())(*trace)[index].beam_survived=false;}
   std::stable_sort(states.begin(),states.end(),[](const State&a,const State&b){return a.path.score>b.path.score;});
   auto mark_survivors=[&](){if(trace){for(const auto& state:states)if(state.trace_index<trace->size())(*trace)[state.trace_index].beam_survived=true;}};
   if(states.size()<=beam_limit){mark_survivors();return;}
@@ -260,6 +262,7 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
       raw_context,context_evidence,opt.context_weight,morph,ctx,local,
       candidate.id.rfind("kana:",0)==0,false});
      next.trace_index=trace->size()-1;
+     trace_indices_by_end[edge->end].push_back(next.trace_index);
     }
     next.path.score+=local;
     DecodedToken decoded_token;
@@ -291,7 +294,7 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     beams[edge->end].push_back(std::move(next));
     }
    }
-   prune(beams[edge->end],edge->end<length);
+   prune(beams[edge->end],edge->end<length,edge->end);
   }
  }
  std::vector<DecodedPath> out;
