@@ -254,6 +254,7 @@ jobs:
           overall = report["candidate_survival_diagnostic"]
           outcome_keys = (
               "lattice_missing",
+              "span_selection_drop",
               "shortlist_drop",
               "expansion_drop",
               "trace_censored",
@@ -288,12 +289,12 @@ jobs:
                   raise SystemExit(f"{field}: expected non-empty quality-linked bottleneck report")
               for label, group in groups.items():
                   if group.get("dominant_loss_stage") not in (
-                      "lattice_missing", "shortlist_drop", "expansion_drop",
+                      "lattice_missing", "span_selection_drop", "shortlist_drop", "expansion_drop",
                       "trace_censored", "beam_pruning_drop", "final_selection_drop", "none"
                   ):
                       raise SystemExit(f"{field}[{label}]: invalid dominant loss stage")
                   rates = group.get("loss_stage_rates_pct", {})
-                  if len(rates) != 7 or abs(sum(rates.values()) - 100.0) > 0.01:
+                  if len(rates) != 8 or abs(sum(rates.values()) - 100.0) > 0.01:
                       raise SystemExit(f"{field}[{label}]: loss stage rates do not sum to 100 percent")
           print("quality_linked_candidate_bottleneck_diagnostics=validated")
 
