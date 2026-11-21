@@ -293,6 +293,22 @@ int main() {
   if(std::find(direct_surfaces.begin(),direct_surfaces.end(),token.candidate.surface)==direct_surfaces.end())
    direct_surfaces.push_back(token.candidate.surface);
  assert(direct_surfaces.size()==8);
+ // Trace instrumentation reports the final destination-beam membership for
+ // every expanded candidate, including candidates discarded at the beam cap.
+ LatticeEdge traced_prune_edge;traced_prune_edge.start=0;traced_prune_edge.end=1;
+ for(int i=0;i<8;++i)traced_prune_edge.candidates.push_back(
+  {"trace-prune-"+std::to_string(i),"枝刈り候補"+std::to_string(i),-1000+i*10,0,1,1});
+ std::vector<CandidateScoreTrace> prune_trace;
+ DecoderOptions narrow_beam; narrow_beam.beam_width=2;
+ const auto traced_prune_paths=direct_decoder.decode(1,{traced_prune_edge},scorer,{},narrow_beam,
+  nullptr,&prune_trace,&exceeded);
+ assert(!exceeded&&traced_prune_paths.size()==2&&prune_trace.size()==8);
+ std::size_t trace_survivors=0,trace_drops=0;
+ for(const auto& item:prune_trace){
+  if(item.beam_survived)++trace_survivors;
+  else ++trace_drops;
+ }
+ assert(trace_survivors==2&&trace_drops==6);
  // Beam pruning preserves distinct rendered outputs when multiple segmentations
  // produce the same string. Without this, two high-scoring segmentations of
  // 甲乙 can crowd 丙 out of a width-two beam.
