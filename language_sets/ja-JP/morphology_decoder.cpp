@@ -236,19 +236,16 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
      // fill the expansion, while the seed store covers any lower-ranked seeds.
      selected_supported_scores.reserve(candidates.size());
      for(const auto* candidate:candidates){
-      auto retained=std::find_if(seed_supported_scores.begin(),seed_supported_scores.end(),
+      const auto seed=std::find_if(seed_supported_scores.begin(),seed_supported_scores.end(),
        [&](const auto& item){return item.first==candidate;});
-      if(retained==seed_supported_scores.end())
-       retained=std::find_if(supported_top.begin(),supported_top.end(),
-        [&](const auto& item){return item.first==candidate;});
-      if(retained!=seed_supported_scores.end())
-       selected_supported_scores.emplace_back(candidate,retained->second);
-      else {
-       const auto supported=std::find_if(supported_top.begin(),supported_top.end(),
-        [&](const auto& item){return item.first==candidate;});
-       if(supported!=supported_top.end())
-        selected_supported_scores.emplace_back(candidate,supported->second);
+      if(seed!=seed_supported_scores.end()){
+       selected_supported_scores.emplace_back(candidate,seed->second);
+       continue;
       }
+      const auto supported=std::find_if(supported_top.begin(),supported_top.end(),
+       [&](const auto& item){return item.first==candidate;});
+      if(supported!=supported_top.end())
+       selected_supported_scores.emplace_back(candidate,supported->second);
      }
     }
     bool surge_resolved=false;
