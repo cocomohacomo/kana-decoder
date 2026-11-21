@@ -933,8 +933,8 @@ int main(int argc, char** argv) {
     evaluate_paired_sentence_outcomes(sentences, lexicon, morphology_scorer,
         trained_scorer, connections, surge_options, paired_outcomes,
         paired_outcomes_by_domain, paired_outcomes_by_reading_length);
-    std::cout << ",\"surge_paired_sentence_outcomes\":";
-    print_paired_outcome_groups("groups", {{"all", paired_outcomes}});
+    print_paired_outcome_groups("surge_paired_sentence_outcomes",
+                                {{"all", paired_outcomes}});
     print_paired_outcome_groups("surge_paired_sentence_outcomes_by_domain",
                                 paired_outcomes_by_domain);
     print_paired_outcome_groups("surge_paired_sentence_outcomes_by_reading_length",
