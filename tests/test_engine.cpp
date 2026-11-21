@@ -49,6 +49,50 @@ int main(){
  assert(paths.front().tokens.size()==2);
  assert(paths.front().tokens[0].candidate.id=="A");
  assert(paths.front().score>paths.back().score);
+ // Intermediate pruning must retain distinct continuation histories even
+ // when their rendered prefix is identical.
+ std::vector<LatticeEdge> same_prefix_lattice{
+  {0,1,{{"HIST_A","同じ",10,0,0,11},{"HIST_B","同じ",10,0,0,22}}},
+  {1,2,{{"TAIL_A","甲",10,0,0,31},{"TAIL_B","乙",10,0,0,32}}}
+ };
+ ConnectionModel history_connections;
+ history_connections.set_cost(11,31,0);
+ history_connections.set_cost(11,32,100);
+ history_connections.set_cost(22,31,100);
+ history_connections.set_cost(22,32,0);
+ DecoderOptions history_options=dop;
+ history_options.beam_width=2;
+ history_options.max_paths=4;
+ history_options.preserve_rendered_surface_diversity=true;
+ auto history_paths=decoder.decode(2,same_prefix_lattice,lattice_scorer,{},
+                                  history_options,&history_connections);
+ assert(history_paths.size()>=2);
+ bool kept_history_a=false,kept_history_b=false;
+ for(const auto& path:history_paths){
+  if(path.tokens.size()!=2)continue;
+  if(path.tokens[0].candidate.id=="HIST_A")kept_history_a=true;
+  if(path.tokens[0].candidate.id=="HIST_B")kept_history_b=true;
+ }
+ assert(kept_history_a&&kept_history_b);
+ // Final pruning compares concatenated surfaces, not token segmentation.
+ std::vector<LatticeEdge> same_output_lattice{
+  {0,2,{{"WHOLE","東京都",10,0}}},
+  {0,1,{{"PART_A","東京",10,0}}},
+  {1,2,{{"PART_B","都",10,0}}}
+ };
+ DecoderOptions output_options=dop;
+ output_options.beam_width=2;
+ output_options.max_paths=8;
+ output_options.preserve_rendered_surface_diversity=true;
+ auto same_output_paths=decoder.decode(2,same_output_lattice,lattice_scorer,{},
+                                      output_options);
+ std::size_t tokyo_output_count=0;
+ for(const auto& path:same_output_paths){
+  std::string surface;
+  for(const auto& token:path.tokens)surface+=token.candidate.surface;
+  if(surface=="東京都")++tokyo_output_count;
+ }
+ assert(tokyo_output_count==1);
  // Invalid spans and unreachable input must not fabricate a complete path.
  auto invalid_paths=decoder.decode(3,lattice,lattice_scorer,{},dop);
  assert(invalid_paths.empty());
