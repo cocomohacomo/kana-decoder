@@ -216,8 +216,9 @@ jobs:
               raise SystemExit("left-context ablation case count mismatch")
           if report["dev_ablation_pos_context_only"]["cases"] != report["morphology_only"]["cases"]:
               raise SystemExit("POS-context ablation case count mismatch")
-          if "surge_cluster_model" in report and "dev_ablation_cluster_only" not in report:
-              raise SystemExit("cluster model enabled but cluster-only ablation missing")
+          cluster_ablation = report.get("dev_ablation_cluster_only")
+          if not isinstance(cluster_ablation, dict) or cluster_ablation.get("cases") != report["morphology_only"]["cases"]:
+              raise SystemExit("cluster-only development ablation missing or has inconsistent cases")
           print("development_only_component_ablations=validated")
           PY
           cat "$RUNNER_TEMP/surge-calibration.tsv"
