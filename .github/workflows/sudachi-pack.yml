@@ -6,7 +6,7 @@ concurrency:
 
 on:
   push:
-    branches: [main, refactor/surge-core-as-runtime]
+    branches: [main, refactor/surge-core-as-runtime, work/candidate-recall-diversity-v066]
     paths:
       - ".github/workflows/sudachi-pack.yml"
       - "licenses/sudachidict-small-20260723-source-lock.json"
