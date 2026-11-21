@@ -441,6 +441,9 @@ void print_metric_groups(
     std::cout << "}";
 }
 
+double cer_of(const Metrics& m);
+double exact_of(const Metrics& m);
+
 void print_paired_comparison_groups(
     const char* name,
     const std::map<std::string, Metrics>& baseline,
