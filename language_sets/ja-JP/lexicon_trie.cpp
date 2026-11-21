@@ -276,31 +276,31 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
     const std::size_t keep_limit=std::min<std::size_t>(8,candidate_count);
     std::vector<SelectedCandidate> selected;
     selected.reserve(keep_limit);
-    std::unordered_map<std::string_view,std::size_t> selected_surfaces;
-    selected_surfaces.reserve(keep_limit);
+    auto insert_ordered=[&](SelectedCandidate candidate) {
+     const auto where=std::upper_bound(selected.begin(),selected.end(),candidate.cost,
+      [](std::int64_t cost,const SelectedCandidate& current){return cost<current.cost;});
+     selected.insert(where,candidate);
+    };
     auto consider=[&](const CompactCandidate& item) {
      const auto surface=candidate_string(item.surface);
      const auto cost=static_cast<std::int64_t>(item.word_cost)+item.connection_cost;
-     const auto found=selected_surfaces.find(surface);
-     if(found!=selected_surfaces.end()) {
-      auto& current=selected[found->second];
-      if(cost<current.cost)current=SelectedCandidate{&item,cost};
+     const auto same=std::find_if(selected.begin(),selected.end(),[&](const auto& current) {
+      return candidate_string(current.value->surface)==surface;
+     });
+     if(same!=selected.end()) {
+      if(cost<same->cost) {
+       selected.erase(same);
+       insert_ordered(SelectedCandidate{&item,cost});
+      }
       return;
      }
      if(selected.size()<keep_limit) {
-      const auto index=selected.size();
-      selected.push_back(SelectedCandidate{&item,cost});
-      selected_surfaces.emplace(surface,index);
+      insert_ordered(SelectedCandidate{&item,cost});
       return;
      }
-     if(selected.empty())return;
-     std::size_t worst=0;
-     for(std::size_t i=1;i<selected.size();++i)
-      if(selected[i].cost>=selected[worst].cost)worst=i;
-     if(cost<selected[worst].cost) {
-      selected_surfaces.erase(candidate_string(selected[worst].value->surface));
-      selected[worst]=SelectedCandidate{&item,cost};
-      selected_surfaces.emplace(surface,worst);
+     if(!selected.empty()&&cost<selected.back().cost) {
+      selected.pop_back();
+      insert_ordered(SelectedCandidate{&item,cost});
      }
     };
     if(candidates_compacted_) {
@@ -316,7 +316,7 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
       const auto already=std::find_if(selected.begin(),selected.end(),
        [&](const auto& current){return current.value==&item;});
       if(already==selected.end())
-       selected.push_back(SelectedCandidate{&item,
+       insert_ordered(SelectedCandidate{&item,
         static_cast<std::int64_t>(item.word_cost)+item.connection_cost});
      };
      if(candidates_compacted_) {
@@ -331,7 +331,6 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
       }
      }
     }
-    std::stable_sort(selected.begin(),selected.end(),[](const auto& a,const auto& b){return a.cost<b.cost;});
 
      edge.candidates.reserve(selected.size());
      for(const auto& item:selected)edge.candidates.push_back(materialize_candidate(*item.value));
