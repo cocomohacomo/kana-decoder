@@ -284,6 +284,27 @@ std::vector<LatticeEdge> LexiconTrie::build_lattice(
     } else {
      for(const auto& item:build_nodes_[node].values)consider(item);
     }
+    if(selected.size()<keep_limit) {
+     auto retain_remaining=[&](const CompactCandidate& item) {
+      if(selected.size()>=keep_limit)return;
+      const auto already=std::find_if(selected.begin(),selected.end(),
+       [&](const auto& current){return current.value==&item;});
+      if(already==selected.end())
+       selected.push_back(SelectedCandidate{&item,
+        static_cast<std::int64_t>(item.word_cost)+item.connection_cost});
+     };
+     if(candidates_compacted_) {
+      const auto& terminal=nodes_[node];
+      auto first=candidate_arena_.begin()+terminal.candidate_offset;
+      for(auto it=first;it!=first+candidate_count&&selected.size()<keep_limit;++it)
+       retain_remaining(*it);
+     } else {
+      for(const auto& item:build_nodes_[node].values) {
+       if(selected.size()>=keep_limit)break;
+       retain_remaining(item);
+      }
+     }
+    }
     std::stable_sort(selected.begin(),selected.end(),[](const auto& a,const auto& b){return a.cost<b.cost;});
     LatticeEdge edge{start,end+1,{}};
     edge.candidates.reserve(selected.size());
