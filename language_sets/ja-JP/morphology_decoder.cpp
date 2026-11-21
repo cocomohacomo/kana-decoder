@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cmath>
 #include <limits>
+#include <unordered_map>
 #include <unordered_set>
 namespace {
 std::int64_t candidate_cost(const kana_decoder::LatticeCandidate& c){return static_cast<std::int64_t>(c.word_cost)+c.connection_cost;}
@@ -151,15 +152,22 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     if(opt.surge_cluster_model&&!state.history.empty()){
      struct SurfaceScore { std::string surface; double score; };
      std::vector<SurfaceScore> surface_scores;
+     std::unordered_map<std::string,std::size_t> surface_score_indices;
+     std::unordered_map<const LatticeCandidate*,double> supported_scores;
+     surface_score_indices.reserve(std::min<std::size_t>(edge->candidates.size(),256));
+     supported_scores.reserve(std::min<std::size_t>(edge->candidates.size(),256));
      for(const auto& candidate:edge->candidates){
       bool has=false;
       const double score=opt.surge_cluster_model->evidence_score(candidate.id,state.history,&has);
       if(!has)continue;
       supported.emplace_back(&candidate,score);
-      auto found=std::find_if(surface_scores.begin(),surface_scores.end(),
-       [&](const SurfaceScore& item){return item.surface==candidate.surface;});
-      if(found==surface_scores.end())surface_scores.push_back({candidate.surface,score});
-      else if(score>found->score)found->score=score;
+      supported_scores.emplace(&candidate,score);
+      const auto inserted=surface_score_indices.emplace(candidate.surface,surface_scores.size());
+      if(inserted.second)surface_scores.push_back({candidate.surface,score});
+      else {
+       auto& current=surface_scores[inserted.first->second].score;
+       if(score>current)current=score;
+      }
      }
      std::stable_sort(surface_scores.begin(),surface_scores.end(),
       [](const SurfaceScore& a,const SurfaceScore& b){return a.score>b.score;});
@@ -242,9 +250,8 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     const double ngram_context=raw_context*opt.context_weight;
     const double cluster_context=(cluster_resolved&&candidate.surface==cluster_winner)
       ? cluster_override_bonus : 0.0;
-    const auto cluster_evidence = std::find_if(supported.begin(), supported.end(),
-      [&](const auto& item) { return item.first == &candidate; });
-    const bool has_cluster_evidence = cluster_evidence != supported.end();
+    const auto cluster_evidence = supported_scores.find(&candidate);
+    const bool has_cluster_evidence = cluster_evidence != supported_scores.end();
     const double cluster_raw_evidence = has_cluster_evidence ? cluster_evidence->second : 0.0;
     const bool has_ngram_evidence=scorer.has_left_context_evidence(candidate.id,state.history) ||
       scorer.has_right_context_evidence(candidate.id,right_context);
