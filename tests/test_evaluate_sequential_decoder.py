@@ -65,6 +65,18 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
                 result["morphology_only"]["cases"])
             self.assertIn("cer", result["surge_evidence_gated_left_context"])
             survival = result["candidate_survival_diagnostic"]
+            for grouped_key in ("candidate_survival_by_domain",
+                                "candidate_survival_by_reading_length"):
+                groups = result[grouped_key]
+                self.assertTrue(groups)
+                self.assertEqual(
+                    sum(group["gold_tokens"] for group in groups.values()),
+                    survival["gold_tokens"])
+                for group in groups.values():
+                    self.assertEqual(group["classified_gold_tokens"], group["gold_tokens"])
+                    self.assertEqual(group["unclassified_gold_tokens"], 0)
+            self.assertIn("news-blog", result["candidate_survival_by_domain"])
+            self.assertIn("1-4", result["candidate_survival_by_reading_length"])
             self.assertEqual(survival["gold_tokens"], result["source_test_tokens"])
             self.assertEqual(survival["classified_gold_tokens"], survival["gold_tokens"])
             self.assertEqual(survival["unclassified_gold_tokens"], 0)
