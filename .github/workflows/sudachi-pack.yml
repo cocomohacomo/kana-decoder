@@ -224,6 +224,35 @@ jobs:
           cat "$RUNNER_TEMP/surge-calibration.tsv"
           cat "$RUNNER_TEMP/surge-calibration-time.log"
           python tools/check_memory_budget.py --log "$RUNNER_TEMP/surge-calibration-time.log" --max-rss-mib 1792
+          /usr/bin/time -v -o "$RUNNER_TEMP/sequential-dev-diagnostic-time.log" \
+            "$RUNNER_TEMP/kana-runtime-build/kana_decoder_sequential_eval" \
+            "$RUNNER_TEMP/ja-jp-sudachi-small" \
+            "$RUNNER_TEMP/context-corpus/compiled/train_sequences.tsv" \
+            "$RUNNER_TEMP/context-corpus/tokenized.tsv" \
+            dev-diagnostic "$RUNNER_TEMP/surge-calibration.tsv" "$RUNNER_TEMP/surge-cluster-model.tsv" \
+            > "$RUNNER_TEMP/sequential-dev-diagnostic.json"
+          cat "$RUNNER_TEMP/sequential-dev-diagnostic.json"
+          cat "$RUNNER_TEMP/sequential-dev-diagnostic-time.log"
+          python tools/check_memory_budget.py --log "$RUNNER_TEMP/sequential-dev-diagnostic-time.log" --max-rss-mib 1792
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          report = json.loads((Path(os.environ["RUNNER_TEMP"]) / "sequential-dev-diagnostic.json").read_text(encoding="utf-8"))
+          if report.get("split") != "dev" or report.get("gold_token_boundaries_used_for_decoding") is not False:
+              raise SystemExit("candidate survival diagnostic must be causal and development-only")
+          survival = report.get("candidate_survival_diagnostic", {})
+          outcomes = ("lattice_missing", "span_selection_drop", "shortlist_drop",
+                      "expansion_drop", "trace_censored", "beam_pruning_drop",
+                      "final_selection_drop", "final_selected")
+          if survival.get("gold_tokens", 0) <= 0 or survival.get("unclassified_gold_tokens") != 0:
+              raise SystemExit("development candidate survival report is incomplete")
+          if sum(survival.get(key, 0) for key in outcomes) != survival.get("gold_tokens"):
+              raise SystemExit("development candidate loss stages do not partition gold tokens")
+          if len(survival.get("loss_stage_rates_pct", {})) != 8:
+              raise SystemExit("development candidate loss rates are incomplete")
+          print("development_candidate_survival_diagnostics=validated")
+          PY
           /usr/bin/time -v -o "$RUNNER_TEMP/sequential-runtime-time.log" \
             "$RUNNER_TEMP/kana-runtime-build/kana_decoder_sequential_eval" \
             "$RUNNER_TEMP/ja-jp-sudachi-small" \
@@ -432,5 +461,7 @@ jobs:
             ${{ runner.temp }}/surge-runtime-dev-calibration.json
             ${{ runner.temp }}/surge-runtime-test-evaluation.json
             ${{ runner.temp }}/surge-runtime-test-time.log
+            ${{ runner.temp }}/sequential-dev-diagnostic.json
+            ${{ runner.temp }}/sequential-dev-diagnostic-time.log
           if-no-files-found: error
           retention-days: 30
