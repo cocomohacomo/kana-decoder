@@ -173,6 +173,38 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
                     self.assertAlmostEqual(
                         sum(diagnostic["loss_stage_rates_pct"].values()), 100.0,
                         delta=0.01)
+            outcome_keys = (
+                "cer_improved_exact_improved", "cer_improved_exact_tied",
+                "cer_improved_exact_regressed", "cer_tied_exact_improved",
+                "cer_tied_exact_tied", "cer_tied_exact_regressed",
+                "cer_regressed_exact_improved", "cer_regressed_exact_tied",
+                "cer_regressed_exact_regressed")
+            overall_outcomes = result["surge_paired_sentence_outcomes"]["all"]
+            self.assertEqual(
+                sum(overall_outcomes["outcomes"][key] for key in outcome_keys),
+                overall_outcomes["cases"])
+            self.assertEqual(
+                overall_outcomes["cases"],
+                result["surge_evidence_gated_left_context"]["cases"])
+            for grouped_key in (
+                "surge_paired_sentence_outcomes_by_domain",
+                "surge_paired_sentence_outcomes_by_reading_length"):
+                groups = result[grouped_key]
+                self.assertTrue(groups)
+                for group in groups.values():
+                    self.assertEqual(
+                        sum(group["outcomes"][key] for key in outcome_keys),
+                        group["cases"])
+                grouped_cases = sum(group["cases"] for group in groups.values())
+                if grouped_key.endswith("_by_domain"):
+                    self.assertEqual(grouped_cases, overall_outcomes["cases"])
+                else:
+                    self.assertLessEqual(grouped_cases, overall_outcomes["cases"])
+            self.assertIn(
+                "news-blog", result["surge_paired_sentence_outcomes_by_domain"])
+            self.assertIn(
+                "1-4", result["surge_paired_sentence_outcomes_by_reading_length"])
+
             survival = result["candidate_survival_diagnostic"]
             survival_groups = [survival]
             for grouped_key in ("candidate_survival_by_domain",
