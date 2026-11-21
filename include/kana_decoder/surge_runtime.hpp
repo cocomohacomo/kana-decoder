@@ -64,6 +64,14 @@ struct SurgeNormalizationResult {
 
 // Read-only projection of the actual Core graph. It intentionally contains no
 // selected output or application commit decision.
+struct SurgeProjectionResult {
+  bool projected{false};
+  std::string error;
+  std::size_t claims_added{0};
+  std::size_t relations_added{0};
+  std::uint64_t state_version{0};
+};
+
 struct SurgeObservationSnapshot {
   bool available{false};
   bool truncated{false};
@@ -89,6 +97,10 @@ class SurgeNormalizationRuntime {
 
   bool open(std::string& error);
   bool set_language_adapter(const surge::LanguageAdapter* adapter);
+  // Projection-only cognition entrypoint. It does not call UnifiedDecision,
+  // render surfaces, choose a path, or commit application output.
+  SurgeProjectionResult project_candidates(const std::string& reading,
+      const std::vector<DecodedPath>& paths);
   SurgeNormalizationResult normalize(const std::string& reading,
                                       const std::vector<DecodedPath>& paths,
                                       bool finalize = true);
