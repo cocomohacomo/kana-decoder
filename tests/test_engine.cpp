@@ -197,6 +197,8 @@ int main(){
   for(int i=0;i<8;++i)
    out<<"かな\t候補"<<i<<"\t\t名詞\tfeature\tid"<<i<<"\t"<<i<<"\t0\t0\t0\t\t\n";
   out<<"かな\t重複\t\t名詞\tfeature\tdup-late\t-1\t0\t0\t0\t\t\n";
+  for(int i=0;i<10;++i)
+   out<<"かた\t同一表層\t\t名詞\tfeature\tsame"<<i<<"\t"<<i<<"\t0\t0\t0\t\t\n";
  }
  LexiconTrie shortlist_trie;
  assert(shortlist_trie.load_tsv(shortlist_tsv.string()));
@@ -207,6 +209,9 @@ int main(){
  assert(shortlist.front().candidates.front().id=="dup-late");
  for(std::size_t i=1;i<shortlist.front().candidates.size();++i)
   assert(shortlist.front().candidates[i-1].word_cost<=shortlist.front().candidates[i].word_cost);
+ const auto repeated_surface=shortlist_trie.build_lattice("かた",16,false);
+ assert(repeated_surface.size()==1&&repeated_surface.front().candidates.size()==8);
+ assert(repeated_surface.front().candidates.front().id=="same0");
  auto generated_paths=decode_reading("あめ",trie,lattice_scorer,dop);
  assert(!generated_paths.empty()&&generated_paths[0].tokens.size()==1);
  CorrectionOptions integrated_correction;integrated_correction.minimum_improvement=1.0;integrated_correction.minimum_score=-1000000000.0;
