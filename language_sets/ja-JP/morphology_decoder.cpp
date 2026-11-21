@@ -4,7 +4,6 @@
 #include <cmath>
 #include <limits>
 #include <unordered_map>
-#include <unordered_set>
 namespace {
 std::int64_t candidate_cost(const kana_decoder::LatticeCandidate& c){return static_cast<std::int64_t>(c.word_cost)+c.connection_cost;}
 std::vector<const kana_decoder::LatticeCandidate*> retain_surface_diverse(const std::vector<kana_decoder::LatticeCandidate>& source,std::size_t limit){
