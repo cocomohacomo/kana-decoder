@@ -68,6 +68,14 @@ int main() {
     paths.front().tokens.back().candidate.surface!="良"||
     !paths.front().tokens.back().has_cluster_evidence||
     !(paths.front().tokens.back().cluster_raw_evidence>0.0)) {
+  std::cerr << "limited=" << limited << " paths=" << paths.size();
+  if(!paths.empty()&&!paths.front().tokens.empty()) {
+   const auto& token=paths.front().tokens.back();
+   std::cerr << " surface=" << token.candidate.surface
+             << " has_evidence=" << token.has_cluster_evidence
+             << " raw_evidence=" << token.cluster_raw_evidence;
+  }
+  std::cerr << "\n";
   std::remove(path.c_str());
   std::cerr << "cluster evidence failed to rescue candidate outside morphology top four\n";
   return 1;
