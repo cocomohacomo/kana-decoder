@@ -305,6 +305,15 @@ int main(){
   out<<"おと\t置換表層\t\t名詞\tfeature\tdup-late\t40\t0\t0\t0\t\t\n";
   for(int i=0;i<8;++i)
    out<<"おと\t高コスト"<<i<<"\t\t名詞\tfeature\tfill"<<i<<"\t"<<90+i<<"\t0\t0\t0\t\t\n";
+  out<<"ちえ\t置換表層\t\t名詞\tfeature\tsmall-dup-high\t50\t0\t0\t0\t\t\n";
+  out<<"ちえ\t同額先行\t\t名詞\tfeature\tsmall-tie-first\t40\t0\t0\t0\t\t\n";
+  out<<"ちえ\t候補A\t\t名詞\tfeature\tsmall-A\t10\t0\t0\t0\t\t\n";
+  out<<"ちえ\t候補B\t\t名詞\tfeature\tsmall-B\t20\t0\t0\t0\t\t\n";
+  out<<"ちえ\t候補C\t\t名詞\tfeature\tsmall-C\t30\t0\t0\t0\t\t\n";
+  out<<"ちえ\t候補D\t\t名詞\tfeature\tsmall-D\t60\t0\t0\t0\t\t\n";
+  out<<"ちえ\t候補E\t\t名詞\tfeature\tsmall-E\t70\t0\t0\t0\t\t\n";
+  out<<"ちえ\t候補F\t\t名詞\tfeature\tsmall-F\t80\t0\t0\t0\t\t\n";
+  out<<"ちえ\t置換表層\t\t名詞\tfeature\tsmall-dup-late\t40\t0\t0\t0\t\t\n";
  }
  LexiconTrie shortlist_trie;
  assert(shortlist_trie.load_tsv(shortlist_tsv.string()));
@@ -326,6 +335,14 @@ int main(){
   "A","B","C","tie-first","dup-late","D","E","F"};
  for(std::size_t i=0;i<expected_tied_ids.size();++i)
   assert(tied_replacement.front().candidates[i].id==expected_tied_ids[i]);
+ // The same tie-order contract applies below the 16-candidate threshold.
+ const auto small_tied_replacement=shortlist_trie.build_lattice("ちえ",16,false);
+ assert(small_tied_replacement.size()==1&&small_tied_replacement.front().candidates.size()==8);
+ const std::vector<std::string> expected_small_tied_ids{
+  "small-A","small-B","small-C","small-tie-first",
+  "small-dup-late","small-D","small-E","small-F"};
+ for(std::size_t i=0;i<expected_small_tied_ids.size();++i)
+  assert(small_tied_replacement.front().candidates[i].id==expected_small_tied_ids[i]);
  auto generated_paths=decode_reading("あめ",trie,lattice_scorer,dop);
  assert(!generated_paths.empty()&&generated_paths[0].tokens.size()==1);
  CorrectionOptions integrated_correction;integrated_correction.minimum_improvement=1.0;integrated_correction.minimum_score=-1000000000.0;
