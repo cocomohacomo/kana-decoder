@@ -170,6 +170,8 @@ public:
  std::size_t size() const { return entry_count_; }
  void build_candidate_pos_index();
  std::string candidate_pos(const std::string& candidate_id) const;
+ // Exact dictionary membership before bounded lattice shortlist retention.
+ bool contains_surface(const std::string& reading,const std::string& surface) const;
  // Read-only diagnostics for validating compact dictionary storage.
  std::size_t candidate_string_pool_bytes() const { return candidate_string_pool_.size(); }
  std::size_t interned_metadata_string_count() const { return interned_metadata_strings_.size(); }
