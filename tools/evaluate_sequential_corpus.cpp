@@ -593,6 +593,93 @@ void print_bottleneck_comparison_groups(
     std::cout << "}";
 }
 
+struct PairedOutcomeCounts {
+    std::size_t cases = 0;
+    std::map<std::string, std::size_t> outcomes;
+};
+
+void add_paired_outcome(PairedOutcomeCounts& counts,
+                        const std::string& cer_change,
+                        const std::string& exact_change) {
+    ++counts.cases;
+    ++counts.outcomes[cer_change + "_" + exact_change];
+}
+
+void print_paired_outcome_groups(
+    const char* name,
+    const std::map<std::string, PairedOutcomeCounts>& groups) {
+    std::cout << ",\"" << name << "\":{";
+    bool first = true;
+    for (const auto& entry : groups) {
+        if (!first) std::cout << ",";
+        first = false;
+        std::cout << std::quoted(entry.first) << ":{\"cases\":" << entry.second.cases
+                  << ",\"outcomes\":{";
+        bool first_outcome = true;
+        const char* labels[] = {
+            "cer_improved_exact_improved", "cer_improved_exact_tied",
+            "cer_improved_exact_regressed", "cer_tied_exact_improved",
+            "cer_tied_exact_tied", "cer_tied_exact_regressed",
+            "cer_regressed_exact_improved", "cer_regressed_exact_tied",
+            "cer_regressed_exact_regressed"
+        };
+        for (const char* label : labels) {
+            if (!first_outcome) std::cout << ",";
+            first_outcome = false;
+            const auto found = entry.second.outcomes.find(label);
+            std::cout << std::quoted(label) << ":"
+                      << (found == entry.second.outcomes.end() ? 0 : found->second);
+        }
+        std::cout << "}}";
+    }
+    std::cout << "}";
+}
+
+void evaluate_paired_sentence_outcomes(
+    const std::vector<Sentence>& sentences,
+    const kana_decoder::LexiconTrie& lexicon,
+    const kana_decoder::MaskedNgramScorer& morphology_scorer,
+    const kana_decoder::MaskedNgramScorer& surge_scorer,
+    const kana_decoder::ConnectionModel& connections,
+    const kana_decoder::DecoderOptions& surge_options,
+    PairedOutcomeCounts& overall,
+    std::map<std::string, PairedOutcomeCounts>& by_domain,
+    std::map<std::string, PairedOutcomeCounts>& by_reading_length) {
+    for (const auto& sentence : sentences) {
+        const auto reading_points = codepoints(sentence.reading);
+        const auto expected_points = codepoints(sentence.expected);
+        if (reading_points.empty() || reading_points.size() > 256) continue;
+
+        const auto decode_text = [&](const kana_decoder::MaskedNgramScorer& scorer,
+                                     const kana_decoder::DecoderOptions& options) {
+            const auto paths = kana_decoder::decode_reading(
+                sentence.reading, lexicon, scorer, options, &connections);
+            std::string text;
+            if (!paths.empty()) {
+                for (const auto& token : paths.front().tokens)
+                    text += token.candidate.surface;
+            }
+            return text;
+        };
+        const kana_decoder::DecoderOptions morphology_options;
+        const auto morphology_text = decode_text(morphology_scorer, morphology_options);
+        const auto surge_text = decode_text(surge_scorer, surge_options);
+        const auto morphology_distance = distance(codepoints(morphology_text), expected_points);
+        const auto surge_distance = distance(codepoints(surge_text), expected_points);
+        const bool morphology_exact = morphology_text == sentence.expected;
+        const bool surge_exact = surge_text == sentence.expected;
+        const std::string cer_change = surge_distance < morphology_distance ? "cer_improved"
+            : surge_distance > morphology_distance ? "cer_regressed" : "cer_tied";
+        const std::string exact_change = surge_exact == morphology_exact
+            ? "exact_tied" : surge_exact ? "exact_improved" : "exact_regressed";
+
+        add_paired_outcome(overall, cer_change, exact_change);
+        add_paired_outcome(by_domain[sentence.domain], cer_change, exact_change);
+        add_paired_outcome(by_reading_length[reading_length_bucket(reading_points.size())],
+                           cer_change, exact_change);
+    }
+}
+
 bool better_metrics(const Metrics& candidate, const Metrics& current) {
     const double a = cer_of(candidate), b = cer_of(current);
     if (std::abs(a - b) > 1e-12) return a < b;
@@ -840,6 +927,18 @@ int main(int argc, char** argv) {
         morphology_by_domain, surge_by_domain, survival_by_domain);
     print_bottleneck_comparison_groups("surge_bottleneck_by_reading_length",
         morphology_by_reading_length, surge_by_reading_length, survival_by_reading_length);
+    PairedOutcomeCounts paired_outcomes;
+    std::map<std::string, PairedOutcomeCounts> paired_outcomes_by_domain;
+    std::map<std::string, PairedOutcomeCounts> paired_outcomes_by_reading_length;
+    evaluate_paired_sentence_outcomes(sentences, lexicon, morphology_scorer,
+        trained_scorer, connections, surge_options, paired_outcomes,
+        paired_outcomes_by_domain, paired_outcomes_by_reading_length);
+    std::cout << ",\"surge_paired_sentence_outcomes\":";
+    print_paired_outcome_groups("groups", {{"all", paired_outcomes}});
+    print_paired_outcome_groups("surge_paired_sentence_outcomes_by_domain",
+                                paired_outcomes_by_domain);
+    print_paired_outcome_groups("surge_paired_sentence_outcomes_by_reading_length",
+                                paired_outcomes_by_reading_length);
     std::cout << "}\n";
     return 0;
 }
