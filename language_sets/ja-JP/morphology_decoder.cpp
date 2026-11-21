@@ -4,6 +4,7 @@
 #include <cmath>
 #include <limits>
 #include <unordered_set>
+#include <sstream>
 namespace {
 std::int64_t candidate_cost(const kana_decoder::LatticeCandidate& c){return static_cast<std::int64_t>(c.word_cost)+c.connection_cost;}
 std::vector<const kana_decoder::LatticeCandidate*> retain_surface_diverse(const std::vector<kana_decoder::LatticeCandidate>& source,std::size_t limit){
@@ -100,7 +101,7 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
   seen_surfaces.reserve(beam_limit);
   std::vector<bool> retained(states.size(),false);
   for(std::size_t i=0;i<states.size()&&retained_indices.size()<beam_limit;++i){
-   if(seen_surfaces.insert(rendered_surface(states[i].path)).second){
+   if(seen_contexts.insert(beam_context_identity(states[i])).second){
     retained_indices.push_back(i);
     retained[i]=true;
    }
