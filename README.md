@@ -52,7 +52,7 @@
 
 ## N-gram関係投射
 - NRP v1: [N-gram Relation Projector](docs/NGRAM_RELATION_SPECIFICATION_v1.md)。train-onlyの方向・距離・順序付き共起統計をSURGE関係イベントへ変換。クラスター割当はSURGE Coreが担当し、精度向上はheld-out評価で確認するまで未実証。
-- 生成: `python tools/project_ngram_relations.py --train-sequences train_sequences.tsv --output relations.jsonl`
+- 生成: `python tools/project_ngram_relations.py --train-sequences train_sequences.tsv --split train --output relations.jsonl`
 
 ## 仕様
 - v1.12: [Extended dev-only recognition-margin calibration](docs/SPECIFICATION_v1.12.md)
@@ -131,3 +131,13 @@ python tools/calibrate_surge_policy.py \
 ./build/kana_decoder_surge_eval /path/to/ja-pack /path/to/corpus.tsv test \
   /path/to/train_sequences.tsv ./surge-decision-policy.tsv
 ```
+
+
+## SURGE cognition / observation architecture
+
+- Current target contract: docs/SURGE_COGNITION_OBSERVATION_SPEC_v1.md.
+- SURGE Core output is a read-only Observation of actual cognition: projection, Core-owned cluster assignment, typed relations, focus/context, mask hypotheses, evidence paths, uncertainty, and state version. It does not select or commit the final kana-kanji output; the external decoder owns acceptance/rejection/commit.
+- Dictionary, persistent-learning, and session memory are separate spaces. Learning, Session, and Dictionary are operating modes with explicit read/write scopes, not mutually exclusive inference engines.
+- Multi-span mask inference is a Core capability. Hypotheses remain hypotheses until an external, provenance-bearing feedback event explicitly promotes them.
+- Migration status: the existing SurgeNormalizationRuntime::normalize still performs UnifiedDecision and application output commitment. It is not yet conformant with the new Observation contract and must be replaced/isolated before claiming full architectural completion.
+- N-gram projector CLI requires an explicit --split train; its production path uses SQLite-backed streaming counts and deterministic streaming JSONL output instead of materializing the corpus and event list in RAM.
