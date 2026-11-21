@@ -106,6 +106,19 @@ class BeamAbTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             MODULE.paired_bootstrap(cases, cases, source_rows=[])
 
+    def test_cluster_bootstrap_rejects_missing_document_id(self):
+        cases = [{"expected": "甲", "predicted": "甲", "edit_distance": 0}]
+        rows = [(None, "s1", "a", "甲", "news")]
+        with self.assertRaisesRegex(ValueError, "non-empty document IDs"):
+            MODULE.paired_bootstrap(cases, cases, source_rows=rows)
+
+    def test_single_document_cluster_warns_interval_is_not_informative(self):
+        cases = [{"expected": "甲", "predicted": "甲", "edit_distance": 0}]
+        rows = [("doc-a", "s1", "a", "甲", "news")]
+        result = MODULE.paired_bootstrap(cases, cases, samples=20, source_rows=rows)
+        self.assertEqual(result["cluster_count"], 1)
+        self.assertIn("Fewer than two", result["warning"])
+
     def test_paired_bootstrap_rejects_zero_samples(self):
         with self.assertRaises(ValueError):
             MODULE.paired_bootstrap([], [], samples=0)
