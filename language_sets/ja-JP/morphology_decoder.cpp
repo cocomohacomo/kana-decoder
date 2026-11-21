@@ -38,11 +38,6 @@ std::vector<const kana_decoder::LatticeCandidate*> retain_surface_diverse(const 
  }
  return selected;
 }
-std::string rendered_surface(const kana_decoder::DecodedPath& path){
- std::string surface;
- for(const auto& token:path.tokens)surface+=token.candidate.surface;
- return surface;
-}
 template<class LeftPath,class RightPath>
 bool same_rendered_surface(const LeftPath& left,const RightPath& right){
  std::size_t left_token=0,right_token=0,left_offset=0,right_offset=0;
