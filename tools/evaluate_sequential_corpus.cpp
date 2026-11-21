@@ -547,7 +547,10 @@ int main(int argc, char** argv) {
     }
     kana_decoder::MaskedNgramScorer morphology_scorer;
     Metrics morphology, causal;
-    evaluate(sentences, lexicon, morphology_scorer, connections, morphology);
+    std::map<std::string, Metrics> morphology_by_domain;
+    std::map<std::string, Metrics> morphology_by_reading_length;
+    evaluate(sentences, lexicon, morphology_scorer, connections, morphology, {},
+             &morphology_by_domain, &morphology_by_reading_length);
     kana_decoder::DecoderOptions ngram_options;
     ngram_options.pos_ngram_scorer = &trained_pos_scorer;
     evaluate(sentences, lexicon, trained_scorer, connections, causal, ngram_options);
@@ -679,6 +682,8 @@ int main(int argc, char** argv) {
               << ",\"source_test_tokens\":" << source_tokens
               << ",\"sentences\":" << sentences.size();
     print_metrics("morphology_only", morphology);
+    print_metric_groups("morphology_metrics_by_domain", morphology_by_domain);
+    print_metric_groups("morphology_metrics_by_reading_length", morphology_by_reading_length);
     print_metrics("trained_unigram_left_context", causal);
     print_metrics("surge_evidence_gated_left_context", surge);
     print_metric_groups("surge_metrics_by_domain", surge_by_domain);
