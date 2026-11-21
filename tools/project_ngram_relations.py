@@ -49,10 +49,10 @@ def iter_sequences(path, digest=None):
                 raise ValueError(f"{path}:{line_no}: invalid UTF-8") from exc
             if not decoded:
                 continue
-            tokens = [_token(token) for token in decoded.split("\t")]
-            if any(not token for token in tokens):
+            raw_tokens = decoded.split("\t")
+            if any(not token for token in raw_tokens):
                 raise ValueError(f"{path}:{line_no}: empty token")
-            yield tokens
+            yield [_token(token) for token in raw_tokens]
 
 
 def read_sequences(path):
@@ -214,17 +214,17 @@ def _write_streaming_events(connection, output_path, total_tokens, sequence_coun
     digest = hashlib.sha256()
     written = event_count = 0
     try:
-        with os.fdopen(fd, "wb") as target:
+        with os.fdopen(fd, "wb") as output_stream:
             rows = connection.execute(
                 "SELECT r.source,r.target,r.direction,r.distance,r.count,o.count,u.count "
                 "FROM relation_count r "
                 "JOIN opportunity o ON o.source=r.source AND o.direction=r.direction AND o.distance=r.distance "
                 "JOIN unigram u ON u.token=r.target "
                 "ORDER BY r.source,r.direction,r.distance,r.target")
-            for source, target, direction, distance, count, opportunity, target_count in rows:
+            for source, target_token, direction, distance, count, opportunity, target_count in rows:
                 if count < min_count:
                     continue
-                event = _event(source, target, direction, distance, count, opportunity,
+                event = _event(source, target_token, direction, distance, count, opportunity,
                     target_count, total_tokens, reliability_prior, distance_gamma, pmi_clip)
                 encoded = (json.dumps(event, ensure_ascii=False, sort_keys=True,
                                       separators=(",", ":")) + "\n").encode("utf-8")
@@ -232,12 +232,12 @@ def _write_streaming_events(connection, output_path, total_tokens, sequence_coun
                     raise ValueError("event count exceeds hard limit")
                 if written + len(encoded) > max_bytes:
                     raise ValueError(f"serialized events exceed byte limit: {written + len(encoded)} > {max_bytes}")
-                target.write(encoded)
+                output_stream.write(encoded)
                 digest.update(encoded)
                 written += len(encoded)
                 event_count += 1
-            target.flush()
-            os.fsync(target.fileno())
+            output_stream.flush()
+            os.fsync(output_stream.fileno())
         manifest = {
             "schema": SCHEMA, "schema_version": VERSION, "format": "jsonl",
             "sha256": digest.hexdigest(), "input_sha256": input_sha256, "bytes": written,
