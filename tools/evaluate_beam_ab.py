@@ -198,7 +198,8 @@ def compare(new, old, rows, split, bootstrap_samples=2000, bootstrap_seed=202611
         "split": split,
         "case_count": len(rows),
         "paired_bootstrap": paired_bootstrap(
-            new_cases, old_cases, samples=bootstrap_samples, seed=bootstrap_seed,\n            source_rows=rows),
+            new_cases, old_cases, samples=bootstrap_samples, seed=bootstrap_seed,
+            source_rows=rows),
         "comparison": {
             "legacy_beam_pruning": old["overall"],
             "rendered_surface_diversity": new["overall"],
