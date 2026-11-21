@@ -294,7 +294,7 @@ int main() {
     const auto entity_result = partial_entity_runtime.normalize(
         partial_reading, {decoder_top, entity_supported}, true);
     if (!entity_result.committed)
-      std::cerr << "partial entity normalize failed: " << entity_result.error << '\\n';
+      std::cerr << "partial entity normalize failed: " << entity_result.error << '\n';
     assert(entity_result.committed);
     assert(entity_result.output == "今日は2026年11月22日の15時20分です");
     assert(entity_result.metrics.typed_entities_found == 2);
