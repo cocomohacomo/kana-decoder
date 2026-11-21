@@ -1,6 +1,5 @@
 #include "kana_decoder/engine.hpp"
 #include "kana_decoder/japanese_decoder.hpp"
-#include <algorithm>
 #include <cstdio>
 #include <fstream>
 #include <iostream>
@@ -63,16 +62,12 @@ int main() {
  options.context_weight=0.0;
  kana_decoder::MorphologyDecoder decoder;
  bool limited=false;
- std::vector<kana_decoder::CandidateScoreTrace> trace;
  const auto paths=decoder.decode(2,{first,second},kana_decoder::MaskedNgramScorer{},
-                                 {},options,nullptr,&trace,&limited);
- const auto rescued_trace=std::find_if(trace.begin(),trace.end(),[](const auto& item){
-  return item.surface=="良";
- });
+                                 {},options,nullptr,nullptr,&limited);
  if(limited||paths.empty()||paths.front().tokens.size()!=2||
     paths.front().tokens.back().candidate.surface!="良"||
-    rescued_trace==trace.end()||!rescued_trace->has_cluster_evidence||
-    !(rescued_trace->cluster_raw_evidence>0.0)) {
+    !paths.front().tokens.back().has_cluster_evidence||
+    !(paths.front().tokens.back().cluster_raw_evidence>0.0)) {
   std::remove(path.c_str());
   std::cerr << "cluster evidence failed to rescue candidate outside morphology top four\n";
   return 1;
