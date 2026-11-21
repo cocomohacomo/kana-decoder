@@ -207,6 +207,38 @@ std::string LexiconTrie::candidate_pos(const std::string& candidate_id) const {
  if(found==candidate_pos_index_.end()||candidate_string(found->id)!=candidate_id) return {};
  return std::string(candidate_string(found->pos));
 }
+bool LexiconTrie::contains_surface(const std::string& reading,const std::string& surface) const {
+ if(reading.empty()||surface.empty()||!valid_utf8_impl(reading)||!valid_utf8_impl(surface))return false;
+ std::size_t node=0;
+ for(std::size_t offset=0;offset<reading.size();offset+=utf8_width(static_cast<unsigned char>(reading[offset]))) {
+  const auto cp=utf8_codepoint_at(reading,offset);
+  std::uint32_t child=0;
+  bool found=false;
+  if(edges_compacted_) {
+   const auto& current=nodes_[node];
+   const auto first=edge_arena_.begin()+current.edge_offset;
+   const auto last=first+current.edge_count;
+   const auto it=std::lower_bound(first,last,cp,[](const auto& edge,std::uint32_t value){return edge.first<value;});
+   if(it!=last&&it->first==cp){child=it->second;found=true;}
+  } else {
+   const auto& edges=build_nodes_[node].next;
+   const auto it=std::lower_bound(edges.begin(),edges.end(),cp,[](const auto& edge,std::uint32_t value){return edge.first<value;});
+   if(it!=edges.end()&&it->first==cp){child=it->second;found=true;}
+  }
+  if(!found)return false;
+  node=child;
+ }
+ if(candidates_compacted_) {
+  const auto& terminal=nodes_[node];
+  const auto first=candidate_arena_.begin()+terminal.candidate_offset;
+  for(auto it=first;it!=first+terminal.candidate_count;++it)
+   if(candidate_string(it->surface)==surface)return true;
+ } else {
+  for(const auto& candidate:build_nodes_[node].values)
+   if(candidate_string(candidate.surface)==surface)return true;
+ }
+ return false;
+}
 std::vector<LatticeEdge> LexiconTrie::build_lattice(
  const std::string& reading,std::size_t max_matches,bool fallback,
  std::vector<LatticePositionTrace>* trace,std::size_t max_total_edges,
