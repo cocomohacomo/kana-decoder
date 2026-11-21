@@ -227,6 +227,7 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
             for group in survival_groups:
                 losses = {
                     "lattice_missing": group["lattice_missing"],
+                    "span_selection_drop": group["span_selection_drop"],
                     "shortlist_drop": group["shortlist_drop"],
                     "expansion_drop": group["expansion_drop"],
                     "trace_censored": group["trace_censored"],
@@ -268,7 +269,7 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
             self.assertEqual(survival["unclassified_gold_tokens"], 0)
             self.assertEqual(
                 survival["classified_gold_tokens"],
-                survival["lattice_missing"] + survival["shortlist_drop"]
+                survival["lattice_missing"] + survival["span_selection_drop"] + survival["shortlist_drop"]
                 + survival["expansion_drop"] + survival["trace_censored"]
                 + survival["beam_pruning_drop"] + survival["final_selection_drop"]
                 + survival["final_selected"])
@@ -276,7 +277,7 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
                         "beam_survived", "beam_pruning_drop", "final_selected",
                         "classified_gold_tokens", "unclassified_gold_tokens",
                         "final_aligned", "nbest_aligned", "nbest_recoverable",
-                        "scored_not_in_nbest", "lattice_missing", "shortlist_drop",
+                        "scored_not_in_nbest", "lattice_missing", "span_selection_drop", "shortlist_drop",
                         "expansion_drop", "trace_censored", "final_selection_drop"):
                 self.assertGreaterEqual(survival[key], 0)
                 self.assertLessEqual(survival[key], survival["gold_tokens"])
