@@ -99,23 +99,25 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  struct State { DecodedPath path; std::vector<std::string> history; std::vector<std::string> pos_history; std::int32_t last_right_id=0; bool has_last=false; };
  std::vector<std::vector<State>> beams(length+1);
  beams[0].push_back(State{});
- auto prune=[&](std::vector<State>& states){
+ auto prune=[&](std::vector<State>& states,bool continuation_needed){
   std::stable_sort(states.begin(),states.end(),[](const State&a,const State&b){return a.path.score>b.path.score;});
   if(states.size()<=beam_limit)return;
   if(!opt.preserve_rendered_surface_diversity){
    states.resize(beam_limit);
    return;
   }
-  // Preserve distinct rendered surfaces and continuation contexts before
-  // filling remaining slots by score. POS/history/right-id states can lead to
-  // different future transitions even when the current surface is identical.
+  // Preserve distinct rendered outputs at the final position. At intermediate
+  // positions, distinguish continuation contexts so future transitions retain
+  // their state. This avoids sacrificing final surface diversity to redundant
+  // internal histories.
   std::vector<std::size_t> retained_indices;
   retained_indices.reserve(beam_limit);
   std::unordered_set<std::string> seen_contexts;
   seen_contexts.reserve(beam_limit);
   std::vector<bool> retained(states.size(),false);
   for(std::size_t i=0;i<states.size()&&retained_indices.size()<beam_limit;++i){
-   if(seen_contexts.insert(beam_context_identity(states[i])).second){
+   const auto identity=continuation_needed?beam_context_identity(states[i]):rendered_surface(states[i].path);
+   if(seen_contexts.insert(identity).second){
     retained_indices.push_back(i);
     retained[i]=true;
    }
@@ -283,7 +285,7 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     beams[edge->end].push_back(std::move(next));
     }
    }
-   prune(beams[edge->end]);
+   prune(beams[edge->end],edge->end<length);
   }
  }
  std::vector<DecodedPath> out;
