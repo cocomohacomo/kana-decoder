@@ -179,8 +179,9 @@ int main() {
  auto paths=decode_reading("あめ",lexicon,scorer,options,&connections,&trace);
  assert(!paths.empty());
  assert(trace.size()>=2);
- bool saw_rain=false,saw_candy=false,saw_transition=false;
+ bool saw_rain=false,saw_candy=false,saw_transition=false,saw_beam_survivor=false;
  for(const auto& item:trace) {
+   saw_beam_survivor=saw_beam_survivor||item.beam_survived;
    assert(item.end>item.start);
    assert(item.local_score==item.morphology_score+item.weighted_context_score);
    assert(item.weighted_context_score==item.raw_context_score*item.context_weight);
@@ -194,7 +195,7 @@ int main() {
    if(item.candidate_id=="candy") saw_candy=true;
    if(item.candidate_id=="second" && item.transition_cost==7) saw_transition=true;
  }
- assert(saw_rain&&saw_candy&&saw_transition);
+ assert(saw_rain&&saw_candy&&saw_transition&&saw_beam_survivor);
  auto fallback=decode_reading("ぴ",lexicon,scorer,options,nullptr,&trace);
  assert(!fallback.empty());
  bool saw_fallback=false;
