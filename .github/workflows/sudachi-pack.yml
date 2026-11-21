@@ -290,7 +290,9 @@ jobs:
               if sum(outcomes.values()) != group.get("cases"):
                   raise SystemExit(f"{label}: paired outcomes do not partition cases")
           validate_outcome_group("overall", overall_outcomes)
-          if overall_outcomes["cases"] != report["surge_evidence_gated_left_context"]["cases"]:
+          surge_metrics = report["surge_evidence_gated_left_context"]
+          eligible_cases = surge_metrics["cases"] - surge_metrics["over_limit_sentences"]
+          if overall_outcomes["cases"] != eligible_cases:
               raise SystemExit("overall paired outcomes do not match eligible SURGE cases")
           for field in (
               "surge_paired_sentence_outcomes_by_domain",
