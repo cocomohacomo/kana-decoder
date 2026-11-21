@@ -730,11 +730,11 @@ void print_calibration_metrics(const char* name, const Metrics& m) {
 
 int main(int argc, char** argv) {
     if (argc != 4 && argc != 6 && argc != 7) {
-        std::cerr << "usage: kana_decoder_sequential_eval PACK_DIR TRAIN_SEQUENCES.tsv TOKENIZED.tsv [dev-calibrate CALIBRATION.tsv | test CALIBRATION.tsv]\n";
+        std::cerr << "usage: kana_decoder_sequential_eval PACK_DIR TRAIN_SEQUENCES.tsv TOKENIZED.tsv [dev-calibrate CALIBRATION.tsv | dev-diagnostic CALIBRATION.tsv | test CALIBRATION.tsv]\n";
         return 2;
     }
     const std::string mode = argc == 4 ? "test" : argv[4];
-    if (mode != "test" && mode != "dev-calibrate") return 2;
+    if (mode != "test" && mode != "dev-calibrate" && mode != "dev-diagnostic") return 2;
     kana_decoder::LexiconTrie lexicon;
     kana_decoder::MaskedNgramScorer pack_scorer;
     kana_decoder::ConnectionModel connections;
@@ -753,7 +753,7 @@ int main(int argc, char** argv) {
     }
     std::vector<Sentence> sentences;
     std::size_t source_tokens = 0;
-    const std::string split = mode == "dev-calibrate" ? "dev" : "test";
+    const std::string split = mode == "test" ? "test" : "dev";
     if (!load_sentences(argv[3], split, sentences, source_tokens)) {
         std::cerr << "failed to load " << split << " token corpus\n";
         return 2;
@@ -931,7 +931,7 @@ int main(int argc, char** argv) {
         evaluate(sentences, lexicon, trained_scorer, connections, combined, combined_options);
     }
     std::cout << "{\"mode\":\"end_to_end_sentence_reading_with_predicted_left_history\""
-              << ",\"split\":\"test\""
+              << ",\"split\":" << std::quoted(split)
               << ",\"gold_token_boundaries_used_for_decoding\":false"
               << ",\"gold_token_boundaries_used_for_alignment_only\":true"
               << ",\"future_context_used\":false"
@@ -942,7 +942,8 @@ int main(int argc, char** argv) {
               << ",\"dev_selected_cluster_weight\":" << selected_cluster_weight
               << ",\"dev_selected_policy\":\"" << (selected_cluster_weight > 0.0 ? (selected_weight > 0.0 ? "combined" : "cluster_only") : (selected_weight > 0.0 ? "ngram_only" : "morphology")) << "\""
 
-              << ",\"source_test_tokens\":" << source_tokens
+              << ",\"source_tokens\":" << source_tokens
+              << (mode == "test" ? ",\"source_test_tokens\":" : ",\"source_dev_tokens\":") << source_tokens
               << ",\"sentences\":" << sentences.size();
     print_metrics("morphology_only", morphology);
     print_metric_groups("morphology_metrics_by_domain", morphology_by_domain);
