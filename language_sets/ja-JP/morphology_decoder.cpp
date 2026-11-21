@@ -160,12 +160,20 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
      std::vector<std::pair<const LatticeCandidate*,double>> supported_top;
      const std::size_t seed_count=std::min<std::size_t>(4,candidates.size());
      const std::size_t supported_limit=candidate_limit+seed_count;
+     // Preserve scores for morphology seeds even when they fall below the
+     // bounded evidence shortlist. Both stores are strictly size-limited.
+     std::vector<std::pair<const LatticeCandidate*,double>> seed_supported_scores;
+     seed_supported_scores.reserve(seed_count);
      supported_top.reserve(supported_limit);
      surface_score_indices.reserve(std::min<std::size_t>(edge->candidates.size(),256));
      for(const auto& candidate:edge->candidates){
       bool has=false;
       const double score=opt.surge_cluster_model->evidence_score(candidate.id,state.history,&has);
       if(!has)continue;
+      if(std::find(morphology_candidates.begin(),
+                   morphology_candidates.begin()+static_cast<std::ptrdiff_t>(seed_count),
+                   &candidate)!=morphology_candidates.begin()+static_cast<std::ptrdiff_t>(seed_count))
+       seed_supported_scores.emplace_back(&candidate,score);
       const auto inserted=surface_score_indices.emplace(candidate.surface,surface_scores.size());
       if(inserted.second)surface_scores.push_back({candidate.surface,score});
       else {
@@ -223,14 +231,24 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
       }
       candidates.swap(expanded);
      }
-     // Evidence was evaluated for every lattice candidate above, but only the
-     // bounded expansion can be emitted. Recompute evidence for that shortlist
-     // instead of retaining a candidate-sized hash table for the whole edge.
+     // Reuse scores from the bounded seed/evidence stores. The supported
+     // shortlist has enough capacity for every non-seed candidate needed to
+     // fill the expansion, while the seed store covers any lower-ranked seeds.
      selected_supported_scores.reserve(candidates.size());
      for(const auto* candidate:candidates){
-      bool has=false;
-      const double score=opt.surge_cluster_model->evidence_score(candidate->id,state.history,&has);
-      if(has)selected_supported_scores.emplace_back(candidate,score);
+      auto retained=std::find_if(seed_supported_scores.begin(),seed_supported_scores.end(),
+       [&](const auto& item){return item.first==candidate;});
+      if(retained==seed_supported_scores.end())
+       retained=std::find_if(supported_top.begin(),supported_top.end(),
+        [&](const auto& item){return item.first==candidate;});
+      if(retained!=seed_supported_scores.end())
+       selected_supported_scores.emplace_back(candidate,retained->second);
+      else {
+       const auto supported=std::find_if(supported_top.begin(),supported_top.end(),
+        [&](const auto& item){return item.first==candidate;});
+       if(supported!=supported_top.end())
+        selected_supported_scores.emplace_back(candidate,supported->second);
+      }
      }
     }
     bool surge_resolved=false;
