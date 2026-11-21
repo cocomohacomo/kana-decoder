@@ -87,13 +87,15 @@ def paired_bootstrap(new_cases, old_cases, samples=2000, seed=20261121,
     # covered segments from a document stay together in each bootstrap draw.
     if source_rows is None:
         clusters = {str(index): [index] for index in range(count)}
-        method = "paired percentile cluster bootstrap over documents"
+        method = "paired percentile bootstrap over cases"
+        resampling_unit = "case"
     else:
         clusters = {}
         for index, row in enumerate(source_rows):
             document_id = row[0]
             clusters.setdefault(document_id, []).append(index)
         method = "paired percentile cluster bootstrap over documents"
+        resampling_unit = "document"
 
     cluster_indices = list(clusters.values())
     rng = random.Random(seed)
@@ -134,7 +136,9 @@ def paired_bootstrap(new_cases, old_cases, samples=2000, seed=20261121,
 
     return {
         "method": method,
-        "resampling_unit": "document",
+        "resampling_unit": resampling_unit,
+        "warning": ("Fewer than two independent resampling units; interval "
+                    "is not informative." if len(cluster_indices) < 2 else None),
         "cluster_count": len(cluster_indices),
         "samples": samples,
         "seed": seed,
