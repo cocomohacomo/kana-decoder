@@ -51,6 +51,7 @@
 - tools/evaluate_ablation.py は全読みを覆う単一span候補に限定し、形態素スコア・combined local score・SURGEの根拠付き解決を比較します。複数形態素文の正解token alignmentを推測しません。
 
 ## 仕様
+- v1.05: [Repeatable SURGE runtime benchmark](docs/SPECIFICATION_v1.05.md)
 - v1.04: [Exact bounded beam identity and regression contract](docs/SPECIFICATION_v1.04.md)
 - v0.64: [Pinned real-corpus SURGE runtime evaluation](docs/SPECIFICATION_v0.64.md)
 - v0.63: [Token candidate miss attribution](docs/SPECIFICATION_v0.63.md)
