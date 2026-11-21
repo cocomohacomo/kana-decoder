@@ -76,7 +76,7 @@ int main(){
  assert(kept_history_a&&kept_history_b);
  // Final pruning compares concatenated surfaces, not token segmentation.
  std::vector<LatticeEdge> same_output_lattice{
-  {0,2,{{"WHOLE","東京都",10,0}}},
+  {0,2,{{"WHOLE","東京都",10,0},{"OTHER","大阪",10,0}}},
   {0,1,{{"PART_A","東京",10,0}}},
   {1,2,{{"PART_B","都",10,0}}}
  };
@@ -86,13 +86,14 @@ int main(){
  output_options.preserve_rendered_surface_diversity=true;
  auto same_output_paths=decoder.decode(2,same_output_lattice,lattice_scorer,{},
                                       output_options);
- std::size_t tokyo_output_count=0;
+ std::size_t tokyo_output_count=0,osaka_output_count=0;
  for(const auto& path:same_output_paths){
   std::string surface;
   for(const auto& token:path.tokens)surface+=token.candidate.surface;
   if(surface=="東京都")++tokyo_output_count;
+  if(surface=="大阪")++osaka_output_count;
  }
- assert(tokyo_output_count==1);
+ assert(tokyo_output_count==1&&osaka_output_count==1);
  // Invalid spans and unreachable input must not fabricate a complete path.
  auto invalid_paths=decoder.decode(3,lattice,lattice_scorer,{},dop);
  assert(invalid_paths.empty());
