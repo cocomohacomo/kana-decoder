@@ -232,6 +232,8 @@ int main(){
   "TRIE_TIE_FIRST","TRIE_TIE_SECOND","TRIE_E","TRIE_F"};
  for(std::size_t i=0;i<expected_trie_ids.size();++i)
   assert(trie_retained[i].id==expected_trie_ids[i]);
+ assert(trie_retention.contains_surface("あ","壬"));
+ assert(!trie_retention.contains_surface("あ","不存在"));
  LexiconTrie contextual_trie;
  assert(contextual_trie.add("あした",{"あした","明日",100,0}));
  assert(contextual_trie.add("あめ",{"rain","雨",100,0}));
