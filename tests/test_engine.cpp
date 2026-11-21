@@ -209,6 +209,29 @@ int main(){
  assert(is_valid_utf8("こんにちは🙂")&&!is_valid_utf8(malformed));
  std::string overlong;overlong.push_back(static_cast<char>(0xc0));overlong.push_back(static_cast<char>(0xaf));assert(!pack_lexicon.add(overlong,{"bad","bad",0,0}));
  assert(pack_scorer.score("rain",{"あした"},{})>pack_scorer.score("candy",{"あした"},{}));
+ // Trie shortlist replacement uses ordered insertion, keeps the cheapest
+ // surface representative, and preserves first-seen order for equal costs.
+ LexiconTrie trie_retention;
+ assert(trie_retention.add("あ",{"TRIE_A","甲",10,0}));
+ assert(trie_retention.add("あ",{"TRIE_B","乙",20,0}));
+ assert(trie_retention.add("あ",{"TRIE_DUP_HIGH","重",50,0}));
+ assert(trie_retention.add("あ",{"TRIE_C","丙",30,0}));
+ assert(trie_retention.add("あ",{"TRIE_DUP_LOW","重",5,0}));
+ assert(trie_retention.add("あ",{"TRIE_TIE_FIRST","丁",40,0}));
+ assert(trie_retention.add("あ",{"TRIE_TIE_SECOND","戊",40,0}));
+ assert(trie_retention.add("あ",{"TRIE_E","己",60,0}));
+ assert(trie_retention.add("あ",{"TRIE_F","庚",70,0}));
+ assert(trie_retention.add("あ",{"TRIE_G","辛",80,0}));
+ assert(trie_retention.add("あ",{"TRIE_H","壬",90,0}));
+ const auto trie_retention_edges=trie_retention.build_lattice("あ",16,false);
+ assert(trie_retention_edges.size()==1);
+ const auto& trie_retained=trie_retention_edges.front().candidates;
+ assert(trie_retained.size()==8);
+ const std::vector<std::string> expected_trie_ids{
+  "TRIE_DUP_LOW","TRIE_A","TRIE_B","TRIE_C",
+  "TRIE_TIE_FIRST","TRIE_TIE_SECOND","TRIE_E","TRIE_F"};
+ for(std::size_t i=0;i<expected_trie_ids.size();++i)
+  assert(trie_retained[i].id==expected_trie_ids[i]);
  LexiconTrie contextual_trie;
  assert(contextual_trie.add("あした",{"あした","明日",100,0}));
  assert(contextual_trie.add("あめ",{"rain","雨",100,0}));
