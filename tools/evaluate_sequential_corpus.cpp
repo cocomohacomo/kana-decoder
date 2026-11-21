@@ -633,7 +633,7 @@ int main(int argc, char** argv) {
     evaluate_candidate_survival(sentences, lexicon, trained_scorer,
                                 connections, survival_options, survival,
                                 survival_by_domain, survival_by_reading_length);
-    std::cout << ",\\\"candidate_survival_diagnostic\\\":";
+    std::cout << ",\"candidate_survival_diagnostic\":";
     print_candidate_survival_summary(survival);
     print_candidate_survival_groups("candidate_survival_by_domain", survival_by_domain);
     print_candidate_survival_groups("candidate_survival_by_reading_length", survival_by_reading_length);
