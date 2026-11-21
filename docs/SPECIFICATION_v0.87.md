@@ -9,7 +9,7 @@ The morphology decoder's diversity pass now deduplicates retained beam states by
 - the decoder's capped token-ID history (up to three items);
 - the capped POS history (up to three items).
 
-This avoids treating two paths as interchangeable when they render identically but carry different transition or contextual scoring state. States remain score-sorted, the diversity pass is bounded by the existing beam width (hard maximum 8), and remaining slots are filled by score. This is a pruning heuristic, not an accuracy claim. Full-pack and UD Japanese-GSD dev/test comparisons are required before recommending a production policy.
+At intermediate positions where continuation is needed, this avoids treating two paths as interchangeable when they render identically but carry different transition or contextual scoring state. At the terminal position, deduplication intentionally falls back to rendered surface so duplicate internal histories cannot occupy multiple final-output slots and crowd out distinct hypotheses. States remain score-sorted, the diversity pass is bounded by the existing beam width (hard maximum 8), and remaining slots are filled by score. This is a pruning heuristic, not an accuracy claim. Full-pack and UD Japanese-GSD dev/test comparisons are required before recommending a production policy.
 
 ## Validation boundary
 
