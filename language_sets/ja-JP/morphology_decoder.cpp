@@ -96,7 +96,7 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
   if(edge.start>=edge.end||edge.end>length||edge.candidates.empty())continue;
   at[edge.start].push_back(&edge);
  }
- struct State { DecodedPath path; std::vector<std::string> history; std::vector<std::string> pos_history; std::int32_t last_right_id=0; bool has_last=false; };
+ struct State { DecodedPath path; std::vector<std::string> history; std::vector<std::string> pos_history; std::int32_t last_right_id=0; bool has_last=false; std::size_t trace_index=std::numeric_limits<std::size_t>::max(); };
  std::vector<std::vector<State>> beams(length+1);
  beams[0].push_back(State{});
  auto prune=[&](std::vector<State>& states,bool continuation_needed){
@@ -129,6 +129,7 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
   diverse.reserve(beam_limit);
   for(const auto index:retained_indices)diverse.push_back(std::move(states[index]));
   states.swap(diverse);
+  if(trace){for(const auto& state:states)if(state.trace_index<trace->size())(*trace)[state.trace_index].beam_survived=true;}
  };
  for(std::size_t pos=0;pos<length;++pos){
   if(beams[pos].empty())continue;
@@ -250,11 +251,14 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     const double pos_context=pos_raw*opt.pos_context_weight;
     const double ctx=ngram_context+cluster_context+pos_context;
     const double local=morph+ctx;
-    if(trace && trace->size()<trace_limit) trace->push_back(CandidateScoreTrace{
+    if(trace && trace->size()<trace_limit){
+     trace->push_back(CandidateScoreTrace{
       edge->start,edge->end,candidate.id,candidate.surface,
       candidate.word_cost,candidate.connection_cost,transition,
       raw_context,context_evidence,opt.context_weight,morph,ctx,local,
-      candidate.id.rfind("kana:",0)==0});
+      candidate.id.rfind("kana:",0)==0,false});
+     next.trace_index=trace->size()-1;
+    }
     next.path.score+=local;
     DecodedToken decoded_token;
     decoded_token.start=edge->start;
