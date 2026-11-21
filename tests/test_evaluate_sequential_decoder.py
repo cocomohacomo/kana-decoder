@@ -67,6 +67,7 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
             survival = result["candidate_survival_diagnostic"]
             self.assertEqual(survival["gold_tokens"], result["source_test_tokens"])
             for key in ("lattice_present", "morphology_top8", "scored_or_expanded",
+                        "beam_survived", "beam_pruning_drop",
                         "final_aligned", "nbest_aligned", "nbest_recoverable",
                         "scored_not_in_nbest", "lattice_missing", "shortlist_drop",
                         "expansion_drop", "trace_censored", "final_selection_drop"):
@@ -75,6 +76,11 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
             self.assertGreaterEqual(survival["nbest_aligned"], survival["final_aligned"])
             self.assertLessEqual(survival["nbest_recoverable"], survival["nbest_aligned"])
             self.assertLessEqual(survival["scored_not_in_nbest"], survival["scored_or_expanded"])
+            self.assertLessEqual(survival["beam_survived"], survival["scored_or_expanded"])
+            self.assertLessEqual(survival["beam_pruning_drop"], survival["scored_or_expanded"])
+            self.assertEqual(
+                survival["scored_or_expanded"],
+                survival["beam_survived"] + survival["beam_pruning_drop"])
             self.assertEqual(
                 survival["nbest_aligned"],
                 survival["final_aligned"] + survival["nbest_recoverable"])
