@@ -19,7 +19,7 @@ std::vector<const kana_decoder::LatticeCandidate*> retain_surface_diverse(const 
   const auto* ptr=&candidate;
   auto same=std::find_if(selected.begin(),selected.end(),[&](const auto* item){return item->surface==candidate.surface;});
   if(same!=selected.end()){
-   if(candidate_cost(candidate)<candidate_cost(**same){
+   if(candidate_cost(candidate)<candidate_cost(**same)){
     selected.erase(same);
     insert_ordered(ptr);
    }
