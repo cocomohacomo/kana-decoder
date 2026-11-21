@@ -66,8 +66,7 @@ bool same_rendered_surface(const LeftPath& left,const RightPath& right){
 template<class State>
 bool same_beam_context(const State& left,const State& right){
  return same_rendered_surface(left.path,right.path)&&
-  left.has_last==right.has_last&&
-  (!left.has_last||left.last_right_id==right.last_right_id)&&
+  (left.has_last?left.last_right_id:0)==(right.has_last?right.last_right_id:0)&&
   left.history==right.history&&left.pos_history==right.pos_history;
 }
 std::vector<const kana_decoder::LatticeEdge*> retain_span_diverse(std::vector<const kana_decoder::LatticeEdge*> edges,std::size_t limit){
