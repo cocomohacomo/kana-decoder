@@ -877,6 +877,8 @@ int main(int argc, char** argv) {
         if (cluster_enabled) {
             kana_decoder::DecoderOptions cluster_ablation;
             cluster_ablation.surge_cluster_model = &cluster_model;
+            cluster_ablation.context_weight = 0.0;
+            cluster_ablation.pos_context_weight = 0.0;
             cluster_ablation.surge_cluster_weight = 1.0;
             Metrics cluster_only;
             evaluate(sentences, lexicon, trained_scorer, connections,
