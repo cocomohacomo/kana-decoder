@@ -74,6 +74,33 @@ int main(){
   if(path.tokens[0].candidate.id=="HIST_B")kept_history_b=true;
  }
  assert(kept_history_a&&kept_history_b);
+ // Surface-diverse morphology retention replaces a duplicate surface only
+ // when a strictly cheaper candidate appears, while preserving equal-cost
+ // first-seen order and the configured shortlist bound.
+ std::vector<LatticeEdge> candidate_retention_lattice{
+  {0,1,{{"DUP_EXPENSIVE","同",20,0},
+        {"DISTINCT","別",10,0},
+        {"DUP_CHEAP","同",5,0}}}
+ };
+ DecoderOptions retention_options=dop;
+ retention_options.beam_width=4;
+ retention_options.max_paths=4;
+ retention_options.max_candidates_per_edge=2;
+ auto retained_candidate_paths=decoder.decode(
+     1,candidate_retention_lattice,lattice_scorer,{},retention_options);
+ assert(retained_candidate_paths.size()==2);
+ assert(retained_candidate_paths[0].tokens[0].candidate.id=="DUP_CHEAP");
+ assert(retained_candidate_paths[1].tokens[0].candidate.id=="DISTINCT");
+ std::vector<LatticeEdge> equal_cost_retention_lattice{
+  {0,1,{{"TIE_FIRST","同",10,0},
+        {"TIE_OTHER","別",10,0},
+        {"TIE_SECOND","同",10,0}}}
+ };
+ auto equal_cost_paths=decoder.decode(
+     1,equal_cost_retention_lattice,lattice_scorer,{},retention_options);
+ assert(equal_cost_paths.size()==2);
+ assert(equal_cost_paths[0].tokens[0].candidate.id=="TIE_FIRST");
+ assert(equal_cost_paths[1].tokens[0].candidate.id=="TIE_OTHER");
  // Final pruning compares concatenated surfaces, not token segmentation.
  std::vector<LatticeEdge> same_output_lattice{
   {0,2,{{"WHOLE","東京都",10,0},{"OTHER","大阪",10,0}}},
