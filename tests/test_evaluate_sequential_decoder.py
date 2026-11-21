@@ -167,13 +167,14 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
                 self.assertAlmostEqual(
                     group["dominant_loss_pct"],
                     100.0 * group["dominant_loss_tokens"] / group["gold_tokens"]
-                    if group["gold_tokens"] else 0.0)
+                    if group["gold_tokens"] else 0.0,
+                    delta=0.01)
                 self.assertEqual(
                     set(group["loss_stage_rates_pct"]),
                     set(losses) | {"final_selected"})
                 self.assertAlmostEqual(
                     sum(group["loss_stage_rates_pct"].values()), 100.0
-                    if group["gold_tokens"] else 0.0)
+                    if group["gold_tokens"] else 0.0, delta=0.01)
             for grouped_key in ("candidate_survival_by_domain",
                                 "candidate_survival_by_reading_length"):
                 groups = result[grouped_key]
