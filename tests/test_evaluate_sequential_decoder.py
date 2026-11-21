@@ -72,9 +72,10 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
                 survival["classified_gold_tokens"],
                 survival["lattice_missing"] + survival["shortlist_drop"]
                 + survival["expansion_drop"] + survival["trace_censored"]
-                + survival["beam_pruning_drop"] + survival["final_selection_drop"])
+                + survival["beam_pruning_drop"] + survival["final_selection_drop"]
+                + survival["final_selected"])
             for key in ("lattice_present", "morphology_top8", "scored_or_expanded",
-                        "beam_survived", "beam_pruning_drop",
+                        "beam_survived", "beam_pruning_drop", "final_selected",
                         "classified_gold_tokens", "unclassified_gold_tokens",
                         "final_aligned", "nbest_aligned", "nbest_recoverable",
                         "scored_not_in_nbest", "lattice_missing", "shortlist_drop",
