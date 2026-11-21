@@ -71,33 +71,60 @@ def _delta(new, old, key):
     return None
 
 
-def paired_bootstrap(new_cases, old_cases, samples=2000, seed=20261121):
+def paired_bootstrap(new_cases, old_cases, samples=2000, seed=20261121,
+                     source_rows=None):
     if samples < 1:
         raise ValueError("bootstrap samples must be positive")
     count = len(new_cases)
     if count == 0:
         raise ValueError("cannot bootstrap an empty evaluation")
+    if len(old_cases) != count:
+        raise ValueError("paired bootstrap inputs have different case counts")
+    if source_rows is not None and len(source_rows) != count:
+        raise ValueError("bootstrap source rows do not align with evaluator cases")
+
+    # Documents, not sentences, are the independent resampling units. All
+    # covered segments from a document stay together in each bootstrap draw.
+    if source_rows is None:
+        clusters = {str(index): [index] for index in range(count)}
+        method = "paired percentile cluster bootstrap over documents"
+    else:
+        clusters = {}
+        for index, row in enumerate(source_rows):
+            document_id = row[0]
+            clusters.setdefault(document_id, []).append(index)
+        method = "paired percentile cluster bootstrap over documents"
+
+    cluster_indices = list(clusters.values())
     rng = random.Random(seed)
     exact_deltas = []
     cer_deltas = []
     for _ in range(samples):
-        indices = [rng.randrange(count) for _ in range(count)]
+        sampled = [rng.randrange(len(cluster_indices))
+                   for _ in range(len(cluster_indices))]
+        indices = [case_index for cluster_index in sampled
+                   for case_index in cluster_indices[cluster_index]]
         new_exact = old_exact = 0
         new_edits = old_edits = reference_chars = 0
         for index in indices:
             newer, older = new_cases[index], old_cases[index]
             expected = newer["expected"]
+            if older.get("expected") != expected:
+                raise ValueError("paired bootstrap references differ")
             reference_length = len(expected)
             reference_chars += reference_length
-            new_edits += newer["edit_distance"]
-            old_edits += older["edit_distance"]
+            new_distance = newer.get("edit_distance")
+            old_distance = older.get("edit_distance")
+            if (not isinstance(new_distance, int) or new_distance < 0 or
+                    not isinstance(old_distance, int) or old_distance < 0):
+                raise ValueError("paired bootstrap requires non-negative integer edit distances")
+            new_edits += new_distance
+            old_edits += old_distance
             new_exact += newer["predicted"] == expected
             old_exact += older["predicted"] == expected
-        exact_deltas.append((new_exact - old_exact) / count)
-        if reference_chars:
-            cer_deltas.append((new_edits - old_edits) / reference_chars)
-        else:
-            cer_deltas.append(0.0)
+        exact_deltas.append((new_exact - old_exact) / len(indices))
+        cer_deltas.append(
+            (new_edits - old_edits) / reference_chars if reference_chars else 0.0)
 
     def interval(values):
         ordered = sorted(values)
@@ -106,15 +133,20 @@ def paired_bootstrap(new_cases, old_cases, samples=2000, seed=20261121):
         return [lower, upper]
 
     return {
-        "method": "paired percentile bootstrap over evaluation cases",
+        "method": method,
+        "resampling_unit": "document",
+        "cluster_count": len(cluster_indices),
         "samples": samples,
         "seed": seed,
         "confidence_level": 0.95,
         "exact_accuracy_delta_ci95": interval(exact_deltas),
         "cer_delta_ci95": interval(cer_deltas),
-        "interpretation": "Intervals are descriptive uncertainty estimates for this corpus split; they do not establish causality or generalization to other domains."
+        "interpretation": (
+            "Intervals resample whole documents and quantify descriptive uncertainty "
+            "within this corpus split; they do not establish causality or "
+            "generalization to other domains."
+        )
     }
-
 
 def compare(new, old, rows, split, bootstrap_samples=2000, bootstrap_seed=20261121):
     new_cases = new["details"]
@@ -162,7 +194,7 @@ def compare(new, old, rows, split, bootstrap_samples=2000, bootstrap_seed=202611
         "split": split,
         "case_count": len(rows),
         "paired_bootstrap": paired_bootstrap(
-            new_cases, old_cases, samples=bootstrap_samples, seed=bootstrap_seed),
+            new_cases, old_cases, samples=bootstrap_samples, seed=bootstrap_seed,\n            source_rows=rows),
         "comparison": {
             "legacy_beam_pruning": old["overall"],
             "rendered_surface_diversity": new["overall"],
