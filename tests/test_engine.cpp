@@ -194,7 +194,7 @@ int main(){
  {
   std::ofstream out(shortlist_tsv);
   out<<"かな\t重複\t\t名詞\tfeature\tdup-first\t100\t0\t0\t0\t\t\n";
-  for(int i=0;i<8;++i)
+  for(int i=0;i<18;++i)
    out<<"かな\t候補"<<i<<"\t\t名詞\tfeature\tid"<<i<<"\t"<<i<<"\t0\t0\t0\t\t\n";
   out<<"かな\t重複\t\t名詞\tfeature\tdup-late\t-1\t0\t0\t0\t\t\n";
   for(int i=0;i<10;++i)
