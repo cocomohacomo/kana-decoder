@@ -36,7 +36,7 @@ Each gold token is classified in this order:
 7. `final_selection_drop`: it survived the beam but was not selected by the final best path.
 8. `final_selected`: it is aligned in the final best path.
 
-The evaluator validates that these eight outcomes partition all eligible gold tokens. The same classification is aggregated by domain and reading-length bucket. The existing RSS, lattice, candidate, trace, expansion and beam ceilings are unchanged.
+The evaluator validates that these eight outcomes partition all eligible gold tokens. The same classification is aggregated by domain and reading-length bucket. The `dev-diagnostic` mode evaluates the frozen dev-calibrated policy on the development split without running another parameter search; its aggregate report is retained as a CI artifact. Held-out `test` remains a separate run. The existing RSS, lattice, candidate, trace, expansion and beam ceilings are unchanged.
 
 ## 5. Regression coverage
 
@@ -46,6 +46,7 @@ The evaluator validates that these eight outcomes partition all eligible gold to
 - Both mutable builder storage and compacted Pack storage are covered.
 - Sequential evaluator tests require the new `span_selection_drop` field and include it in mutually exclusive outcome and rate partitions.
 - CI validation requires eight loss-rate categories and rejects incomplete partitions.
+- The pinned workflow runs the frozen dev policy in `dev-diagnostic` mode and enforces the same 1,792 MiB process ceiling; only aggregate diagnostics are retained.
 
 ## 6. Interpretation and next decision
 
