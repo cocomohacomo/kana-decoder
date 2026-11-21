@@ -22,6 +22,7 @@ struct GoldToken {
 struct Sentence {
     std::string document_id;
     std::string sentence_id;
+    std::string domain;
     std::vector<GoldToken> tokens;
     std::string reading;
     std::string expected;
@@ -100,10 +101,11 @@ bool load_sentences(const std::string& path, const std::string& split,
         if (found == index.end()) {
             const auto next = sentences.size();
             index.emplace(key, next);
-            sentences.push_back(Sentence{fields[0], fields[1], {}, {}, {}});
+            sentences.push_back(Sentence{fields[0], fields[1], fields[4], {}, {}, {}});
             found = index.find(key);
         }
         auto& sentence = sentences[found->second];
+        if (sentence.domain != fields[4]) return false;
         const auto start = codepoints(sentence.reading).size();
         const auto width = codepoints(fields[2]).size();
         sentence.tokens.push_back(GoldToken{fields[2], fields[3], start, start + width});
@@ -204,15 +206,51 @@ struct CandidateSurvivalMetrics {
     std::size_t final_selection_drop = 0;
 };
 
+void add_candidate_survival_metrics(CandidateSurvivalMetrics& target,
+                                    const CandidateSurvivalMetrics& source) {
+#define KANA_ADD_METRIC(name) target.name += source.name
+    KANA_ADD_METRIC(gold_tokens);
+    KANA_ADD_METRIC(lattice_present);
+    KANA_ADD_METRIC(morphology_shortlist);
+    KANA_ADD_METRIC(scored);
+    KANA_ADD_METRIC(beam_survived);
+    KANA_ADD_METRIC(beam_pruning_drop);
+    KANA_ADD_METRIC(final_selected);
+    KANA_ADD_METRIC(final_aligned);
+    KANA_ADD_METRIC(nbest_aligned);
+    KANA_ADD_METRIC(nbest_recoverable);
+    KANA_ADD_METRIC(scored_not_in_nbest);
+    KANA_ADD_METRIC(lattice_missing);
+    KANA_ADD_METRIC(shortlist_drop);
+    KANA_ADD_METRIC(expansion_drop);
+    KANA_ADD_METRIC(trace_censored);
+    KANA_ADD_METRIC(final_selection_drop);
+#undef KANA_ADD_METRIC
+}
+
+std::string reading_length_bucket(std::size_t length) {
+    if (length <= 4) return "1-4";
+    if (length <= 8) return "5-8";
+    if (length <= 16) return "9-16";
+    if (length <= 32) return "17-32";
+    if (length <= 64) return "33-64";
+    if (length <= 128) return "65-128";
+    return "129-256";
+}
+
 void evaluate_candidate_survival(
     const std::vector<Sentence>& sentences,
     const kana_decoder::LexiconTrie& lexicon,
     const kana_decoder::MaskedNgramScorer& scorer,
     const kana_decoder::ConnectionModel& connections,
     const kana_decoder::DecoderOptions& options,
-    CandidateSurvivalMetrics& metrics) {
+    CandidateSurvivalMetrics& metrics,
+    std::map<std::string, CandidateSurvivalMetrics>& by_domain,
+    std::map<std::string, CandidateSurvivalMetrics>& by_reading_length) {
     for (const auto& sentence : sentences) {
-        if (codepoints(sentence.reading).size() > 256) continue;
+        const auto reading_length = codepoints(sentence.reading).size();
+        if (reading_length > 256 || reading_length == 0) continue;
+        CandidateSurvivalMetrics sentence_metrics;
         std::vector<kana_decoder::CandidateScoreTrace> score_trace;
         std::vector<kana_decoder::LatticePositionTrace> lattice_trace;
         const auto paths = kana_decoder::decode_reading(
@@ -222,7 +260,7 @@ void evaluate_candidate_survival(
                                          : paths.front().tokens;
         const bool score_trace_capped = score_trace.size() >= options.max_trace_records;
         for (const auto& gold : sentence.tokens) {
-            ++metrics.gold_tokens;
+            ++sentence_metrics.gold_tokens;
             bool in_lattice = false;
             bool in_shortlist = false;
             for (const auto& position : lattice_trace) {
@@ -266,34 +304,37 @@ void evaluate_candidate_survival(
                         && token.candidate.surface == gold.surface;
                 });
             const bool present_in_nbest = std::any_of(paths.begin(), paths.end(), matches_gold);
-            if (in_lattice) ++metrics.lattice_present;
-            if (in_shortlist) ++metrics.morphology_shortlist;
-            if (was_scored) ++metrics.scored;
-            if (survived_beam) ++metrics.beam_survived;
-            if (was_scored && !survived_beam) ++metrics.beam_pruning_drop;
-            if (aligned) ++metrics.final_aligned;
-            if (present_in_nbest) ++metrics.nbest_aligned;
-            if (present_in_nbest && !aligned) ++metrics.nbest_recoverable;
-            if (was_scored && !present_in_nbest) ++metrics.scored_not_in_nbest;
-            if (!in_lattice) ++metrics.lattice_missing;
-            else if (!in_shortlist) ++metrics.shortlist_drop;
-            else if (!was_scored && score_trace_capped) ++metrics.trace_censored;
-            else if (!was_scored) ++metrics.expansion_drop;
+            if (in_lattice) ++sentence_metrics.lattice_present;
+            if (in_shortlist) ++sentence_metrics.morphology_shortlist;
+            if (was_scored) ++sentence_metrics.scored;
+            if (survived_beam) ++sentence_metrics.beam_survived;
+            if (was_scored && !survived_beam) ++sentence_metrics.beam_pruning_drop;
+            if (aligned) ++sentence_metrics.final_aligned;
+            if (present_in_nbest) ++sentence_metrics.nbest_aligned;
+            if (present_in_nbest && !aligned) ++sentence_metrics.nbest_recoverable;
+            if (was_scored && !present_in_nbest) ++sentence_metrics.scored_not_in_nbest;
+            if (!in_lattice) ++sentence_metrics.lattice_missing;
+            else if (!in_shortlist) ++sentence_metrics.shortlist_drop;
+            else if (!was_scored && score_trace_capped) ++sentence_metrics.trace_censored;
+            else if (!was_scored) ++sentence_metrics.expansion_drop;
             else if (!survived_beam) { /* counted in beam_pruning_drop above */ }
-            else if (!aligned) ++metrics.final_selection_drop;
-            else ++metrics.final_selected;
+            else if (!aligned) ++sentence_metrics.final_selection_drop;
+            else ++sentence_metrics.final_selected;
         }
+        add_candidate_survival_metrics(metrics, sentence_metrics);
+        add_candidate_survival_metrics(by_domain[sentence.domain], sentence_metrics);
+        add_candidate_survival_metrics(by_reading_length[reading_length_bucket(reading_length)], sentence_metrics);
     }
 }
 
-void print_candidate_survival(const CandidateSurvivalMetrics& m) {
+void print_candidate_survival_summary(const CandidateSurvivalMetrics& m) {
     const auto pct = [&](std::size_t n) {
         return m.gold_tokens ? 100.0 * static_cast<double>(n) / m.gold_tokens : 0.0;
     };
     const auto classified = m.lattice_missing + m.shortlist_drop
         + m.expansion_drop + m.trace_censored + m.beam_pruning_drop
         + m.final_selection_drop + m.final_selected;
-    std::cout << ",\"candidate_survival_diagnostic\":{"
+    std::cout << "{"
         << "\"classified_gold_tokens\":" << classified
         << ",\"unclassified_gold_tokens\":" << (m.gold_tokens - std::min(m.gold_tokens, classified))
         << ",\"gold_tokens\":" << m.gold_tokens
@@ -317,6 +358,20 @@ void print_candidate_survival(const CandidateSurvivalMetrics& m) {
         << ",\"expansion_drop\":" << m.expansion_drop
         << ",\"trace_censored\":" << m.trace_censored
         << ",\"final_selection_drop\":" << m.final_selection_drop << "}";
+}
+
+void print_candidate_survival_groups(
+    const char* name,
+    const std::map<std::string, CandidateSurvivalMetrics>& groups) {
+    std::cout << ",\"" << name << "\":{";
+    bool first = true;
+    for (const auto& entry : groups) {
+        if (!first) std::cout << ",";
+        first = false;
+        std::cout << std::quoted(entry.first) << ":";
+        print_candidate_survival_summary(entry.second);
+    }
+    std::cout << "}";
 }
 
 void print_metrics(const char* name, const Metrics& m) {
@@ -564,6 +619,8 @@ int main(int argc, char** argv) {
         print_metrics("dev_selected_surge_policy", combined);
     }
     CandidateSurvivalMetrics survival;
+    std::map<std::string, CandidateSurvivalMetrics> survival_by_domain;
+    std::map<std::string, CandidateSurvivalMetrics> survival_by_reading_length;
     kana_decoder::DecoderOptions survival_options;
     survival_options.surge_left_context_gate = true;
     survival_options.pos_ngram_scorer = &trained_pos_scorer;
@@ -574,8 +631,12 @@ int main(int argc, char** argv) {
         cluster_enabled && selected_cluster_weight > 0.0 ? &cluster_model : nullptr;
     survival_options.surge_cluster_weight = selected_cluster_weight;
     evaluate_candidate_survival(sentences, lexicon, trained_scorer,
-                                connections, survival_options, survival);
-    print_candidate_survival(survival);
+                                connections, survival_options, survival,
+                                survival_by_domain, survival_by_reading_length);
+    std::cout << ",\\\"candidate_survival_diagnostic\\\":";
+    print_candidate_survival_summary(survival);
+    print_candidate_survival_groups("candidate_survival_by_domain", survival_by_domain);
+    print_candidate_survival_groups("candidate_survival_by_reading_length", survival_by_reading_length);
     std::cout << "}\n";
     return 0;
 }
