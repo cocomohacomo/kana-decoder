@@ -318,6 +318,10 @@ int main(){
  LexiconTrie shortlist_trie;
  assert(shortlist_trie.load_tsv(shortlist_tsv.string()));
  std::filesystem::remove(shortlist_tsv);
+ assert(shortlist_trie.contains_surface("かな","重複"));
+ assert(shortlist_trie.contains_surface("かな","候補17"));
+ assert(!shortlist_trie.contains_surface("かな","辞書未登録"));
+ assert(!shortlist_trie.contains_surface("かた","重複"));
  const auto shortlist=shortlist_trie.build_lattice("かな",16,false);
  assert(shortlist.size()==1&&shortlist.front().candidates.size()==8);
  assert(shortlist.front().candidates.front().surface=="重複");
