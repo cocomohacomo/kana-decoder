@@ -395,5 +395,44 @@ int main() {
     assert(guarded.error.find("SURGE_UNIFIED_DECISION_DEFERRED:") == 0);
   }
 
+  // Projection-only API must ingest candidate cognition without invoking
+  // UnifiedDecision or producing/committing a selected decoder output.
+  const projection_journal = (std::filesystem::temp_directory_path() /
+      "kana-decoder-surge-projection-only-test.journal").string();
+  std::filesystem::remove(projection_journal, ignored);
+  kana_decoder::SurgeRuntimeConfig projection_config;
+  projection_config.journal_path = projection_journal;
+  projection_config.context_id = "projection-only-test";
+  projection_config.remove_journal_on_destroy = true;
+  {
+    kana_decoder::SurgeNormalizationRuntime projection_runtime(projection_config);
+    std::string projection_error;
+    assert(projection_runtime.open(projection_error));
+    kana_decoder::DecodedPath projection_path;
+    kana_decoder::DecodedToken projection_token;
+    projection_token.start = 0;
+    projection_token.end = 2;
+    projection_token.candidate.id = "projection-kana";
+    projection_token.candidate.surface = "仮名";
+    projection_path.tokens.push_back(projection_token);
+    const auto before_projection = projection_runtime.state_version();
+    const auto projected = projection_runtime.project_candidates("かな", {projection_path});
+    assert(projected.projected);
+    assert(projected.claims_added == 1);
+    assert(projected.relations_added >= 1);
+    assert(projected.state_version > before_projection);
+    const auto observed = projection_runtime.observe();
+    assert(observed.available);
+    bool found_projection_claim = false;
+    for (const auto& node : observed.nodes)
+      if (node.kind == ::surge::NodeKind::Claim &&
+          node.content.find("candidate interpretation: 仮名") == 0)
+        found_projection_claim = true;
+    assert(found_projection_claim);
+    const auto after_projection_observation = projection_runtime.state_version();
+    (void)projection_runtime.observe(1, 1);
+    assert(projection_runtime.state_version() == after_projection_observation);
+  }
+
   return 0;
 }
