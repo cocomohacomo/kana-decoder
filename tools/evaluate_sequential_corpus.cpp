@@ -836,6 +836,54 @@ int main(int argc, char** argv) {
         print_calibration_metrics("morphology_only", morphology);
         print_calibration_metrics("trained_unigram_left_context", causal);
         print_calibration_metrics("selected_surge_gate", best);
+
+        // Fixed, one-factor-at-a-time ablations are diagnostic only. They run
+        // exclusively on the development split and never participate in
+        // calibration selection.
+        if (!trained_scorer.set_smoothing_alpha(best_alpha)
+            || !trained_pos_scorer.set_smoothing_alpha(best_alpha)) return 2;
+        kana_decoder::DecoderOptions left_context_ablation;
+        left_context_ablation.surge_left_context_gate = true;
+        left_context_ablation.context_weight = 1.0;
+        Metrics left_context_only;
+        evaluate(sentences, lexicon, trained_scorer, connections,
+                 left_context_only, left_context_ablation);
+
+        kana_decoder::DecoderOptions pos_context_ablation;
+        pos_context_ablation.surge_left_context_gate = true;
+        pos_context_ablation.context_weight = 0.0;
+        pos_context_ablation.pos_ngram_scorer = &trained_pos_scorer;
+        pos_context_ablation.pos_context_weight = 0.15;
+        Metrics pos_context_only;
+        evaluate(sentences, lexicon, trained_scorer, connections,
+                 pos_context_only, pos_context_ablation);
+
+        kana_decoder::DecoderOptions selected_ablation;
+        selected_ablation.surge_left_context_gate = true;
+        selected_ablation.context_weight = best_weight;
+        selected_ablation.surge_context_margin = best_margin;
+        selected_ablation.pos_ngram_scorer = &trained_pos_scorer;
+        selected_ablation.pos_context_weight = best_pos_weight;
+        selected_ablation.surge_cluster_model =
+            cluster_enabled && best_cluster_weight > 0.0 ? &cluster_model : nullptr;
+        selected_ablation.surge_cluster_weight = best_cluster_weight;
+        Metrics selected_ablation_metrics;
+        evaluate(sentences, lexicon, trained_scorer, connections,
+                 selected_ablation_metrics, selected_ablation);
+
+        print_calibration_metrics("dev_ablation_left_context_only", left_context_only);
+        print_calibration_metrics("dev_ablation_pos_context_only", pos_context_only);
+        print_calibration_metrics("dev_ablation_selected_policy", selected_ablation_metrics);
+        if (cluster_enabled) {
+            kana_decoder::DecoderOptions cluster_ablation;
+            cluster_ablation.surge_cluster_model = &cluster_model;
+            cluster_ablation.surge_cluster_weight = 1.0;
+            Metrics cluster_only;
+            evaluate(sentences, lexicon, trained_scorer, connections,
+                     cluster_only, cluster_ablation);
+            print_calibration_metrics("dev_ablation_cluster_only", cluster_only);
+        }
+        std::cout << ",\"dev_ablation_scope\":\"development_only_diagnostic_not_selection\"";
         std::cout << "}\n";
         return 0;
     }
