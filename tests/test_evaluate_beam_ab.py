@@ -78,6 +78,34 @@ class BeamAbTests(unittest.TestCase):
         self.assertEqual(first["exact_accuracy_delta_ci95"], [0.0, 1.0])
         self.assertEqual(first["cer_delta_ci95"], [-1.0, 0.0])
 
+    def test_cluster_bootstrap_resamples_whole_documents(self):
+        newer = [
+            {"expected": "甲", "predicted": "甲", "edit_distance": 0},
+            {"expected": "乙", "predicted": "乙", "edit_distance": 0},
+            {"expected": "丙", "predicted": "丙", "edit_distance": 0},
+        ]
+        older = [
+            {"expected": "甲", "predicted": "阿", "edit_distance": 1},
+            {"expected": "乙", "predicted": "伊", "edit_distance": 1},
+            {"expected": "丙", "predicted": "丙", "edit_distance": 0},
+        ]
+        source_rows = [
+            ("doc-a", "s1", "a", "甲", "news"),
+            ("doc-a", "s2", "b", "乙", "news"),
+            ("doc-b", "s1", "c", "丙", "news"),
+        ]
+        result = MODULE.paired_bootstrap(
+            newer, older, samples=100, seed=9, source_rows=source_rows)
+        self.assertEqual(result["resampling_unit"], "document")
+        self.assertEqual(result["cluster_count"], 2)
+        self.assertEqual(
+            result["method"], "paired percentile cluster bootstrap over documents")
+
+    def test_cluster_bootstrap_rejects_misaligned_source_rows(self):
+        cases = [{"expected": "甲", "predicted": "甲", "edit_distance": 0}]
+        with self.assertRaises(ValueError):
+            MODULE.paired_bootstrap(cases, cases, source_rows=[])
+
     def test_paired_bootstrap_rejects_zero_samples(self):
         with self.assertRaises(ValueError):
             MODULE.paired_bootstrap([], [], samples=0)
