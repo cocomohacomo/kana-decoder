@@ -101,9 +101,11 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
  beams[0].push_back(State{});
  auto prune=[&](std::vector<State>& states,bool continuation_needed){
   std::stable_sort(states.begin(),states.end(),[](const State&a,const State&b){return a.path.score>b.path.score;});
-  if(states.size()<=beam_limit)return;
+  auto mark_survivors=[&](){if(trace){for(const auto& state:states)if(state.trace_index<trace->size())(*trace)[state.trace_index].beam_survived=true;}};
+  if(states.size()<=beam_limit){mark_survivors();return;}
   if(!opt.preserve_rendered_surface_diversity){
    states.resize(beam_limit);
+   mark_survivors();
    return;
   }
   // Preserve distinct rendered outputs at the final position. At intermediate
@@ -129,7 +131,7 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
   diverse.reserve(beam_limit);
   for(const auto index:retained_indices)diverse.push_back(std::move(states[index]));
   states.swap(diverse);
-  if(trace){for(const auto& state:states)if(state.trace_index<trace->size())(*trace)[state.trace_index].beam_survived=true;}
+  mark_survivors();
  };
  for(std::size_t pos=0;pos<length;++pos){
   if(beams[pos].empty())continue;
