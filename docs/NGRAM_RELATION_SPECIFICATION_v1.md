@@ -36,14 +36,14 @@ Improvement remains a hypothesis until held-out evaluation demonstrates it. The 
 - Only training sequences build the relation model.
 - Dev is for parameter selection; held-out test is evaluated once after freezing.
 - Deterministic sorting and JSON serialization.
-- Hard bounds: distance <= 4, 2,000,000 events, 128 MiB output, 256-byte token, 1 MiB input line.
+- Hard bounds: distance <= 4, 2,000,000 events, 128 MiB output, 256-byte token, 1 MiB input line. The CLI counts into a temporary SQLite database with a 2 MiB page cache and streams sorted JSONL to a temporary output file before atomic publication.
 - Invalid or over-limit input fails closed.
 - No cluster IDs are emitted.
 - Raw corpus traces are not uploaded as CI artifacts.
 
 ## CLI
 
-python tools/project_ngram_relations.py --train-sequences train_sequences.tsv --output relations.jsonl
+python tools/project_ngram_relations.py --train-sequences train_sequences.tsv --split train --output relations.jsonl
 
 Options: max-distance, min-count, reliability-prior, distance-gamma, pmi-clip, max-bytes.
 
