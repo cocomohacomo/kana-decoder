@@ -1002,6 +1002,33 @@ bool SurgeNormalizationRuntime::reassess_claim(const std::string& claim_id,
                                 record, error);
 }
 
+SurgeObservationSnapshot SurgeNormalizationRuntime::observe(
+    std::size_t max_nodes, std::size_t max_relations) const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  SurgeObservationSnapshot snapshot;
+  snapshot.context_id = config_.context_id;
+  if (!opened_ || !graph_ || !journal_ || max_nodes == 0 || max_relations == 0)
+    return snapshot;
+  snapshot.available = true;
+  snapshot.state_version = journal_->state_version();
+  snapshot.total_nodes = graph_->nodes().size();
+  snapshot.total_relations = graph_->relations().size();
+  snapshot.focus = graph_->focus();
+  snapshot.truncated = snapshot.total_nodes > max_nodes ||
+                       snapshot.total_relations > max_relations;
+  snapshot.nodes.reserve(std::min(snapshot.total_nodes, max_nodes));
+  snapshot.relations.reserve(std::min(snapshot.total_relations, max_relations));
+  for (const auto& item : graph_->nodes()) {
+    if (snapshot.nodes.size() >= max_nodes) break;
+    snapshot.nodes.push_back(item.second);
+  }
+  for (const auto& item : graph_->relations()) {
+    if (snapshot.relations.size() >= max_relations) break;
+    snapshot.relations.push_back(item.second);
+  }
+  return snapshot;
+}
+
 std::uint64_t SurgeNormalizationRuntime::state_version() const {
   std::lock_guard<std::mutex> lock(mutex_);
   return journal_ ? journal_->state_version() : 0;
