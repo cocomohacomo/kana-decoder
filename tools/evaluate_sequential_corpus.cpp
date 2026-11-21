@@ -192,6 +192,7 @@ struct CandidateSurvivalMetrics {
     std::size_t scored = 0;
     std::size_t beam_survived = 0;
     std::size_t beam_pruning_drop = 0;
+    std::size_t final_selected = 0;
     std::size_t final_aligned = 0;
     std::size_t nbest_aligned = 0;
     std::size_t nbest_recoverable = 0;
@@ -278,7 +279,9 @@ void evaluate_candidate_survival(
             else if (!in_shortlist) ++metrics.shortlist_drop;
             else if (!was_scored && score_trace_capped) ++metrics.trace_censored;
             else if (!was_scored) ++metrics.expansion_drop;
+            else if (!survived_beam) { /* counted in beam_pruning_drop above */ }
             else if (!aligned) ++metrics.final_selection_drop;
+            else ++metrics.final_selected;
         }
     }
 }
@@ -289,7 +292,7 @@ void print_candidate_survival(const CandidateSurvivalMetrics& m) {
     };
     const auto classified = m.lattice_missing + m.shortlist_drop
         + m.expansion_drop + m.trace_censored + m.beam_pruning_drop
-        + m.final_selection_drop;
+        + m.final_selection_drop + m.final_selected;
     std::cout << ",\"candidate_survival_diagnostic\":{"
         << "\"classified_gold_tokens\":" << classified
         << ",\"unclassified_gold_tokens\":" << (m.gold_tokens - std::min(m.gold_tokens, classified))
@@ -302,6 +305,7 @@ void print_candidate_survival(const CandidateSurvivalMetrics& m) {
         << ",\"scored_coverage_pct\":" << pct(m.scored)
         << ",\"beam_survived\":" << m.beam_survived
         << ",\"beam_pruning_drop\":" << m.beam_pruning_drop
+        << ",\"final_selected\":" << m.final_selected
         << ",\"final_aligned\":" << m.final_aligned
         << ",\"final_alignment_pct\":" << pct(m.final_aligned)
         << ",\"nbest_aligned\":" << m.nbest_aligned
