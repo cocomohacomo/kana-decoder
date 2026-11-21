@@ -149,11 +149,11 @@ std::vector<DecodedPath> MorphologyDecoder::decode(std::size_t length,
     double cluster_gap=0.0;
     double cluster_override_bonus=0.0;
     std::vector<std::pair<const LatticeCandidate*,double>> supported;
+    std::unordered_map<const LatticeCandidate*,double> supported_scores;
     if(opt.surge_cluster_model&&!state.history.empty()){
      struct SurfaceScore { std::string surface; double score; };
      std::vector<SurfaceScore> surface_scores;
      std::unordered_map<std::string,std::size_t> surface_score_indices;
-     std::unordered_map<const LatticeCandidate*,double> supported_scores;
      surface_score_indices.reserve(std::min<std::size_t>(edge->candidates.size(),256));
      supported_scores.reserve(std::min<std::size_t>(edge->candidates.size(),256));
      for(const auto& candidate:edge->candidates){
