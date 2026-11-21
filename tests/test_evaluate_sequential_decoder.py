@@ -143,6 +143,37 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
                         delta["reference_codepoints"],
                         surge["reference_codepoints"])
             survival = result["candidate_survival_diagnostic"]
+            survival_groups = [survival]
+            for grouped_key in ("candidate_survival_by_domain",
+                                "candidate_survival_by_reading_length"):
+                groups = result[grouped_key]
+                survival_groups.extend(groups.values())
+            for group in survival_groups:
+                losses = {
+                    "lattice_missing": group["lattice_missing"],
+                    "shortlist_drop": group["shortlist_drop"],
+                    "expansion_drop": group["expansion_drop"],
+                    "trace_censored": group["trace_censored"],
+                    "beam_pruning_drop": group["beam_pruning_drop"],
+                    "final_selection_drop": group["final_selection_drop"],
+                }
+                dominant_stage = max(losses, key=losses.get)
+                if losses[dominant_stage] == 0:
+                    dominant_stage = "none"
+                self.assertEqual(group["dominant_loss_stage"], dominant_stage)
+                self.assertEqual(
+                    group["dominant_loss_tokens"],
+                    0 if dominant_stage == "none" else losses[dominant_stage])
+                self.assertAlmostEqual(
+                    group["dominant_loss_pct"],
+                    100.0 * group["dominant_loss_tokens"] / group["gold_tokens"]
+                    if group["gold_tokens"] else 0.0)
+                self.assertEqual(
+                    set(group["loss_stage_rates_pct"]),
+                    set(losses) | {"final_selected"})
+                self.assertAlmostEqual(
+                    sum(group["loss_stage_rates_pct"].values()), 100.0
+                    if group["gold_tokens"] else 0.0)
             for grouped_key in ("candidate_survival_by_domain",
                                 "candidate_survival_by_reading_length"):
                 groups = result[grouped_key]
