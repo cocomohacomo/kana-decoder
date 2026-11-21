@@ -197,6 +197,29 @@ jobs:
             dev-calibrate "$RUNNER_TEMP/surge-calibration.tsv" "$RUNNER_TEMP/surge-cluster-model.tsv" \
             > "$RUNNER_TEMP/surge-dev-calibration.json"
           cat "$RUNNER_TEMP/surge-dev-calibration.json"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          report = json.loads((Path(os.environ["RUNNER_TEMP"]) / "surge-dev-calibration.json").read_text(encoding="utf-8"))
+          if report.get("split") != "dev":
+              raise SystemExit("SURGE component ablations must use the dev split")
+          if report.get("dev_ablation_scope") != "development_only_diagnostic_not_selection":
+              raise SystemExit("missing development-only ablation scope marker")
+          for field in ("dev_ablation_left_context_only",
+                        "dev_ablation_pos_context_only",
+                        "dev_ablation_selected_policy"):
+              metrics = report.get(field)
+              if not isinstance(metrics, dict) or metrics.get("cases", 0) <= 0:
+                  raise SystemExit(f"{field}: missing development ablation metrics")
+          if report["dev_ablation_left_context_only"]["cases"] != report["morphology_only"]["cases"]:
+              raise SystemExit("left-context ablation case count mismatch")
+          if report["dev_ablation_pos_context_only"]["cases"] != report["morphology_only"]["cases"]:
+              raise SystemExit("POS-context ablation case count mismatch")
+          if "surge_cluster_model" in report and "dev_ablation_cluster_only" not in report:
+              raise SystemExit("cluster model enabled but cluster-only ablation missing")
+          print("development_only_component_ablations=validated")
+          PY
           cat "$RUNNER_TEMP/surge-calibration.tsv"
           cat "$RUNNER_TEMP/surge-calibration-time.log"
           python tools/check_memory_budget.py --log "$RUNNER_TEMP/surge-calibration-time.log" --max-rss-mib 1792
