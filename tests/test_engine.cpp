@@ -294,6 +294,17 @@ int main(){
   out<<"かな\t重複\t\t名詞\tfeature\tdup-late\t-1\t0\t0\t0\t\t\n";
   for(int i=0;i<20;++i)
    out<<"かた\t同一表層\t\t名詞\tfeature\tsame"<<i<<"\t"<<i<<"\t0\t0\t0\t\t\n";
+  out<<"おと\t置換表層\t\t名詞\tfeature\tdup-high\t50\t0\t0\t0\t\t\n";
+  out<<"おと\t同額先行\t\t名詞\tfeature\ttie-first\t40\t0\t0\t0\t\t\n";
+  out<<"おと\t候補A\t\t名詞\tfeature\tA\t10\t0\t0\t0\t\t\n";
+  out<<"おと\t候補B\t\t名詞\tfeature\tB\t20\t0\t0\t0\t\t\n";
+  out<<"おと\t候補C\t\t名詞\tfeature\tC\t30\t0\t0\t0\t\t\n";
+  out<<"おと\t候補D\t\t名詞\tfeature\tD\t60\t0\t0\t0\t\t\n";
+  out<<"おと\t候補E\t\t名詞\tfeature\tE\t70\t0\t0\t0\t\t\n";
+  out<<"おと\t候補F\t\t名詞\tfeature\tF\t80\t0\t0\t0\t\t\n";
+  out<<"おと\t置換表層\t\t名詞\tfeature\tdup-late\t40\t0\t0\t0\t\t\n";
+  for(int i=0;i<8;++i)
+   out<<"おと\t高コスト"<<i<<"\t\t名詞\tfeature\tfill"<<i<<"\t"<<90+i<<"\t0\t0\t0\t\t\n";
  }
  LexiconTrie shortlist_trie;
  assert(shortlist_trie.load_tsv(shortlist_tsv.string()));
@@ -307,6 +318,14 @@ int main(){
  const auto repeated_surface=shortlist_trie.build_lattice("かた",16,false);
  assert(repeated_surface.size()==1&&repeated_surface.front().candidates.size()==8);
  assert(repeated_surface.front().candidates.front().id=="same0");
+ // A cheaper duplicate that ties an existing surface must be reinserted
+ // after the earlier equal-cost candidate, matching the <=16 path.
+ const auto tied_replacement=shortlist_trie.build_lattice("おと",16,false);
+ assert(tied_replacement.size()==1&&tied_replacement.front().candidates.size()==8);
+ const std::vector<std::string> expected_tied_ids{
+  "A","B","C","tie-first","dup-late","D","E","F"};
+ for(std::size_t i=0;i<expected_tied_ids.size();++i)
+  assert(tied_replacement.front().candidates[i].id==expected_tied_ids[i]);
  auto generated_paths=decode_reading("あめ",trie,lattice_scorer,dop);
  assert(!generated_paths.empty()&&generated_paths[0].tokens.size()==1);
  CorrectionOptions integrated_correction;integrated_correction.minimum_improvement=1.0;integrated_correction.minimum_score=-1000000000.0;
