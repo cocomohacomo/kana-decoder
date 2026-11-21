@@ -441,6 +441,44 @@ void print_metric_groups(
     std::cout << "}";
 }
 
+void print_paired_comparison_groups(
+    const char* name,
+    const std::map<std::string, Metrics>& baseline,
+    const std::map<std::string, Metrics>& surge) {
+    std::cout << ",\\\""<< name << "\\\":{";
+    bool first = true;
+    for (const auto& entry : baseline) {
+        const auto found = surge.find(entry.first);
+        if (found == surge.end()) continue;
+        if (!first) std::cout << ",";
+        first = false;
+        const auto& b = entry.second;
+        const auto& s = found->second;
+        const double cer_delta = cer_of(s) - cer_of(b);
+        const double exact_delta = exact_of(s) - exact_of(b);
+        const double baseline_recall = b.gold_tokens
+            ? static_cast<double>(b.aligned_tokens) / b.gold_tokens : 0.0;
+        const double surge_recall = s.gold_tokens
+            ? static_cast<double>(s.aligned_tokens) / s.gold_tokens : 0.0;
+        std::cout << std::quoted(entry.first) << ":{"
+            << "\\\"cases\\\":" << std::min(b.cases, s.cases)
+            << ",\\\"baseline_cer\\\":" << cer_of(b)
+            << ",\\\"surge_cer\\\":" << cer_of(s)
+            << ",\\\"cer_delta\\\":" << cer_delta
+            << ",\\\"baseline_exact_accuracy\\\":" << exact_of(b)
+            << ",\\\"surge_exact_accuracy\\\":" << exact_of(s)
+            << ",\\\"exact_accuracy_delta\\\":" << exact_delta
+            << ",\\\"baseline_token_alignment_recall\\\":" << baseline_recall
+            << ",\\\"surge_token_alignment_recall\\\":" << surge_recall
+            << ",\\\"token_alignment_recall_delta\\\":" << surge_recall - baseline_recall
+            << ",\\\"baseline_edit_distance\\\":" << b.edit_distance
+            << ",\\\"surge_edit_distance\\\":" << s.edit_distance
+            << ",\\\"reference_codepoints\\\":" << std::min(b.reference_codepoints, s.reference_codepoints)
+            << "}";
+    }
+    std::cout << "}";
+}
+
 void print_metrics(const char* name, const Metrics& m) {
     const auto scored = m.cases - m.over_limit;
     const double exact = scored ? static_cast<double>(m.exact) / scored : 0.0;
@@ -688,6 +726,10 @@ int main(int argc, char** argv) {
     print_metrics("surge_evidence_gated_left_context", surge);
     print_metric_groups("surge_metrics_by_domain", surge_by_domain);
     print_metric_groups("surge_metrics_by_reading_length", surge_by_reading_length);
+    print_paired_comparison_groups("surge_vs_morphology_by_domain",
+                                   morphology_by_domain, surge_by_domain);
+    print_paired_comparison_groups("surge_vs_morphology_by_reading_length",
+                                   morphology_by_reading_length, surge_by_reading_length);
     if (cluster_enabled) {
         std::cout << ",\"surge_cluster_model\":{\"memberships\":" << cluster_model.membership_count()
                   << ",\"evidence_records\":" << cluster_model.evidence_count()
