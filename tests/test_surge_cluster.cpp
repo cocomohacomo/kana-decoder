@@ -67,7 +67,7 @@ int main() {
  if(limited||paths.empty()||paths.front().tokens.size()!=2||
     paths.front().tokens.back().candidate.surface!="良"||
     !paths.front().tokens.back().has_cluster_evidence||
-    !(paths.front().tokens.back().cluster_raw_evidence>0.0)) {
+    paths.front().tokens.back().cluster_raw_evidence!=good) {
   std::cerr << "limited=" << limited << " paths=" << paths.size();
   if(!paths.empty()&&!paths.front().tokens.empty()) {
    const auto& token=paths.front().tokens.back();
