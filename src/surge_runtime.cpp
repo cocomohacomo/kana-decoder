@@ -363,6 +363,34 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
   result.metrics.retrieval_truncated = all_relations.size() > relation_window.size();
 
   if (active_focus && !active_focus->cluster_id.empty()) {
+    // Build a bounded adjacency view once. The previous traversal rescanned
+    // the complete relation window for every visited cluster, multiplying the
+    // worst-case work by the 16-cluster frontier cap.
+    std::map<std::string, std::vector<std::string>> cluster_neighbors;
+    std::vector<std::pair<std::string, std::string>> cluster_claim_members;
+    for (const auto* relation : relation_window) {
+      if (relation->kind == ::surge::RelationKind::Contains) {
+        const auto parent = graph_->nodes().find(relation->from);
+        const auto child = graph_->nodes().find(relation->to);
+        if (parent == graph_->nodes().end() || child == graph_->nodes().end())
+          continue;
+        if (child->second.kind == ::surge::NodeKind::Cluster) {
+          cluster_neighbors[relation->from].push_back(relation->to);
+        } else if (child->second.kind == ::surge::NodeKind::Claim) {
+          cluster_claim_members.push_back({relation->from, relation->to});
+        }
+      } else if (relation->kind == ::surge::RelationKind::AgreesWith ||
+                 relation->kind == ::surge::RelationKind::ConflictsWith) {
+        const auto from = graph_->nodes().find(relation->from);
+        const auto to = graph_->nodes().find(relation->to);
+        if (from == graph_->nodes().end() || to == graph_->nodes().end() ||
+            from->second.kind != ::surge::NodeKind::Cluster ||
+            to->second.kind != ::surge::NodeKind::Cluster) continue;
+        cluster_neighbors[relation->from].push_back(relation->to);
+        cluster_neighbors[relation->to].push_back(relation->from);
+      }
+    }
+
     std::vector<std::pair<std::string, std::size_t>> cluster_queue;
     retrieval_clusters.insert(active_focus->cluster_id);
     cluster_queue.push_back({active_focus->cluster_id, 0});
@@ -370,23 +398,10 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     for (std::size_t cursor = 0; cursor < cluster_queue.size(); ++cursor) {
       const auto current = cluster_queue[cursor];
       if (current.second >= 2) continue;
-      for (const auto* relation : relation_window) {
-        if (relation->kind != ::surge::RelationKind::Contains &&
-            relation->kind != ::surge::RelationKind::AgreesWith &&
-            relation->kind != ::surge::RelationKind::ConflictsWith) continue;
-        std::string neighbor;
-        if (relation->kind == ::surge::RelationKind::Contains) {
-          // Traverse only into child Clusters. Do not walk up to the session
-          // root and accidentally retrieve unrelated sibling topics.
-          if (relation->from == current.first) neighbor = relation->to;
-        } else {
-          if (relation->from == current.first) neighbor = relation->to;
-          else if (relation->to == current.first) neighbor = relation->from;
-        }
-        if (neighbor.empty() || retrieval_clusters.count(neighbor)) continue;
-        const auto node = graph_->nodes().find(neighbor);
-        if (node == graph_->nodes().end() ||
-            node->second.kind != ::surge::NodeKind::Cluster) continue;
+      const auto adjacent = cluster_neighbors.find(current.first);
+      if (adjacent == cluster_neighbors.end()) continue;
+      for (const auto& neighbor : adjacent->second) {
+        if (retrieval_clusters.count(neighbor)) continue;
         if (retrieval_clusters.size() >= 16) {
           cluster_frontier_truncated = true;
           continue;
@@ -397,12 +412,12 @@ SurgeNormalizationResult SurgeNormalizationRuntime::normalize(
     }
     if (cluster_frontier_truncated)
       result.metrics.retrieval_truncated = true;
-    for (const auto* relation : relation_window) {
-      if (relation->kind != ::surge::RelationKind::Contains ||
-          retrieval_clusters.count(relation->from) == 0) continue;
-      const auto member = graph_->nodes().find(relation->to);
-      if (member == graph_->nodes().end() ||
-          member->second.kind != ::surge::NodeKind::Claim) continue;
+    // Keep the original relation-window ordering for claim retrieval so
+    // candidate caps and deterministic tie behavior remain unchanged.
+    for (const auto& membership : cluster_claim_members) {
+      if (retrieval_clusters.count(membership.first) == 0) continue;
+      const auto member = graph_->nodes().find(membership.second);
+      if (member == graph_->nodes().end()) continue;
       const auto surface = claim_surface(member->second);
       if (surface.empty()) continue;
       ++focused_surface_hits[surface];
