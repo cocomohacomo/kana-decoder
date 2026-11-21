@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <iostream>
 #include <string>
@@ -38,14 +39,14 @@ bool run_sample(const std::string& label, const std::string& suffix,
   kana_decoder::SurgeNormalizationRuntime runtime(config);
   std::string error;
   if (!runtime.open(error)) {
-    std::cerr << error << "\\n";
+    std::cerr << error << '\n';
     return false;
   }
 
   for (int i = 0; i < warmup_iterations; ++i) {
     const auto result = runtime.normalize("さんじゅうに", paths, true);
     if (!result.committed) {
-      std::cerr << result.error << "\\n";
+      std::cerr << result.error << '\n';
       return false;
     }
   }
@@ -54,7 +55,7 @@ bool run_sample(const std::string& label, const std::string& suffix,
   for (int i = 0; i < iterations; ++i) {
     const auto result = runtime.normalize("さんじゅうに", paths, true);
     if (!result.committed) {
-      std::cerr << result.error << "\\n";
+      std::cerr << result.error << '\n';
       return false;
     }
   }
@@ -98,7 +99,7 @@ bool run_case(const std::string& label,
             << " max_ns_per_normalize=" << max_value
             << " graph_nodes=" << last_sample.graph_nodes
             << " journal_state_version=" << last_sample.journal_state_version
-            << "\\n";
+            << '\n';
   return true;
 }
 
