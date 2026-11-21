@@ -278,7 +278,6 @@ void evaluate_candidate_survival(
             else if (!in_shortlist) ++metrics.shortlist_drop;
             else if (!was_scored && score_trace_capped) ++metrics.trace_censored;
             else if (!was_scored) ++metrics.expansion_drop;
-            else if (!survived_beam) ++metrics.beam_pruning_drop;
             else if (!aligned) ++metrics.final_selection_drop;
         }
     }
@@ -288,7 +287,12 @@ void print_candidate_survival(const CandidateSurvivalMetrics& m) {
     const auto pct = [&](std::size_t n) {
         return m.gold_tokens ? 100.0 * static_cast<double>(n) / m.gold_tokens : 0.0;
     };
+    const auto classified = m.lattice_missing + m.shortlist_drop
+        + m.expansion_drop + m.trace_censored + m.beam_pruning_drop
+        + m.final_selection_drop;
     std::cout << ",\"candidate_survival_diagnostic\":{"
+        << "\"classified_gold_tokens\":" << classified
+        << ",\"unclassified_gold_tokens\":" << (m.gold_tokens - std::min(m.gold_tokens, classified))
         << "\"gold_tokens\":" << m.gold_tokens
         << ",\"lattice_present\":" << m.lattice_present
         << ",\"lattice_coverage_pct\":" << pct(m.lattice_present)
