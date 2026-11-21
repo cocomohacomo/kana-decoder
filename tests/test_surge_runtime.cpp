@@ -71,6 +71,29 @@ int main() {
   assert(result.selected_claim_ids.size() == 1);
   assert(runtime.graph_node_count() >= 10);
 
+  // Observation exposes the actual graph state without returning a selected
+  // surface or changing the Core's state version.
+  const auto observation_version = runtime.state_version();
+  const auto observation = runtime.observe();
+  assert(observation.available);
+  assert(observation.context_id == "runtime-conformance-test");
+  assert(observation.state_version == observation_version);
+  assert(observation.total_nodes == runtime.graph_node_count());
+  assert(!observation.nodes.empty());
+  assert(!observation.relations.empty());
+  bool observed_claim = false;
+  for (const auto& node : observation.nodes)
+    if (node.kind == ::surge::NodeKind::Claim &&
+        node.content.find("candidate interpretation:") == 0)
+      observed_claim = true;
+  assert(observed_claim);
+  const auto bounded_observation = runtime.observe(1, 1);
+  assert(bounded_observation.available);
+  assert(bounded_observation.truncated);
+  assert(bounded_observation.nodes.size() <= 1);
+  assert(bounded_observation.relations.size() <= 1);
+  assert(runtime.state_version() == observation_version);
+
   ::surge::TemporalReassessmentRecord temporal_record;
   std::string temporal_error;
   assert(runtime.reassess_claim(result.selected_claim_ids.front(),
