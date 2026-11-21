@@ -89,6 +89,27 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
             self.assertEqual(
                 result["surge_metrics_by_domain"]["news-blog"]["cases"],
                 result["surge_evidence_gated_left_context"]["cases"])
+            for grouped_key, overall_key in (
+                ("morphology_metrics_by_domain", "morphology_only"),
+                ("morphology_metrics_by_reading_length", "morphology_only"),
+                ("surge_metrics_by_domain", "surge_evidence_gated_left_context"),
+                ("surge_metrics_by_reading_length", "surge_evidence_gated_left_context")):
+                groups = result[grouped_key]
+                self.assertEqual(
+                    sum(group["cases"] for group in groups.values()),
+                    result[overall_key]["cases"])
+                self.assertEqual(
+                    sum(group["edit_distance"] for group in groups.values()),
+                    result[overall_key]["edit_distance"])
+                self.assertEqual(
+                    sum(group["reference_codepoints"] for group in groups.values()),
+                    result[overall_key]["reference_codepoints"])
+            self.assertEqual(
+                set(result["morphology_metrics_by_domain"]),
+                set(result["surge_metrics_by_domain"]))
+            self.assertEqual(
+                set(result["morphology_metrics_by_reading_length"]),
+                set(result["surge_metrics_by_reading_length"]))
             survival = result["candidate_survival_diagnostic"]
             for grouped_key in ("candidate_survival_by_domain",
                                 "candidate_survival_by_reading_length"):
