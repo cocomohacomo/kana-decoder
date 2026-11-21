@@ -114,6 +114,34 @@ class SequentialDecoderEvaluatorTests(unittest.TestCase):
             self.assertEqual(
                 set(result["morphology_metrics_by_reading_length"]),
                 set(result["surge_metrics_by_reading_length"]))
+            for paired_key, baseline_key, surge_key in (
+                ("surge_vs_morphology_by_domain",
+                 "morphology_metrics_by_domain", "surge_metrics_by_domain"),
+                ("surge_vs_morphology_by_reading_length",
+                 "morphology_metrics_by_reading_length", "surge_metrics_by_reading_length")):
+                paired = result[paired_key]
+                self.assertEqual(set(paired), set(result[baseline_key]))
+                self.assertEqual(set(paired), set(result[surge_key]))
+                for group_name, delta in paired.items():
+                    baseline = result[baseline_key][group_name]
+                    surge = result[surge_key][group_name]
+                    self.assertEqual(delta["cases"], min(
+                        baseline["cases"], surge["cases"]))
+                    self.assertAlmostEqual(
+                        delta["cer_delta"], surge["cer"] - baseline["cer"])
+                    self.assertAlmostEqual(
+                        delta["exact_accuracy_delta"],
+                        surge["exact_accuracy"] - baseline["exact_accuracy"])
+                    self.assertAlmostEqual(
+                        delta["token_alignment_recall_delta"],
+                        surge["token_alignment_recall"]
+                        - baseline["token_alignment_recall"])
+                    self.assertEqual(
+                        delta["reference_codepoints"],
+                        baseline["reference_codepoints"])
+                    self.assertEqual(
+                        delta["reference_codepoints"],
+                        surge["reference_codepoints"])
             survival = result["candidate_survival_diagnostic"]
             for grouped_key in ("candidate_survival_by_domain",
                                 "candidate_survival_by_reading_length"):
