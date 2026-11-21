@@ -16,7 +16,7 @@ The report includes Top-1 exact accuracy, CER, decode failures, per-domain delta
 counts of exact-match gains and regressions, and every case whose rendered output
 changed. Deltas are calculated as diversity policy minus legacy policy. Therefore,
 a positive exact-accuracy delta and a negative CER delta favor the diversity policy.
-The report also includes deterministic paired percentile-bootstrap 95% intervals for exact-accuracy and corpus CER deltas. Bootstrap resampling uses paired cases and a recorded seed (default 20261121, 2,000 replicates). These intervals quantify sampling uncertainty within the selected corpus split; they do not establish causality or generalization to other domains. The report remains a descriptive comparison, not a substitute for a preregistered statistical analysis. Bootstrap settings and intervals are emitted together in the JSON report.
+The report also includes deterministic paired percentile-bootstrap 95% intervals for exact-accuracy and corpus CER deltas. In the corpus comparison, resampling is clustered by document: all covered segments from a sampled document remain together, avoiding the assumption that sentences from the same document are independent. The seed defaults to 20261121 and the replicate count to 2,000. Reports record the resampling unit and cluster count; fewer than two independent clusters produce an explicit warning because the interval is not informative. These intervals quantify descriptive uncertainty within the selected corpus split; they do not establish causality or generalization to other domains. The report remains a descriptive comparison, not a substitute for a preregistered statistical analysis.
 
 ## Corpus alignment and leakage safeguards
 
@@ -60,8 +60,8 @@ settings therefore allows the artifacts to be checked before comparing metrics.
 ## Validation boundaries
 
 CI unit tests cover segment joining, split isolation, paired metric deltas,
-deterministic bootstrap intervals, and content-sensitive input provenance
-fingerprints, as well as the legacy CLI switch. They do not establish an accuracy gain. The current
+deterministic document-cluster bootstrap intervals, cluster alignment guards,
+and content-sensitive input provenance fingerprints, as well as the legacy CLI switch. They do not establish an accuracy gain. The current
 `ja-lite` smoke tests remain integration checks only; they are not a substitute
 for a full dictionary pack or the pinned UD Japanese-GSD evaluation. No production
 beam policy change should be justified by synthetic fixtures alone.
