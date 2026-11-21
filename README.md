@@ -51,6 +51,7 @@
 - tools/evaluate_ablation.py は全読みを覆う単一span候補に限定し、形態素スコア・combined local score・SURGEの根拠付き解決を比較します。複数形態素文の正解token alignmentを推測しません。
 
 ## 仕様
+- v1.11: [Exact candidate-loss attribution](docs/SPECIFICATION_v1.11.md)
 - v1.10: [Held-out evaluation and warning cleanup](docs/SPECIFICATION_v1.10.md)
 - v1.09: [Non-owning SURGE surface evidence keys](docs/SPECIFICATION_v1.09.md)
 - v1.08: [Large-terminal shortlist parity](docs/SPECIFICATION_v1.08.md)
