@@ -60,6 +60,16 @@ on:
       - "tests/test_evaluate_ablation.py"
       - "tests/test_prepare_ud_gsd_corpus.py"
       - "tests/test_evaluate_context_ablation.py"
+  pull_request:
+    paths:
+      - ".github/workflows/sudachi-pack.yml"
+      - "tools/evaluate_sequential_corpus.cpp"
+      - "tests/test_evaluate_sequential_decoder.py"
+      - "tools/prepare_ud_gsd_corpus.py"
+      - "tools/build_sudachi_pack.py"
+      - "tools/fetch_sudachi_source.py"
+      - "licenses/ud-japanese-gsd-source-lock.json"
+      - "licenses/sudachidict-small-20260723-source-lock.json"
   workflow_dispatch:
     inputs:
       max_expanded_gib:
